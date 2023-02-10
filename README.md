@@ -49,6 +49,11 @@ Built into the PCB will be a power supply capable of providing stable 5V DC for 
 When person approaches, turn on Touchscreen backlight. When detected light level is low, turn off backlight after a delay.
 Could also use proximity sensor (PiR or RADAR) for detecting person. A simple LDR could also be used to detect light level.
 
+#### Test test test test
+
+##### 
+
+<br>
 ***
 
 Task list:
