@@ -17,6 +17,7 @@ Main features are:
 * Detect degradation of temp rise/fall to identify clogged filter or service required
 * Employ remote temp sensors to balance temp within home
 * Detect lower air quality to suggest opening a window (and disable HVAC)
+* No mechanical buttons - soft buttons on the TouchScreen only ... except maybe a master reset if things go wrong!
 
 Basic layout of thermostat:
 
@@ -52,11 +53,10 @@ Other than an onboard Temp/Humidity/Air quality sensor setup, there can also be 
 When person approaches, turn on Touchscreen backlight. When detected light level is low, turn off backlight after a delay.
 Could also use proximity sensor (PiR or RADAR) for detecting person. A simple LDR could also be used to detect light level.
 
-#### Test test test test
+#### Integrate SMS/chat ability
 
-##### 
+This can be used to notify user of events/alerts. Could also be Slack or other notifications. An onboard annunciator (like a speaker) feels wrong.
 
-<br>
 ***
 
 Task list:
@@ -69,4 +69,10 @@ Task list:
 * [ ] Generate schematic & PCB
 * [ ] Generate PCB BOM (compatible with JLCPCB parts list)
 * [ ] Have PCB manufactured (JLCPCB)
-* [ ] Design 3D printed case
+
+V2 task list:
+
+* [ ] Design 3D printed case (Polycase may be good supplier)
+* [ ] Implement Matter
+* [ ] Develop Home Assistant integration
+* [ ] Add OTA update ability
