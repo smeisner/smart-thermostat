@@ -19,6 +19,7 @@ Main features are:
 * Detect lower air quality to suggest opening a window (and disable HVAC)
 
 Basic layout of thermostat:
+
 <img src="./Block%20Diagram.drawio.png">
 
 ## MCU
@@ -30,6 +31,7 @@ The processor will be either one or more microcontrollers (ESP32) or a SBC (RPi 
 * [ ] ESP32
 * [ ] Other
 
+
 ## Touch screen
 
 There are many choices for touchscreens available. The display should be \~3" diag and use SPI, I2C or DSI. Some SBCs/uControllers allow for 1 SPI bus. At the same time, some touch screens require 2 (1 for the TFT display; 1 for the touch interface). So this must be considered. 
@@ -37,9 +39,16 @@ There are many choices for touchscreens available. The display should be \~3" di
 ## Power Supply
 
 Built into the PCB will be a power supply capable of providing stable 5V DC for the processor and sensors. An LM2576HVT-5 will be used to allow for 24V in and still remain stable regulating the power.
+
 [LM2576HVT Datasheet](https://www.ti.com/general/docs/suppproductinfo.tsp?distId=10&gotoUrl=https%3A%2F%2Fwww.ti.com%2Flit%2Fgpn%2Flm2576hv)
 
-<br>
+## Possibilities
+
+#### Use CSI connected camera to detect light level and person approaching.
+
+When person approaches, turn on Touchscreen backlight. When detected light level is low, turn off backlight after a delay.
+Could also use proximity sensor (PiR or RADAR) for detecting person. A simple LDR could also be used to detect light level.
+
 ***
 
 Task list:
