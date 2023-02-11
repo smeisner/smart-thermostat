@@ -4,16 +4,17 @@ The idea of this project is to create a truly smart thermostat.
 Main features are:
 
 * Can be integrated into a home automation system (such as Home Assistant)
-* Works independently of being cloud connected
+* Cloud connection not required
 * Wifi connected
 * Bluetooth LE connected (required for initial setup)
 * Will act similarly to a person's preferences when it comes to HVAC. For example:
     * the temperature set should be dependent upon local forecast
     * If the outside temp is close to the set thermostat temp, suggest opening a window
     * Detect if a window or door is open and disable the heat/AC
-* Use Matter protocol
-* Provide local web site to control thermostat
+* Use Matter protocol (V2)
+* Provide local web site to control/configure thermostat
 * Allow ssh login
+* Provide diagnostic logging (rsyslog as well?)
 * Detect degradation of temp rise/fall to identify clogged filter or service required
 * Employ remote temp sensors to balance temp within home
 * Detect lower air quality to suggest opening a window (and disable HVAC)
@@ -44,7 +45,7 @@ Built into the PCB will be a power supply capable of providing stable 5V DC for 
 
 ## Sensors
 
-Other than an onboard Temp/Humidity/Air quality sensor setup, there can also be remote sensors (maybe connected via MQTT?) that will provide data to make various decisions. These could be inside the home, outside or even from online sources (such as local weather sites).
+Other than an onboard Temp/Humidity/Air quality sensor setup, there can also be remote sensors (maybe connected via MQTT or proprietary ethernet protocol?) that will provide data to make various decisions. These could be inside the home, outside or even from online sources (such as local weather sites).
 
 ## Possibilities
 
@@ -57,6 +58,10 @@ Could also use proximity sensor (PiR or RADAR) for detecting person. A simple LD
 
 This can be used to notify user of events/alerts. Could also be Slack or other notifications. An onboard annunciator (like a speaker) feels wrong.
 
+#### Use super capacitor to maintain power during power outage
+
+This would maintain power during brief power outages
+
 ***
 
 Task list:
@@ -64,14 +69,14 @@ Task list:
 * [ ] Build 24VAC to 5VDC power supply with minimal ripple (< 2%)
 * [ ] Decide on MCU/SBC
 * [ ] Determine sensors to be used (temp, humidity, air quality)
-* [ ] Develop V1 of host app (including MQTT / t-stat integration with HA)
-* [ ] Design device web page
+* [ ] Develop V1 of host app (including MQTT/HA communications)
 * [ ] Generate schematic & PCB
 * [ ] Generate PCB BOM (compatible with JLCPCB parts list)
 * [ ] Have PCB manufactured (JLCPCB)
 
 V2 task list:
 
+* [ ] Design device web page
 * [ ] Design 3D printed case (Polycase may be good supplier)
 * [ ] Implement Matter
 * [ ] Develop Home Assistant integration
