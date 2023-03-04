@@ -1,4 +1,4 @@
-20893835663917387
+20897191688870107
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -50546,6 +50546,97 @@ SMD SMT ceramic resonator filter filter hand-soldering
 0
 3
 3
+Custom Footprints
+AHT2-ori0
+
+
+0
+6
+6
+Custom Footprints
+AHT20
+AHT20-1
+Undefined or Miscellaneous
+0
+6
+6
+Custom Footprints
+ESP32_mini
+
+
+0
+40
+40
+Custom Footprints
+FUSRB510W81L1358T310H1980
+
+
+0
+2
+2
+Custom Footprints
+GBP310
+
+
+0
+4
+4
+Custom Footprints
+IND_CDRH127_LDNP-470MC_SUM
+
+
+0
+2
+2
+Custom Footprints
+KBP206G
+
+
+0
+4
+4
+Custom Footprints
+KBP208G
+KBP208G-3
+Bridge Rectifier
+0
+4
+4
+Custom Footprints
+LM2596SX-5.0_NOPB
+LM2596SX-5.0_NOPB
+Integrated Circuit
+0
+8
+8
+Custom Footprints
+PS1240P02BT
+PS1240P02BT
+Loudspeaker or Buzzer
+0
+2
+2
+Custom Footprints
+SW_TL3305CF260QG
+
+
+0
+4
+4
+Custom Footprints
+TP-SCOPE
+THT 2 pad test point for oscilloscope, spacing 4.5mm, hole size 1.1mm
+
+0
+2
+2
+Custom Footprints
+UC23NJ
+UC2-3NJ-2
+Relay or Contactor
+0
+8
+8
 Diode_SMD
 D_0201_0603Metric
 Diode SMD 0201 (0603 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: https://www.vishay.com/docs/20052/crcw0201e3.pdf), generated with kicad-footprint-generator
@@ -57378,13 +57469,6 @@ solder jumper open
 0
 5
 3
-KBP206G
-KBP206G
-
-
-0
-4
-4
 LED_SMD
 LED-APA102-2020
 http://www.led-color.com/upload/201604/APA102-2020%20SMD%20LED.pdf
@@ -87436,73 +87520,3 @@ varistor
 0
 2
 2
-footprints
-AHT2-ori0
-
-
-0
-6
-6
-footprints
-AHT20
-AHT20-1
-Undefined or Miscellaneous
-0
-6
-6
-footprints
-ESP32_mini
-
-
-0
-40
-40
-footprints
-FUSRB510W81L1358T310H1980
-
-
-0
-2
-2
-footprints
-GBP310
-
-
-0
-4
-4
-footprints
-KBP208G
-KBP208G-3
-Bridge Rectifier
-0
-4
-4
-footprints
-LM2596SX-5.0_NOPB
-LM2596SX-5.0_NOPB
-Integrated Circuit
-0
-8
-8
-footprints
-PS1240P02BT
-PS1240P02BT
-Loudspeaker or Buzzer
-0
-2
-2
-footprints
-TP-SCOPE
-THT 2 pad test point for oscilloscope, spacing 4.5mm, hole size 1.1mm
-
-0
-2
-2
-footprints
-UC23NJ
-UC2-3NJ-2
-Relay or Contactor
-0
-8
-8
