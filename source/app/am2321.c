@@ -1,3 +1,7 @@
+//
+// https://github.com/Gozem/am2320/blob/master/am2321.c
+//
+
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <fcntl.h> 
