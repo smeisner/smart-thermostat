@@ -33,9 +33,9 @@
         "other_text_thickness": 0.15,
         "other_text_upright": false,
         "pads": {
-          "drill": 1.1,
-          "height": 2.2,
-          "width": 2.2
+          "drill": 0.0,
+          "height": 0.95,
+          "width": 0.8
         },
         "silk_line_width": 0.15,
         "silk_text_italic": false,
@@ -409,7 +409,6 @@
           "G",
           "Net-(D1-Pad1)",
           "Net-(D1-Pad3)",
-          "Net-(D1-Pad4)",
           "Net-(D2-Pad1)",
           "Net-(D3-Pad2)",
           "Net-(D4-Pad2)",
