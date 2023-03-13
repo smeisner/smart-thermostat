@@ -26,6 +26,14 @@ void initBuzzer()
   ledcWriteTone(channel, 0);
 }  
 
+void beep()
+{
+  ledcWriteTone(channel, 4000);
+  ledcWrite(channel, 125);
+  delay(125);
+  ledcWriteTone(channel, 0);
+}
+
 void initMotion()
 {
   pinMode(MOTION_PIN, INPUT);
@@ -87,6 +95,7 @@ bool checkForTouch()
   int32_t x, y;
   if (lcd.getTouch(&x, &y))
   {
+    beep();
     Serial.print("Touch - X: "); Serial.print(x); Serial.print(" Y: "); Serial.println(y);
     return true;
   }
@@ -146,7 +155,7 @@ void displayStartDemo()
   lcd.waitDisplay(); // stand-by
 }
 
-void displayDimDemo(int32_t timeDelta)
+void displayDimDemo(int32_t timeDelta, bool abort)
 {
   static int brightness;
   static bool dimming = false;
@@ -165,18 +174,18 @@ void displayDimDemo(int32_t timeDelta)
     dimming = true;
   }
 
+  if (abort)
+  {
+    lcd.setBrightness(START_BRIGHTNESS);
+    dimming = false;
+    brightness = END_BRIGHTNESS;
+  }
+
   if ((dimming) && (brightness > END_BRIGHTNESS))
   {
-    if (checkForTouch())
-    {
-      Serial.println("TouchScreen touched!!!");
-      lcd.setBrightness(START_BRIGHTNESS);
-      dimming = false;
-    }
-
     --brightness;
     lcd.setBrightness(brightness);
-    delay(20);
+    delay(40);
   }
 
   if (brightness == END_BRIGHTNESS)
@@ -230,12 +239,14 @@ void setup(void)
 void loop(void)
 {
   static int32_t ahtTimestamp = millis() - 9000;
-  static int32_t lcdTimestamp = millis() - 10000;
+  static int32_t lcdTimestamp = millis() - 18000;
+  bool abortDisplayDemo = false;
 
   if (checkForMotion())
     Serial.println("Motion Detected!!");
 
-  checkForTouch();
+  if (checkForTouch())
+    abortDisplayDemo = true;
 
   if (millis() > ahtTimestamp + 10000)
   {
@@ -243,7 +254,7 @@ void loop(void)
     ahtTimestamp = millis();
   }
 
-  if (millis() > lcdTimestamp + 15000)
+  if (millis() > lcdTimestamp + 20000)
   {
     Serial.println("Restore display");
     displayStartDemo();
@@ -251,6 +262,6 @@ void loop(void)
   }
   else
   {
-    displayDimDemo(millis() - lcdTimestamp);
+    displayDimDemo(millis() - lcdTimestamp, abortDisplayDemo);
   }
 }

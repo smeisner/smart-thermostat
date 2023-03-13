@@ -385,7 +385,6 @@
           "GND",
           "Net-(BR1-Pad4)",
           "Net-(C5-Pad1)",
-          "Net-(L1-Pad1)",
           "RH"
         ],
         "pcb_color": "rgba(0, 0, 0, 0.000)",
