@@ -180,11 +180,11 @@ public:
 
 // In the case of SPI connection
       cfg.spi_host = VSPI_HOST;// Select the SPI to use (HSPI_HOST or VSPI_HOST)
-      cfg.freq = 1000000;     // Set the SPI clock
+      cfg.freq = 1000000;      // Set the SPI clock
       cfg.pin_sclk = TFT_CLK_PIN;     // Pin number connected to SCLK
-      cfg.pin_mosi = TFT_MOSI_PIN;     // Pin number connected to MOSI
-      cfg.pin_miso = TFT_MISO_PIN;     // Pin number connected to MISO
-      cfg.pin_cs   =  TFT_CS_PIN;     // Pin number connected to CS
+      cfg.pin_mosi = TFT_MOSI_PIN;    // Pin number connected to MOSI
+      cfg.pin_miso = TFT_MISO_PIN;    // Pin number connected to MISO
+      cfg.pin_cs   = TFT_CS_PIN;      // Pin number connected to CS
 
 // In the case of I2C connection
     //   cfg.i2c_port = 1;      // Select the I2C to use (0 or 1)
