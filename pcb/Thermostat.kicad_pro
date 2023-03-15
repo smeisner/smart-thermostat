@@ -33,9 +33,9 @@
         "other_text_thickness": 0.15,
         "other_text_upright": false,
         "pads": {
-          "drill": 0.0,
-          "height": 0.95,
-          "width": 0.8
+          "drill": 0.7,
+          "height": 1.7,
+          "width": 1.7
         },
         "silk_line_width": 0.15,
         "silk_text_italic": false,
@@ -435,7 +435,7 @@
       "idf": "",
       "netlist": "",
       "specctra_dsn": "",
-      "step": "Thermostat.step",
+      "step": "Thermostat-Display.step",
       "vrml": ""
     },
     "page_layout_descr_file": ""
