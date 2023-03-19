@@ -11,7 +11,7 @@ Main features are:
     * the temperature set should be dependent upon local forecast
     * If the outside temp is close to the set thermostat temp, suggest opening a window
     * Detect if a window or door is open and disable the heat/AC
-* Use Matter protocol (V2)
+* Use Matter protocol (thermostat V2)
 * Provide local web site to control/configure thermostat
 * Allow ssh login
 * Provide diagnostic logging (rsyslog as well?)
@@ -30,12 +30,16 @@ The processor will be either one or more microcontrollers (ESP32) or a SBC (RPi 
 
 * [ ] Raspberry Pi Zero W 2
 * [ ] Raspberry Pi CM4
-* [ ] ESP32
+* [x] ESP32
 * [ ] Other
+
+Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB.
 
 ## Touch screen
 
 There are many choices for touchscreens available. The display should be \~3" diag and use SPI, I2C or DSI. Some SBCs/uControllers allow for 1 SPI bus. At the same time, some touch screens require 2 (1 for the TFT display; 1 for the touch interface). So this must be considered.
+
+The TFT display chosen is the [MSP3218](http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218) with the ILI9341 TFT driver and the XPT2046 touch controller.
 
 ## Power Supply
 
@@ -47,12 +51,14 @@ Built into the PCB will be a power supply capable of providing stable 5V DC for 
 
 Other than an onboard Temp/Humidity/Air quality sensor setup, there can also be remote sensors (maybe connected via MQTT or proprietary ethernet protocol?) that will provide data to make various decisions. These could be inside the home, outside or even from online sources (such as local weather sites).
 
+A light sensor (LDR) and motion sensor (RCWL-0516) will also be incoporated into the design. The TFT display has a built in touch sensor for user selections.
+
 ## Possibilities
 
-#### Use CSI connected camera to detect light level and person approaching.
+#### ~~Use CSI connected camera to detect light level and person approaching.~~
 
-When person approaches, turn on Touchscreen backlight. When detected light level is low, turn off backlight after a delay.
-Could also use proximity sensor (PiR or RADAR) for detecting person. A simple LDR could also be used to detect light level.
+~~When person approaches, turn on Touchscreen backlight. When detected light level is low, turn off backlight after a delay.~~
+~~Could also use proximity sensor (PiR or RADAR) for detecting person. A simple LDR could also be used to detect light level.~~
 
 #### Integrate SMS/chat ability
 
@@ -66,13 +72,13 @@ This would maintain power during brief power outages
 
 Task list:
 
-* [ ] Build 24VAC to 5VDC power supply with minimal ripple (< 2%)
-* [ ] Decide on MCU/SBC
-* [ ] Determine sensors to be used (temp, humidity, air quality)
+* [x] Build 24VAC to 5VDC power supply with minimal ripple (< 2%)
+* [x] Decide on MCU/SBC
+* [x] Determine sensors to be used (temp, humidity, air quality)
 * [ ] Develop V1 of host app (including MQTT/HA communications)
-* [ ] Generate schematic & PCB
-* [ ] Generate PCB BOM (compatible with JLCPCB parts list)
-* [ ] Have PCB manufactured (JLCPCB)
+* [x] Generate schematic & PCB
+* [x] Generate PCB BOM (compatible with JLCPCB parts list)
+* [x] Have PCB manufactured (JLCPCB)
 
 V2 task list:
 
@@ -81,3 +87,75 @@ V2 task list:
 * [ ] Implement Matter
 * [ ] Develop Home Assistant integration
 * [ ] Add OTA update ability
+* [ ] Add air quality monitoring (to PCB and app)
+
+## Specs...
+
+#### FreeRTOS Elements:
+
+* Interrupt: Touch
+* When: User touches display; Asserts line LO
+<br>
+* Interrupt: Motion
+* When: RCWL-0516 senses motion; asserts line HI
+<br>
+* Task: aht
+* freq: 10 secs
+* purpose: update temp & humidity
+<br>
+* Task: touch
+* freq: int (triggered indirectly via TFT touch int)
+* purpose:
+    * update last touch point
+    * play audible beep
+<br>
+* Task: motion
+* freq: int (triggered directly via motion int)
+* purpose: update last motion detected timestamp
+<br>
+* Task: state-machine
+* freq: 1 sec
+* purpose:
+    * pump state machine
+    * using temp & humidity, motion, last touch pt,
+    * call routines to navigate menus (options / settings)
+    * adjust display brightness (when on) based on LDR
+    * turn off display with no motion
+
+#### States:
+
+* Init (start)
+* Idle
+* Fan only
+* Heat
+* Cool
+* Error
+
+#### To be added:
+
+* [ ] Wifi
+* [ ] Web server
+* [ ] Telnet / ssh server
+* [ ] Bluetooth
+* [ ] Zigbee / Thread (update for ESP32-C6)
+* [ ] Add air quality monitoring device
+
+#### Parameters set by user:
+
+* Wifi credentials
+* Location (zip code) for outdoor temp - or URI for local/private temp sensor
+* Home Assistant FQDN / IP
+* Temp swing
+* Max / min temp (when to alert user)
+* email list / SMS for notifications
+* c / f
+* reversing valve
+* auto changeover (A/C to/from Heat)
+
+#### Calculated params:
+
+* Average temp change rate vs temp differential (inside / outside temps)
+    * When value exceeded (based on HVAC mode), ask if window/door is open
+* Average temp change rate
+    * Detects when filter / furnace needs servicing
+    * Used to calculate time to temp

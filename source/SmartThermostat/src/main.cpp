@@ -12,19 +12,24 @@ int freq = 4000;
 int channel = 0;
 int resolution = 8;
 
+void displayDimDemo(int32_t timeDelta, bool abort);
+int32_t lcdTimestamp = millis() - 18000;
 
 void initBuzzer()
 {
   ledcSetup(channel, freq, resolution);
   ledcAttachPin(BUZZER_PIN, channel);
+}  
 
+void startupBeep()
+{
   ledcWriteTone(channel, 4000);
   ledcWrite(channel, 125);
   delay(125);
   ledcWriteTone(channel, 3000);
   delay(150);
   ledcWriteTone(channel, 0);
-}  
+}
 
 void beep()
 {
@@ -72,36 +77,53 @@ void readAht()
 
 
 
+int32_t lastMotionDetected = 0;
+bool boolMotionDetected = false;
 
-bool checkForMotion(void)
+void IRAM_ATTR MotionDetect_ISR()
 {
-  static int32_t lastMotion;
-
-  if ((millis() - lastMotion) > 2000)
-  {
-    digitalWrite(LED_BUILTIN, LOW);
-    if (digitalRead(MOTION_PIN) == HIGH)
-    {
-      digitalWrite(LED_BUILTIN, HIGH);
-      lastMotion = millis();
-      return true;
-    }
-  }
-  return false;
+  digitalWrite(LED_BUILTIN, HIGH);
+  lastMotionDetected = millis();
+  boolMotionDetected = true;
 }
 
-bool checkForTouch()
+
+
+
+
+
+int32_t lastTouchDetected = 0;
+TaskHandle_t xTouchHandle;
+
+void touchScreenDriver(void * parameter)
 {
   int32_t x, y;
-  if (lcd.getTouch(&x, &y))
+  for(;;) // infinite loop
   {
-    beep();
-    Serial.print("Touch - X: "); Serial.print(x); Serial.print(" Y: "); Serial.println(y);
-    return true;
+    vTaskSuspend( NULL );
+
+    if (millis() - lastTouchDetected > 300)  // debounce
+    {
+      if (lcd.getTouch(&x, &y))
+      {
+        beep();
+        Serial.print(millis() - lastTouchDetected);
+        Serial.print(" - Touch - X: "); Serial.print(x); Serial.print(" Y: "); Serial.println(y);
+        lastTouchDetected = millis();
+
+        displayDimDemo(millis() - lcdTimestamp, true);
+
+      }
+    }
   }
-  return false;
 }
 
+void IRAM_ATTR TouchDetect_ISR()
+{
+  BaseType_t xYieldRequired;
+  xYieldRequired = xTaskResumeFromISR( xTouchHandle );
+  portYIELD_FROM_ISR( xYieldRequired );
+}
 
 
 
@@ -137,7 +159,6 @@ void lcdDisplayTest()
 
 void displayStartDemo()
 {
-//  initLcd();
   lcdDisplayTest();
 
   lcd.setCursor(bootCount*6, bootCount*8);
@@ -194,6 +215,19 @@ void displayDimDemo(int32_t timeDelta, bool abort)
 }
 
 
+void updateAht(void * parameter)
+{
+  Serial.println("In updateAht()");
+  for(;;) // infinite loop
+  {
+    Serial.println("Reading aht20");
+    // Read latest temp & humidity values
+    readAht();
+
+    // Pause the task again for 10000ms
+    vTaskDelay(10000 / portTICK_PERIOD_MS);
+  }
+}
 
 
 
@@ -203,13 +237,13 @@ void setup(void)
   Serial.println("In setup()");
 
   pinMode(LED_BUILTIN, OUTPUT);
-//  pinMode(TOUCH_IRQ_PIN, INPUT);
 
   initBuzzer();
   initMotion();
   initAht();
   initLcd();
 
+  startupBeep();
   lcdDisplayTest();
 
   // pinMode(LED_HEAT_PIN, OUTPUT);
@@ -232,27 +266,48 @@ void setup(void)
   digitalWrite(HVAC_HEAT_PIN, HIGH);
   delay(1000);
   digitalWrite(HVAC_HEAT_PIN, LOW);
+
+  attachInterrupt(MOTION_PIN, MotionDetect_ISR, RISING);
+  attachInterrupt(TOUCH_IRQ_PIN, TouchDetect_ISR, FALLING);
+
+  xTaskCreate(
+    touchScreenDriver,
+    "Touch Screen",
+    4096,
+    NULL,
+    tskIDLE_PRIORITY+1,
+    &xTouchHandle
+  );
+
+  xTaskCreate(
+    updateAht,      // Function that should be called
+    "Update AHT",   // Name of the task (for debugging)
+    4096,           // Stack size (bytes)
+    NULL,           // Parameter to pass
+    1,              // Task priority
+    NULL            // Task handle
+  );
+  
 }
 
 
 
 void loop(void)
 {
-  static int32_t ahtTimestamp = millis() - 9000;
-  static int32_t lcdTimestamp = millis() - 18000;
-  bool abortDisplayDemo = false;
-
-  if (checkForMotion())
-    Serial.println("Motion Detected!!");
-
-  if (checkForTouch())
-    abortDisplayDemo = true;
-
-  if (millis() > ahtTimestamp + 10000)
+  if (boolMotionDetected)
   {
-    readAht();
-    ahtTimestamp = millis();
+    Serial.println("Motion detected");
+    boolMotionDetected = false;
   }
+  if (lastMotionDetected > 0)
+  {
+    if (millis() - lastMotionDetected > 3000)
+    {
+      digitalWrite(LED_BUILTIN, LOW);
+      lastMotionDetected = 0;
+    }
+  }
+
 
   if (millis() > lcdTimestamp + 20000)
   {
@@ -262,6 +317,6 @@ void loop(void)
   }
   else
   {
-    displayDimDemo(millis() - lcdTimestamp, abortDisplayDemo);
+    displayDimDemo(millis() - lcdTimestamp, false);
   }
 }
