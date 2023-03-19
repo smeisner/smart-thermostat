@@ -98,29 +98,30 @@ V2 task list:
 * [ ] Add air quality monitoring (to PCB and app)
 
 ## Specs...
-
+  
 #### FreeRTOS Elements:
-
+ 
+<br/>
 * Interrupt: Touch
 * When: User touches display; Asserts line LO
-     
+<br/>
 * Interrupt: Motion
 * When: RCWL-0516 senses motion; asserts line HI
-     
+<br/>
 * Task: aht
 * freq: 10 secs
 * purpose: update temp & humidity
-     
+<br/>
 * Task: touch
 * freq: int (triggered indirectly via TFT touch int)
 * purpose:
     * update last touch point
     * play audible beep
-         
+<br/>
 * Task: motion
 * freq: int (triggered directly via motion int)
 * purpose: update last motion detected timestamp
-     
+<br/>
 * Task: state-machine
 * freq: 1 sec
 * purpose:
