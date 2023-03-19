@@ -101,28 +101,31 @@ V2 task list:
  
 #### FreeRTOS Elements:
  
-
 * Interrupt: Touch
 * When: User touches display; Asserts line LO
-
+<br>
 
 * Interrupt: Motion
-  - When: RCWL-0516 senses motion; asserts line HI
-<br/>
+* When: RCWL-0516 senses motion; asserts line HI
+<br>
+
 * Task: aht
 * Freq: 10 secs
 * Purpose: update temp & humidity
 <br/>
+
 * Task: touch
 * Freq: int (triggered indirectly via TFT touch int)
 * Purpose:
   - Update last touch point
   - Play audible beep
-<br/>
+<br>
+
 * Task: motion
 * Freq: int (triggered directly via motion int)
 * Purpose: update last motion detected timestamp
 <br/>
+
 * Task: state-machine
 * Freq: 1 sec
 * Purpose:
