@@ -24,6 +24,12 @@ Basic layout of thermostat:
 
 <img src="./Block%20Diagram.drawio.png">
 
+## Operating environment
+
+FreeRTOS will be the OS. Events will be driven by timers and interrupts (see list below under Specs...). A state machine will make up the primary task that runs on a continuous, low-priority loop. All events will have higher priorities.
+
+There is a concern around capabilites to run the thermostat code with wifi, ssh, web server, Thread / Zigbee, etc. and all required libraries. Will there be enough space for the code and processing power to successfully run everything?
+
 ## MCU
 
 The processor will be either one or more microcontrollers (ESP32) or a SBC (RPi CM4). The CM4 will provide a full Linux implementation allowing for ssh, web site, dev environment, package management, etc. but will have higher power requirements. The microcontroller will be more limited when it comes to implementing funtionalty and developing locally on the t-stat.
@@ -32,6 +38,8 @@ The processor will be either one or more microcontrollers (ESP32) or a SBC (RPi 
 * [ ] Raspberry Pi CM4
 * [x] ESP32
 * [ ] Other
+
+The coice to use an Espressif MCU was made since it is cheaper, smaller and more simple to integrate into the circuit. It also provides many GPIO pins to control everything.
 
 Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB.
 
@@ -96,28 +104,23 @@ V2 task list:
 * Interrupt: Touch
 * When: User touches display; Asserts line LO
 <br>
-
 * Interrupt: Motion
 * When: RCWL-0516 senses motion; asserts line HI
 <br>
-
 * Task: aht
 * freq: 10 secs
 * purpose: update temp & humidity
 <br>
-
 * Task: touch
 * freq: int (triggered indirectly via TFT touch int)
 * purpose:
     * update last touch point
     * play audible beep
 <br>
-
 * Task: motion
 * freq: int (triggered directly via motion int)
 * purpose: update last motion detected timestamp
 <br>
-
 * Task: state-machine
 * freq: 1 sec
 * purpose:
@@ -144,6 +147,7 @@ V2 task list:
 * [ ] Bluetooth
 * [ ] Zigbee / Thread (update for ESP32-C6)
 * [ ] Add air quality monitoring device
+* [ ] OTA updates
 
 #### Parameters set by user:
 
