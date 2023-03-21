@@ -1,8 +1,46 @@
+#pragma once
+
+#include <driver/rtc_io.h>
+
+// State Machine
+void stateCreateTask();
+void serialStart();
+
+// HTTP Server
+void webInit();
+void webPump();
+
+// Routine to control wifi
+bool wifiStart();
+bool wifiConnected();
+
+// TFT
+void tftInit();
+void tftCreateTask();
+void displaySplash();
+void displayStartDemo();
+void displayDimDemo(int32_t timeDelta, bool abort);
+
+// Sensors
+bool sensorsInit();
+void testToggleRelays();
+
+// Indicators
+void audioStartupBeep();
+void audioBeep();
+void indicatorsInit();
+
+
+
+//
+// Define all the GPIO pins used
+//
+
 #define LED_BUILTIN 2
 
 #if 1
 
-// Version 0.01
+// HW Version 0.01
 
 #define MOTION_PIN 0
 #define BUZZER_PIN 4
@@ -27,7 +65,7 @@
 
 #else
 
-// Version 0.02
+// HW Version 0.02
 
 #define LED_HEAT_PIN 0
 #define BUZZER_PIN 4
@@ -52,6 +90,5 @@
 #define LED_COOL_PIN 26
 #define TFT_DC_PIN 27
 //#define LED_IDLE_PIN -1
-
 
 #endif

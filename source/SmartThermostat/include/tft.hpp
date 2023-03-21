@@ -1,4 +1,5 @@
-#include "thermostat.hpp"
+#pragma once
+
 #include <LovyanGFX.hpp>
 
 // Setting example when using LovyanGFX with original settings on ESP32
