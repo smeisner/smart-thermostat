@@ -62,6 +62,8 @@ typedef struct
 
 extern OPERATING_PARAMETERS OperatingParameters;
 
+#define MOTION_TIMEOUT 5000
+
 //
 // Define all the GPIO pins used
 //

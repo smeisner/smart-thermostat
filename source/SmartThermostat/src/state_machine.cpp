@@ -15,17 +15,14 @@ void stateMachine(void * parameter)
     // Provide time for the web server
     webPump();
 
-    if (OperatingParameters.motionDetected)
-    {
-//      Serial.println("Motion detected");
-      OperatingParameters.motionDetected = false;
-    }
+//    if (OperatingParameters.motionDetected)
     if (lastMotionDetected > 0)
     {
-      if (millis() - lastMotionDetected > 3000)
+      if (millis() - lastMotionDetected > MOTION_TIMEOUT)
       {
         digitalWrite(LED_BUILTIN, LOW);
         lastMotionDetected = 0;
+        OperatingParameters.motionDetected = false;
       }
     }
 

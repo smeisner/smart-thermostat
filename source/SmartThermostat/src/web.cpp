@@ -56,7 +56,7 @@ void handleRoot()
         wifiSignal(),
         OperatingParameters.tempUnits, OperatingParameters.tempSwing,
         OperatingParameters.tempSet, OperatingParameters.tempCorrection,
-        OperatingParameters.lightDetected, OperatingParameters.motionDetected ? "False" : "True",
+        OperatingParameters.lightDetected, (OperatingParameters.motionDetected == true) ? "True" : "False",
         VERSION_STRING, VERSION_BUILD_DATE_TIME, VERSION_COPYRIGHT
     );
 

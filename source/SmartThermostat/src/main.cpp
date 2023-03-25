@@ -8,14 +8,14 @@ void setup(void)
   eepromReadConfig();
   // Start wifi
   wifiStart();
+  // Play the startup sound
+  audioStartupBeep();
   // Initialize indicators (relays, LEDs, buzzer)
   indicatorsInit();
   // Initialize sensors (temp, humidity, motion ... air quality)
   sensorsInit();
   // Start web server
   webInit();
-  // Play the startup sound
-  audioStartupBeep();
   // Initialize the TFT display
   tftInit();
   // Show the splash screen

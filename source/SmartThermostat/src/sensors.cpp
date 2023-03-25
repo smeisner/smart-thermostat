@@ -58,9 +58,12 @@ void initMotion()
 
 void IRAM_ATTR MotionDetect_ISR()
 {
-  digitalWrite(LED_BUILTIN, HIGH);
-  lastMotionDetected = millis();
-  OperatingParameters.motionDetected = true;
+  if (millis() - lastMotionDetected > MOTION_TIMEOUT)
+  {
+    digitalWrite(LED_BUILTIN, HIGH);
+    lastMotionDetected = millis();
+    OperatingParameters.motionDetected = true;
+  }
 }
 
 
