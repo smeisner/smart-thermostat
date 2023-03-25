@@ -3479,9 +3479,18 @@
     (uuid fe3f7616-1882-4ae5-a75e-02bf73df9be9)
   )
 
+  (text "Layout of footprint pins\nis wrong!! Should be odd-even"
+    (at 52.07 149.86 0)
+    (effects (font (size 1.27 1.27) (thickness 0.254) bold) (justify left bottom))
+    (uuid 54d669dd-41f8-4bc6-bdf4-0dd616c9d460)
+  )
   (text "Connectors" (at 237.49 17.78 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
     (uuid 90745045-2849-44ac-bc8d-88308487fd95)
+  )
+  (text "C9 Must be removed" (at 78.74 110.49 0)
+    (effects (font (size 1.5 1.5) (thickness 0.3) bold) (justify left bottom))
+    (uuid 959e59c0-4c27-4e0f-8960-8b21ad312a51)
   )
   (text "Sensors & Indicators" (at 162.56 59.69 0)
     (effects (font (size 1.27 1.27)) (justify left bottom))
