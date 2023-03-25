@@ -4,14 +4,16 @@ void setup(void)
 {
   // Start serial debugger
   serialStart();
+  // Load configuration from EEPROM
+  eepromReadConfig();
   // Start wifi
   wifiStart();
-  // Start web server
-  webInit();
   // Initialize indicators (relays, LEDs, buzzer)
   indicatorsInit();
   // Initialize sensors (temp, humidity, motion ... air quality)
   sensorsInit();
+  // Start web server
+  webInit();
   // Play the startup sound
   audioStartupBeep();
   // Initialize the TFT display

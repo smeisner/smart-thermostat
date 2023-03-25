@@ -1,21 +1,24 @@
 #include "thermostat.hpp"
 #include "tft.hpp"
 
+OPERATING_PARAMETERS OperatingParameters;
+
 int32_t lcdTimestamp = millis() - 18000;
-extern bool boolMotionDetected;
 extern int32_t lastMotionDetected;
 
 void stateMachine(void * parameter)
 {
   for(;;) // infinite loop
   {
+    OperatingParameters.lightDetected = analogRead(LIGHT_SENS_PIN);
+
     // Provide time for the web server
     webPump();
 
-    if (boolMotionDetected)
+    if (OperatingParameters.motionDetected)
     {
-      Serial.println("Motion detected");
-      boolMotionDetected = false;
+//      Serial.println("Motion detected");
+      OperatingParameters.motionDetected = false;
     }
     if (lastMotionDetected > 0)
     {
@@ -37,8 +40,8 @@ void stateMachine(void * parameter)
       displayDimDemo(millis() - lcdTimestamp, false);
     }
 
-    // Pause the task again for 100ms
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    // Pause the task again for 40ms
+    vTaskDelay(40 / portTICK_PERIOD_MS);
   }
 }
 
@@ -59,7 +62,7 @@ void testToggleRelays()
   delay(500);
   pinMode(HVAC_HEAT_PIN, OUTPUT);
   digitalWrite(HVAC_HEAT_PIN, HIGH);
-  delay(1000);
+  delay(750);
   digitalWrite(HVAC_HEAT_PIN, LOW);
 }
 

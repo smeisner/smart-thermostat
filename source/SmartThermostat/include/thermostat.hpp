@@ -6,6 +6,9 @@
 void stateCreateTask();
 void serialStart();
 
+// EEPROM
+void eepromReadConfig();
+
 // HTTP Server
 void webInit();
 void webPump();
@@ -13,6 +16,7 @@ void webPump();
 // Routine to control wifi
 bool wifiStart();
 bool wifiConnected();
+uint16_t wifiSignal();
 
 // TFT
 void tftInit();
@@ -31,6 +35,32 @@ void audioBeep();
 void indicatorsInit();
 
 
+// Shared data structures
+
+typedef enum
+{
+    IDLE = 0,
+    HEAT,
+    COOL,
+    FAN,
+    ERROR
+} HVAC_MODE;
+
+typedef struct
+{
+    HVAC_MODE hvacMode;
+    float tempSet;
+    float tempCurrent;
+    float humidCurrent;
+    char tempUnits;
+    int tempSwing;
+    float tempCorrection;
+    int lightDetected;
+    bool motionDetected;
+} OPERATING_PARAMETERS;
+
+
+extern OPERATING_PARAMETERS OperatingParameters;
 
 //
 // Define all the GPIO pins used
@@ -38,7 +68,7 @@ void indicatorsInit();
 
 #define LED_BUILTIN 2
 
-#if 1
+#if 0
 
 // HW Version 0.01
 

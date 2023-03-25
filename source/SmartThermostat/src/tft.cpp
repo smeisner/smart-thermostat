@@ -20,7 +20,7 @@ void tftTouchScreenDriver(void * parameter)
 
     if (millis() - lastTouchDetected > 300)  // debounce
     {
-      if (lcd.getTouch(&x, &y))
+      if (lcd.getTouchRaw(&x, &y))
       {
         audioBeep();
         Serial.print(millis() - lastTouchDetected);
@@ -123,7 +123,7 @@ void displayDimDemo(int32_t timeDelta, bool abort)
     dimming = false;
   }
 
-  if ((timeDelta == 2000) && (!dimming))
+  if ((timeDelta > 2000) && (!dimming))
   {
     Serial.println("Dimming started...");
     dimming = true;
@@ -133,10 +133,11 @@ void displayDimDemo(int32_t timeDelta, bool abort)
   {
     --brightness;
     lcd.setBrightness(brightness);
-    delay(40);
+    //delay(40);
   }
 
   if (brightness == END_BRIGHTNESS)
     demo_started = false;
 
 }
+

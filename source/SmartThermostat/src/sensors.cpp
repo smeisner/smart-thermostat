@@ -3,7 +3,6 @@
 
 Adafruit_AHTX0 aht;
 int32_t lastMotionDetected = 0;
-bool boolMotionDetected = false;
 
 bool initAht()
 {
@@ -32,6 +31,8 @@ void readAht()
   // display.setCursor(0,60);
   // display.print("Hum: "); display.print(humidity.relative_humidity); display.println(" %");
   temp_f = (temp.temperature * 9.0/5.0) + 32.0;
+  OperatingParameters.tempCurrent = temp_f;
+  OperatingParameters.humidCurrent = humidity.relative_humidity;
   Serial.print("Temperature: ");Serial.print(temp.temperature);Serial.print(" degrees C (");Serial.print(temp_f);Serial.println(" F)");
   Serial.print("Humidity: ");Serial.print(humidity.relative_humidity);Serial.println(" RH %");
 }
@@ -59,7 +60,7 @@ void IRAM_ATTR MotionDetect_ISR()
 {
   digitalWrite(LED_BUILTIN, HIGH);
   lastMotionDetected = millis();
-  boolMotionDetected = true;
+  OperatingParameters.motionDetected = true;
 }
 
 
@@ -69,6 +70,8 @@ bool sensorsInit()
 
   initMotion();
   r = initAht();
+
+  pinMode (LIGHT_SENS_PIN, INPUT);
 
   attachInterrupt(MOTION_PIN, MotionDetect_ISR, RISING);
 
