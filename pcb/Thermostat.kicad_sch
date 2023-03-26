@@ -3479,6 +3479,11 @@
     (uuid fe3f7616-1882-4ae5-a75e-02bf73df9be9)
   )
 
+  (text "Next:\n- ESP32-S3-WROOM-1-N16R8\n  JLCPCB # C2913202\n- Needs xtal and support components\n"
+    (at 13.97 22.86 0)
+    (effects (font (size 1.5 1.5) (thickness 0.3) bold) (justify left bottom))
+    (uuid 32857cd3-b765-4f38-ac04-c7e066018284)
+  )
   (text "Layout of footprint pins\nis wrong!! Should be odd-even"
     (at 52.07 149.86 0)
     (effects (font (size 1.27 1.27) (thickness 0.254) bold) (justify left bottom))
