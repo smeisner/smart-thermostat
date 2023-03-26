@@ -43,6 +43,31 @@ bool wifiStart()
 
 bool wifiConnected() { return (WiFi.status() == WL_CONNECTED); }
 
+int32_t lastWifiMillis = 0;
+
+bool wifiReconnect()
+{
+  if ((WiFi.status() != WL_CONNECTED) && (millis() - lastWifiMillis >= WIFI_CONNECT_INTERVAL)) 
+  {
+    Serial.printf ("Reconnecting wifi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    lastWifiMillis = millis();
+
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      lastWifiMillis = 0;
+      Serial.printf ("Connected!\n");
+      return true;
+    } else {
+      Serial.printf ("Failed\n");
+    }
+  }
+  return false;
+}
+
 uint16_t rssiToPercent(int rssi_i)
 {
   float rssi = (float)rssi_i;

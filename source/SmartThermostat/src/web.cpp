@@ -6,13 +6,16 @@
 
 WebServer server(80);
 const char* serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
+const char* serverRedirect = "<meta http-equiv=\"refresh\" content=\"0; url='/'\" />";
 const char *host = "thermostat";
 
 const char *hvacModeToString(HVAC_MODE mode)
 {
     switch (mode)
     {
+        case OFF: return "Off";
         case IDLE: return "Idle";
+        case AUTO: return "Auto";
         case HEAT: return "Heat";
         case COOL: return "Cool";
         case FAN:  return "Fan";
@@ -20,40 +23,50 @@ const char *hvacModeToString(HVAC_MODE mode)
     }
 }
 
+void tempUp()
+{
+    OperatingParameters.tempSet += 1.0;
+    server.send(200, "text/html", serverRedirect);
+}
+void tempDown()
+{
+    OperatingParameters.tempSet -= 1.0;
+    server.send(200, "text/html", serverRedirect);
+}
+
 void handleRoot()
 {
-    char html[1024];
-    snprintf(html, 1024, 
-        "<html>\
-        <head>\
-            <meta http-equiv='refresh' content='5'/>\
-            <title>Truly Smart Thermostat</title>\
-            <style>\
-                body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
-            </style>\
-        </head>\
-        <body>\
-        <h1>Thermostat operating parameters:</h1>\
-        <pre><p style=\"font-size:16px; \">\
-        <br>HVAC Mode:   %s\
-        <br>Temperature: %0.1fF\
-        <br>Humidity:    %0.1f%%\
-        <br>\
-        <br>Wifi:        %d%%\
-        <br>Units:       %c\
-        <br>Swing:       %d\
-        <br>Set Temp:    %0.1fF\
-        <br>Correction:  %0.1f\
-        <br>Light:       %d\
-        <br>Motion:      %s\
-        </p></pre>\
-        <form action='/upload'><input type='submit' value='FW Update' /></form>\
-        <pre><p style=\"font-size:14px; \"><br>Firmware version: %s (%s)<br>%s</p></pre>\
-        </body>\
-        </html>",
-        hvacModeToString(OperatingParameters.hvacMode),
-        OperatingParameters.tempCurrent, OperatingParameters.humidCurrent,
-        wifiSignal(),
+    char html[1536];
+    snprintf(html, 1536, 
+"<html><head><meta http-equiv='refresh' content='5'/><title>Truly Smart Thermostat</title><style>\
+body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
+</style></head><body><h1>Thermostat operating parameters:</h1>\
+<pre><p style=\"font-size:16px; \">\
+<br>HVAC Mode:   %s (Set: %s)\
+<br>Temperature: %0.1fF\
+<br>Humidity:    %0.1f%%\
+<br>\
+<br>Wifi:        %d%%  - IP: %s\
+<br>Units:       %c\
+<br>Swing:       %0.1f\
+<br>Set Temp:    %0.1fF\
+<br>Correction:  %0.1f\
+<br>Light:       %d\
+<br>Motion:      %s</p></pre>\
+<form action='/upload'><input type='submit' value='FW Update' /></form>\
+Set Temp: <button onclick=\"window.location.href = '/tempDown';\">TEMP &laquo;</button>&nbsp\
+<button onclick=\"window.location.href = '/tempUp';\">TEMP &raquo;</button>\
+<p></p>\
+HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</button>&nbsp\
+<button onclick=\"window.location.href = '/hvacModeAuto';\">AUTO</button>&nbsp\
+<button onclick=\"window.location.href = '/hvacModeHeat';\">HEAT</button>&nbsp\
+<button onclick=\"window.location.href = '/hvacModeCool';\">COOL</button>&nbsp\
+<button onclick=\"window.location.href = '/hvacModeFan';\">FAN</button>\
+<pre><p style=\"font-size:14px; \"><br>Firmware version: %s (%s)<br>%s</p></pre>\
+</body></html>",
+        hvacModeToString(OperatingParameters.hvacOpMode), hvacModeToString(OperatingParameters.hvacSetMode),
+        OperatingParameters.tempCurrent + OperatingParameters.tempCorrection, OperatingParameters.humidCurrent,
+        wifiSignal(), WiFi.localIP().toString(),
         OperatingParameters.tempUnits, OperatingParameters.tempSwing,
         OperatingParameters.tempSet, OperatingParameters.tempCorrection,
         OperatingParameters.lightDetected, (OperatingParameters.motionDetected == true) ? "True" : "False",
@@ -70,6 +83,33 @@ void webInit()
     MDNS.begin(host);
 
     server.on("/", handleRoot);
+    server.on("/tempUp", tempUp);
+    server.on("/tempDown", tempDown);
+
+    server.on("/hvacModeOff", HTTP_GET, []() {
+        OperatingParameters.hvacSetMode = OFF;
+        server.send(200, "text/html", serverRedirect);
+    });
+
+    server.on("/hvacModeAuto", HTTP_GET, []() {
+        OperatingParameters.hvacSetMode = AUTO;
+        server.send(200, "text/html", serverRedirect);
+    });
+
+    server.on("/hvacModeHeat", HTTP_GET, []() {
+        OperatingParameters.hvacSetMode = HEAT;
+        server.send(200, "text/html", serverRedirect);
+    });
+
+    server.on("/hvacModeCool", HTTP_GET, []() {
+        OperatingParameters.hvacSetMode = COOL;
+        server.send(200, "text/html", serverRedirect);
+    });
+
+    server.on("/hvacModeFan", HTTP_GET, []() {
+        OperatingParameters.hvacSetMode = FAN;
+        server.send(200, "text/html", serverRedirect);
+    });
 
     server.on("/upload", HTTP_GET, []() {
       server.sendHeader("Connection", "close");
@@ -79,6 +119,7 @@ void webInit()
     server.on("/update", HTTP_POST, []() {
       server.sendHeader("Connection", "close");
       server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+      vTaskDelay(500 / portTICK_PERIOD_MS);
       ESP.restart();
     }, []() {
       HTTPUpload& upload = server.upload();

@@ -8,12 +8,62 @@ extern int32_t lastMotionDetected;
 
 void stateMachine(void * parameter)
 {
+  float currentTemp;
+  float minTemp, maxTemp;
+
   for(;;) // infinite loop
   {
     OperatingParameters.lightDetected = analogRead(LIGHT_SENS_PIN);
 
+    currentTemp = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;
+    minTemp = OperatingParameters.tempSet - (OperatingParameters.tempSwing / 2.0);
+    maxTemp = OperatingParameters.tempSet + (OperatingParameters.tempSwing / 2.0);
+
+    if (OperatingParameters.hvacSetMode == OFF)
+    {
+        OperatingParameters.hvacOpMode = OFF;
+        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        //digitalWrite(HVAC_COOL_PIN, LOW);
+        //digitalWrite(HVAC_FAN_PIN, LOW);
+        digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_HEAT_PIN, LOW);
+    }
+    else if (OperatingParameters.hvacSetMode == FAN)
+    {
+        OperatingParameters.hvacOpMode = FAN;
+        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        //digitalWrite(HVAC_COOL_PIN, LOW);
+        //digitalWrite(HVAC_FAN_PIN, LOW);
+        digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_HEAT_PIN, LOW);
+    }
+    else if (((OperatingParameters.hvacSetMode == AUTO) || (OperatingParameters.hvacSetMode == HEAT)) && (currentTemp < minTemp))
+    {
+        OperatingParameters.hvacOpMode = HEAT;
+        //digitalWrite(HVAC_HEAT_PIN, HIGH);
+        digitalWrite(LED_HEAT_PIN, HIGH);
+    }
+    else if (((OperatingParameters.hvacSetMode == AUTO) || (OperatingParameters.hvacSetMode == COOL)) && (currentTemp > maxTemp))
+    {
+        OperatingParameters.hvacOpMode = COOL;
+        //digitalWrite(HVAC_COOL_PIN, HIGH);
+        digitalWrite(LED_COOL_PIN, HIGH);
+    }
+
+    if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN) && (OperatingParameters.hvacSetMode != OFF))
+    {
+        OperatingParameters.hvacOpMode = IDLE;
+        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        //digitalWrite(HVAC_COOL_PIN, LOW);
+        digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_HEAT_PIN, LOW);
+    }
+
     // Provide time for the web server
     webPump();
+
+    // Check wifi
+    if (!wifiConnected()) wifiReconnect();
 
 //    if (OperatingParameters.motionDetected)
     if (lastMotionDetected > 0)

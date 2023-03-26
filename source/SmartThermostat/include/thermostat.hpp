@@ -16,6 +16,7 @@ void webPump();
 // Routine to control wifi
 bool wifiStart();
 bool wifiConnected();
+bool wifiReconnect();
 uint16_t wifiSignal();
 
 // TFT
@@ -39,7 +40,9 @@ void indicatorsInit();
 
 typedef enum
 {
-    IDLE = 0,
+    OFF = 0,
+    IDLE,
+    AUTO,
     HEAT,
     COOL,
     FAN,
@@ -48,12 +51,13 @@ typedef enum
 
 typedef struct
 {
-    HVAC_MODE hvacMode;
+    HVAC_MODE hvacOpMode;
+    HVAC_MODE hvacSetMode;
     float tempSet;
     float tempCurrent;
     float humidCurrent;
     char tempUnits;
-    int tempSwing;
+    float tempSwing;
     float tempCorrection;
     int lightDetected;
     bool motionDetected;
@@ -63,6 +67,7 @@ typedef struct
 extern OPERATING_PARAMETERS OperatingParameters;
 
 #define MOTION_TIMEOUT 5000
+#define WIFI_CONNECT_INTERVAL 3000
 
 //
 // Define all the GPIO pins used
