@@ -1,21 +1,23 @@
 #include "thermostat.hpp"
 #include <WiFi.h>
-#include "wifi-credentials.h"
+//#include "wifi-credentials.h"
 
 WiFiClient wclient;
+WIFI_CREDS WifiCreds;
 
-bool wifiStart()
+bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 {
   int loop = 0;
   boolean result = false;
-  const char *hostname = "thermostat";
 
   Serial.print("Connecting to ");
   Serial.print(ssid);
   // set up the wifi
+  WiFi.mode(WIFI_MODE_NULL);
+  WiFi.setHostname(hostname);
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
-  WiFi.setHostname(hostname);
   result = (WiFi.status() == WL_CONNECTED);
   while ((result == false) && (loop < 10)) // Wait for connection
   {
@@ -47,11 +49,13 @@ int32_t lastWifiMillis = 0;
 
 bool wifiReconnect()
 {
-  if ((WiFi.status() != WL_CONNECTED) && (millis() - lastWifiMillis >= WIFI_CONNECT_INTERVAL)) 
+  if ((WiFi.status() != WL_CONNECTED) && (millis() - lastWifiMillis >= WIFI_CONNECT_INTERVAL))
   {
     Serial.printf ("Reconnecting wifi...");
-    WiFi.disconnect();
-    WiFi.reconnect();
+    WiFi.disconnect(true);
+    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+    WiFi.setHostname(WifiCreds.hostname);
+    WiFi.begin();
     lastWifiMillis = millis();
 
     vTaskDelay(200 / portTICK_PERIOD_MS);

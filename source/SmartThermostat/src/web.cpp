@@ -26,11 +26,13 @@ const char *hvacModeToString(HVAC_MODE mode)
 void tempUp()
 {
     OperatingParameters.tempSet += 1.0;
+    eepromUpdateHvacSetTemp();
     server.send(200, "text/html", serverRedirect);
 }
 void tempDown()
 {
     OperatingParameters.tempSet -= 1.0;
+    eepromUpdateHvacSetTemp();
     server.send(200, "text/html", serverRedirect);
 }
 
@@ -54,7 +56,8 @@ body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Col
 <br>Light:       %d\
 <br>Motion:      %s</p></pre>\
 <form action='/upload'><input type='submit' value='FW Update' /></form>\
-Set Temp: <button onclick=\"window.location.href = '/tempDown';\">TEMP &laquo;</button>&nbsp\
+<button onclick=\"window.location.href = '/resetFirmware';\">RESET Config</button>&nbsp\
+<br>Set Temp: <button onclick=\"window.location.href = '/tempDown';\">TEMP &laquo;</button>&nbsp\
 <button onclick=\"window.location.href = '/tempUp';\">TEMP &raquo;</button>\
 <p></p>\
 HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</button>&nbsp\
@@ -86,28 +89,38 @@ void webInit()
     server.on("/tempUp", tempUp);
     server.on("/tempDown", tempDown);
 
+    server.on("/resetFirmware", HTTP_GET, []() {
+        clearNVS();
+        server.send(200, "text/html", serverRedirect);
+    });
+
     server.on("/hvacModeOff", HTTP_GET, []() {
         OperatingParameters.hvacSetMode = OFF;
+        eepromUpdateHvacSetMode();
         server.send(200, "text/html", serverRedirect);
     });
 
     server.on("/hvacModeAuto", HTTP_GET, []() {
         OperatingParameters.hvacSetMode = AUTO;
+        eepromUpdateHvacSetMode();
         server.send(200, "text/html", serverRedirect);
     });
 
     server.on("/hvacModeHeat", HTTP_GET, []() {
         OperatingParameters.hvacSetMode = HEAT;
+        eepromUpdateHvacSetMode();
         server.send(200, "text/html", serverRedirect);
     });
 
     server.on("/hvacModeCool", HTTP_GET, []() {
         OperatingParameters.hvacSetMode = COOL;
+        eepromUpdateHvacSetMode();
         server.send(200, "text/html", serverRedirect);
     });
 
     server.on("/hvacModeFan", HTTP_GET, []() {
         OperatingParameters.hvacSetMode = FAN;
+        eepromUpdateHvacSetMode();
         server.send(200, "text/html", serverRedirect);
     });
 

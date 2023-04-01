@@ -5,13 +5,13 @@ void setup(void)
   // Start serial debugger
   serialStart();
   // Load configuration from EEPROM
-  eepromReadConfig();
+  eepromInit();
   // Start wifi
-  wifiStart();
-  // Play the startup sound
-  audioStartupBeep();
+  wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
   // Initialize indicators (relays, LEDs, buzzer)
   indicatorsInit();
+  // Play the startup sound
+  audioStartupBeep();
   // Initialize sensors (temp, humidity, motion ... air quality)
   sensorsInit();
   // Start web server

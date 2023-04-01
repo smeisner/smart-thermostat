@@ -1,5 +1,9 @@
 #include "thermostat.hpp"
 #include <Adafruit_AHTX0.h>
+#include <Smoothed.h>
+
+Smoothed <float> sensorTemp;
+Smoothed <float> sensorHumidity;
 
 Adafruit_AHTX0 aht;
 int32_t lastMotionDetected = 0;
@@ -30,30 +34,26 @@ void readAht()
   // display.print("Temp: "); display.print(temp.temperature); display.println(" C");
   // display.setCursor(0,60);
   // display.print("Hum: "); display.print(humidity.relative_humidity); display.println(" %");
-  temp_f = (temp.temperature * 9.0/5.0) + 32.0;
+  sensorTemp.add(temp.temperature);
+  sensorHumidity.add(humidity.relative_humidity);
+  temp_f = (sensorTemp.get() * 9.0/5.0) + 32.0;
   OperatingParameters.tempCurrent = temp_f;
-  OperatingParameters.humidCurrent = humidity.relative_humidity;
-  Serial.print("Temperature: ");Serial.print(temp.temperature);Serial.print(" degrees C (");Serial.print(temp_f);Serial.println(" F)");
-  Serial.print("Humidity: ");Serial.print(humidity.relative_humidity);Serial.println(" RH %");
+  OperatingParameters.humidCurrent = sensorHumidity.get();
+
+  Serial.printf ("Temp: %0.1f / %0.1f F (raw: %0.2f)  Humidity: %0.1f (raw: %0.2f)\n", 
+    sensorTemp.get(), temp_f, temp.temperature, sensorHumidity.get(), humidity.relative_humidity);
 }
 
 void updateAht(void * parameter)
 {
-  Serial.println("In updateAht()");
   for(;;) // infinite loop
   {
-    Serial.println("Reading aht20");
     // Read latest temp & humidity values
     readAht();
 
     // Pause the task again for 10000ms
     vTaskDelay(10000 / portTICK_PERIOD_MS);
   }
-}
-
-void initMotion()
-{
-  pinMode(MOTION_PIN, INPUT);
 }
 
 void IRAM_ATTR MotionDetect_ISR()
@@ -69,23 +69,28 @@ void IRAM_ATTR MotionDetect_ISR()
 
 bool sensorsInit()
 {
-  bool r;
-
-  initMotion();
-  r = initAht();
-
+  sensorTemp.begin(SMOOTHED_EXPONENTIAL, 10);
+  sensorHumidity.begin(SMOOTHED_EXPONENTIAL, 10);
+  sensorTemp.clear();
+  sensorHumidity.clear();
+  
   pinMode (LIGHT_SENS_PIN, INPUT);
-
+  pinMode(MOTION_PIN, INPUT);
   attachInterrupt(MOTION_PIN, MotionDetect_ISR, RISING);
 
-  xTaskCreate(
-    updateAht,      // Function that should be called
-    "Update AHT",   // Name of the task (for debugging)
-    4096,           // Stack size (bytes)
-    NULL,           // Parameter to pass
-    1,              // Task priority
-    NULL            // Task handle
-  );
+  if (initAht())
+  {
+    xTaskCreate(
+      updateAht,      // Function that should be called
+      "Update AHT",   // Name of the task (for debugging)
+      4096,           // Stack size (bytes)
+      NULL,           // Parameter to pass
+      1,              // Task priority
+      NULL            // Task handle
+    );
 
-  return r;
+    return true;
+  } else {
+    return false;
+  }
 }

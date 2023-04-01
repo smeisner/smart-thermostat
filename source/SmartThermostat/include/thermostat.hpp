@@ -7,14 +7,17 @@ void stateCreateTask();
 void serialStart();
 
 // EEPROM
-void eepromReadConfig();
+void eepromInit();
+void clearNVS();
+bool eepromUpdateHvacSetTemp();
+bool eepromUpdateHvacSetMode();
 
 // HTTP Server
 void webInit();
 void webPump();
 
 // Routine to control wifi
-bool wifiStart();
+bool wifiStart(const char *hostname, const char *ssid, const char *pass);
 bool wifiConnected();
 bool wifiReconnect();
 uint16_t wifiSignal();
@@ -63,8 +66,15 @@ typedef struct
     bool motionDetected;
 } OPERATING_PARAMETERS;
 
+typedef struct
+{
+    char hostname[24];
+    char ssid[24];
+    char password[16];
+} WIFI_CREDS;
 
 extern OPERATING_PARAMETERS OperatingParameters;
+extern WIFI_CREDS WifiCreds;
 
 #define MOTION_TIMEOUT 5000
 #define WIFI_CONNECT_INTERVAL 3000
