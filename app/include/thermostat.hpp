@@ -57,6 +57,8 @@ typedef struct
     HVAC_MODE hvacOpMode;
     HVAC_MODE hvacSetMode;
     float tempSet;
+    float tempSetAutoMin;
+    float tempSetAutoMax;
     float tempCurrent;
     float humidCurrent;
     char tempUnits;

@@ -10,6 +10,7 @@ void stateMachine(void * parameter)
 {
   float currentTemp;
   float minTemp, maxTemp;
+  float autoMinTemp, autoMaxTemp;
 
   for(;;) // infinite loop
   {
@@ -19,35 +20,94 @@ void stateMachine(void * parameter)
     minTemp = OperatingParameters.tempSet - (OperatingParameters.tempSwing / 2.0);
     maxTemp = OperatingParameters.tempSet + (OperatingParameters.tempSwing / 2.0);
 
+#if 0
+    autoMinTemp = OperatingParameters.tempSetAutoMin - (OperatingParameters.tempSwing / 2.0);
+    autoMaxTemp = OperatingParameters.tempSetAutoMax + (OperatingParameters.tempSwing / 2.0);
+#else
+    autoMinTemp = minTemp;
+    autoMaxTemp = maxTemp;
+#endif
+
     if (OperatingParameters.hvacSetMode == OFF)
     {
-        OperatingParameters.hvacOpMode = OFF;
-        //digitalWrite(HVAC_HEAT_PIN, LOW);
-        //digitalWrite(HVAC_COOL_PIN, LOW);
-        //digitalWrite(HVAC_FAN_PIN, LOW);
-        digitalWrite(LED_COOL_PIN, LOW);
-        digitalWrite(LED_HEAT_PIN, LOW);
+      OperatingParameters.hvacOpMode = OFF;
+      //digitalWrite(HVAC_HEAT_PIN, LOW);
+      //digitalWrite(HVAC_COOL_PIN, LOW);
+      //digitalWrite(HVAC_FAN_PIN, LOW);
+      digitalWrite(LED_COOL_PIN, LOW);
+      digitalWrite(LED_HEAT_PIN, LOW);
     }
     else if (OperatingParameters.hvacSetMode == FAN)
     {
-        OperatingParameters.hvacOpMode = FAN;
-        //digitalWrite(HVAC_HEAT_PIN, LOW);
-        //digitalWrite(HVAC_COOL_PIN, LOW);
-        //digitalWrite(HVAC_FAN_PIN, LOW);
-        digitalWrite(LED_COOL_PIN, LOW);
-        digitalWrite(LED_HEAT_PIN, LOW);
+      OperatingParameters.hvacOpMode = FAN;
+      //digitalWrite(HVAC_HEAT_PIN, LOW);
+      //digitalWrite(HVAC_COOL_PIN, LOW);
+      //digitalWrite(HVAC_FAN_PIN, HIGH);
+      digitalWrite(LED_COOL_PIN, LOW);
+      digitalWrite(LED_HEAT_PIN, LOW);
     }
-    else if (((OperatingParameters.hvacSetMode == AUTO) || (OperatingParameters.hvacSetMode == HEAT)) && (currentTemp < minTemp))
+    else if (OperatingParameters.hvacSetMode == HEAT)
     {
+      if (OperatingParameters.hvacOpMode == COOL)
+      {
+        //digitalWrite(HVAC_COOL_PIN, LOW);
+        digitalWrite(LED_COOL_PIN, LOW);
+      }
+      if (currentTemp < minTemp)
+      {
         OperatingParameters.hvacOpMode = HEAT;
         //digitalWrite(HVAC_HEAT_PIN, HIGH);
         digitalWrite(LED_HEAT_PIN, HIGH);
+      }
+      else
+      {
+        OperatingParameters.hvacOpMode = IDLE;
+      }
     }
-    else if (((OperatingParameters.hvacSetMode == AUTO) || (OperatingParameters.hvacSetMode == COOL)) && (currentTemp > maxTemp))
+    else if (OperatingParameters.hvacSetMode == COOL)
     {
+      if (OperatingParameters.hvacOpMode == HEAT)
+      {
+        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        digitalWrite(LED_HEAT_PIN, LOW);
+      }
+      if (currentTemp > maxTemp)
+      {
         OperatingParameters.hvacOpMode = COOL;
         //digitalWrite(HVAC_COOL_PIN, HIGH);
         digitalWrite(LED_COOL_PIN, HIGH);
+      }
+      else
+      {
+        OperatingParameters.hvacOpMode = IDLE;
+      }
+    }
+    else if (OperatingParameters.hvacSetMode == AUTO)
+    {
+      if (currentTemp < autoMinTemp)
+      {
+        OperatingParameters.hvacOpMode = HEAT;
+        //digitalWrite(HVAC_HEAT_PIN, HIGH);
+        digitalWrite(LED_HEAT_PIN, HIGH);
+        //digitalWrite(HVAC_COOL_PIN, LOW);
+        digitalWrite(LED_COOL_PIN, LOW);
+      }
+      else if (currentTemp > autoMaxTemp)
+      {
+        OperatingParameters.hvacOpMode = COOL;
+        //digitalWrite(HVAC_COOL_PIN, HIGH);
+        digitalWrite(LED_COOL_PIN, HIGH);
+        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        digitalWrite(LED_HEAT_PIN, LOW);
+      }
+      else
+      {
+        OperatingParameters.hvacOpMode = IDLE;
+        //digitalWrite(HVAC_COOL_PIN, LOW);
+        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_HEAT_PIN, LOW);
+      }
     }
 
     if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN) && (OperatingParameters.hvacSetMode != OFF))

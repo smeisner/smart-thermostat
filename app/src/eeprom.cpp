@@ -17,6 +17,8 @@ void setDefaultThermostatParams()
     thermostat.putInt("currMode", IDLE);
     thermostat.putInt("setMode", OFF);
     thermostat.putFloat("setTemp", 74.0);
+    thermostat.putFloat("setTempAutoMin",68.0);
+    thermostat.putFloat("setTempAutoMax",74.0);
     thermostat.putFloat("currTemp", 0.0);
     thermostat.putFloat("currHumid", 50.0);
     thermostat.putChar("setUnits", 'F');
@@ -30,6 +32,8 @@ void getThermostatParams()
     OperatingParameters.hvacOpMode = (HVAC_MODE)thermostat.getInt("currMode", (int)IDLE);
     OperatingParameters.hvacSetMode = (HVAC_MODE)thermostat.getInt("setMode", (int)OFF);
     OperatingParameters.tempSet = thermostat.getFloat("setTemp", 74.0);
+    OperatingParameters.tempSetAutoMin = thermostat.getFloat("setTempAutoMin", 68.0);
+    OperatingParameters.tempSetAutoMax = thermostat.getFloat("setTempAutoMax", 74.0);
     OperatingParameters.tempCurrent = thermostat.getFloat("currTemp", 0.0);
     OperatingParameters.humidCurrent = thermostat.getFloat("currHumid", 50.0);
     OperatingParameters.tempUnits = thermostat.getChar("setUnits", 'F');
