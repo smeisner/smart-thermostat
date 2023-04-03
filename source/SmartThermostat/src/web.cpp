@@ -48,7 +48,7 @@ body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Col
 <br>Temperature: %0.1fF\
 <br>Humidity:    %0.1f%%\
 <br>\
-<br>Wifi:        %d%%  - IP: %s\
+<br>Wifi:        %d%%  [IP: %s]\
 <br>Units:       %c\
 <br>Swing:       %0.1f\
 <br>Set Temp:    %0.1fF\
@@ -57,7 +57,7 @@ body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Col
 <br>Motion:      %s</p></pre>\
 <form action='/upload'><input type='submit' value='FW Update' /></form>\
 <button onclick=\"window.location.href = '/resetFirmware';\">RESET Config</button>&nbsp\
-<br>Set Temp: <button onclick=\"window.location.href = '/tempDown';\">TEMP &laquo;</button>&nbsp\
+<p></p>Set Temp: <button onclick=\"window.location.href = '/tempDown';\">TEMP &laquo;</button>&nbsp\
 <button onclick=\"window.location.href = '/tempUp';\">TEMP &raquo;</button>\
 <p></p>\
 HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</button>&nbsp\
