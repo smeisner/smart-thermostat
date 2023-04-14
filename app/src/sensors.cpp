@@ -7,6 +7,7 @@ Smoothed <float> sensorHumidity;
 
 Adafruit_AHTX0 aht;
 int32_t lastMotionDetected = 0;
+int32_t lastTimeUpdate = 0;
 
 bool initAht()
 {
@@ -66,6 +67,29 @@ void IRAM_ATTR MotionDetect_ISR()
   }
 }
 
+const char* ntpServer = "time.google.com";
+
+void updateTimeSntp()
+{
+  char buffer[16];
+   
+  if (!getLocalTime(&time))
+  {
+    Serial.println("Could not obtain time info");
+    return;
+  }
+
+  strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
+  Serial.printf("Current time: %s\n", buffer);
+
+}
+
+void initTimeSntp()
+{
+  Serial.printf ("Time server: %s\n", ntpServer);
+  configTime(-5*60*60, 3600, ntpServer);
+  updateTimeSntp();
+}
 
 bool sensorsInit()
 {
@@ -73,7 +97,9 @@ bool sensorsInit()
   sensorHumidity.begin(SMOOTHED_EXPONENTIAL, 10);
   sensorTemp.clear();
   sensorHumidity.clear();
-  
+
+  initTimeSntp();
+
   pinMode (LIGHT_SENS_PIN, INPUT);
   pinMode(MOTION_PIN, INPUT);
   attachInterrupt(MOTION_PIN, MotionDetect_ISR, RISING);
@@ -90,6 +116,7 @@ bool sensorsInit()
     );
 
     return true;
+
   } else {
     return false;
   }

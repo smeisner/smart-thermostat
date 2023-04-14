@@ -38,6 +38,9 @@ void audioStartupBeep();
 void audioBeep();
 void indicatorsInit();
 
+// SNTP Time Sync
+void initTimeSntp();
+void updateTimeSntp();
 
 // Shared data structures
 
@@ -80,6 +83,8 @@ extern WIFI_CREDS WifiCreds;
 
 #define MOTION_TIMEOUT 5000
 #define WIFI_CONNECT_INTERVAL 3000
+//#define UPDATE_TIME_INTERVAL 14400000   // Every 4 hours: 4 * 60 * 60 * 1000(ms)
+#define UPDATE_TIME_INTERVAL 60000   // Every 60 seconds
 
 //
 // Define all the GPIO pins used

@@ -5,6 +5,7 @@ OPERATING_PARAMETERS OperatingParameters;
 
 int32_t lcdTimestamp = millis() - 18000;
 extern int32_t lastMotionDetected;
+extern int32_t lastTimeUpdate;
 
 void stateMachine(void * parameter)
 {
@@ -117,6 +118,12 @@ void stateMachine(void * parameter)
         //digitalWrite(HVAC_COOL_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
+    }
+
+    if (millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL)
+    {
+      lastTimeUpdate = millis();
+      updateTimeSntp();
     }
 
     // Provide time for the web server
