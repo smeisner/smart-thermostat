@@ -11,7 +11,7 @@ Main features are:
     * the temperature set should be dependent upon local forecast
     * If the outside temp is close to the set thermostat temp, suggest opening a window
     * Detect if a window or door is open and disable the heat/AC
-* Use Matter protocol (thermostat V2)
+* Use Matter protocol over wifi (thermostat V2)
 * Provide local web site to control/configure thermostat
 * Allow ssh login
 * Provide diagnostic logging (rsyslog as well?)
