@@ -88,13 +88,15 @@ void tftWakeDisplay()
 void tftDimDisplay()
 {
   if (tftTouchTimerEnabled)
+  {
     tft.setBrightness(END_BRIGHTNESS);
 
-  lv_obj_add_flag(ui_ModeDropdown, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_add_flag(ui_Panel1, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_add_flag(ui_Panel2, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_add_flag(ui_SetupBtn, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_add_flag(ui_Arc2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_ModeDropdown, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_Panel1, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_Panel2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_SetupBtn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_Arc2, LV_OBJ_FLAG_HIDDEN);
+  }
 }
 
 #ifdef __cplusplus
@@ -263,7 +265,7 @@ void tftPump()
 
   tftUpdateDisplay();
 
-  if (millis() - lastTouchDetected > 10000)
+  if (millis() - lastTouchDetected > 30000)
     tftDimDisplay();
 
   delay(5);

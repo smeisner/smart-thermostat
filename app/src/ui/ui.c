@@ -94,6 +94,7 @@ void ui_event_ModeDropdown(lv_event_t * e)
         tftHvacModeChange(e);
     }
     if(event_code == LV_EVENT_CLICKED) {
+        tftAwaken(e);
         tftStopTouchTimer(e);
     }
 }
