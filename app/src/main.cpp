@@ -7,7 +7,8 @@ void setup(void)
   // Load configuration from EEPROM
   eepromInit();
   // Start wifi
-  wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
+  OperatingParameters.wifiConnected = 
+    wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
   // Initialize indicators (relays, LEDs, buzzer)
   indicatorsInit();
   // Play the startup sound
@@ -19,7 +20,7 @@ void setup(void)
   // Initialize the TFT display
   tftInit();
   // Show the splash screen
-  displaySplash();
+//  displaySplash();
   // Do a quick test of the relays
   testToggleRelays();
   // Create the RTOS task to drive the touchscreen
@@ -28,7 +29,11 @@ void setup(void)
   stateCreateTask();
 }
 
+extern void tftPump();
+
 void loop(void)
 {
   // Nothing to do here since everything is done via RTOS tasks & interrupts
+
+  tftPump();
 }

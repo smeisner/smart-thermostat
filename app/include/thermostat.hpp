@@ -1,48 +1,11 @@
 #pragma once
 
+#include <Arduino.h>
 #include <driver/rtc_io.h>
 
-// State Machine
-void stateCreateTask();
-void serialStart();
-
-// EEPROM
-void eepromInit();
-void clearNVS();
-bool eepromUpdateHvacSetTemp();
-bool eepromUpdateHvacSetMode();
-
-// HTTP Server
-void webInit();
-void webPump();
-
-// Routine to control wifi
-bool wifiStart(const char *hostname, const char *ssid, const char *pass);
-bool wifiConnected();
-bool wifiReconnect();
-uint16_t wifiSignal();
-
-// TFT
-void tftInit();
-void tftCreateTask();
-void displaySplash();
-void displayStartDemo();
-void displayDimDemo(int32_t timeDelta, bool abort);
-
-// Sensors
-bool sensorsInit();
-void testToggleRelays();
-
-// Indicators
-void audioStartupBeep();
-void audioBeep();
-void indicatorsInit();
-
-// SNTP Time Sync
-void initTimeSntp();
-void updateTimeSntp();
-
-// Shared data structures
+/////////////////////////////////////////////////////////////////////
+//     Shared data structures
+/////////////////////////////////////////////////////////////////////
 
 typedef enum
 {
@@ -69,6 +32,8 @@ typedef struct
     float tempCorrection;
     int lightDetected;
     bool motionDetected;
+    bool wifiConnected;
+    
 } OPERATING_PARAMETERS;
 
 typedef struct
@@ -85,6 +50,67 @@ extern WIFI_CREDS WifiCreds;
 #define WIFI_CONNECT_INTERVAL 3000
 //#define UPDATE_TIME_INTERVAL 14400000   // Every 4 hours: 4 * 60 * 60 * 1000(ms)
 #define UPDATE_TIME_INTERVAL 60000   // Every 60 seconds
+
+
+/////////////////////////////////////////////////////////////////////
+//          Forward Declarations
+/////////////////////////////////////////////////////////////////////
+
+// State Machine
+void stateCreateTask();
+void serialStart();
+
+// EEPROM
+void eepromInit();
+void clearNVS();
+bool eepromUpdateHvacSetTemp();
+bool eepromUpdateHvacSetMode();
+
+// HTTP Server
+void webInit();
+void webPump();
+const char *hvacModeToString(HVAC_MODE mode);
+
+// Routine to control wifi
+bool wifiStart(const char *hostname, const char *ssid, const char *pass);
+bool wifiConnected();
+bool wifiReconnect(const char *hostname, const char *ssid, const char *pass);
+uint16_t wifiSignal();
+
+// TFT
+void tftInit();
+void tftCreateTask();
+// void displaySplash();
+// void displayStartDemo();
+// void displayDimDemo(int32_t timeDelta, bool abort);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void tftDisableTouchTimer();
+void tftEnableTouchTimer();
+void tftUpdateTouchTimestamp();
+void tftWakeDisplay();
+void tftDimDisplay();
+
+#ifdef __cplusplus
+} /*extern "C"*/
+#endif
+
+// Sensors
+bool sensorsInit();
+void testToggleRelays();
+int getTemp();
+int getHumidity();
+
+// Indicators
+void audioStartupBeep();
+void audioBeep();
+void indicatorsInit();
+
+// SNTP Time Sync
+void initTimeSntp();
+void updateTimeSntp();
 
 //
 // Define all the GPIO pins used
@@ -144,5 +170,6 @@ extern WIFI_CREDS WifiCreds;
 #define LED_COOL_PIN 26
 #define TFT_DC_PIN 27
 //#define LED_IDLE_PIN -1
+#define LED_IDLE_PIN 2
 
 #endif

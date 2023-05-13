@@ -1,11 +1,12 @@
 #include "thermostat.hpp"
-#include "tft.hpp"
+//#include "tft.hpp"
 
 OPERATING_PARAMETERS OperatingParameters;
 
 int32_t lcdTimestamp = millis() - 18000;
 extern int32_t lastMotionDetected;
 extern int32_t lastTimeUpdate;
+int32_t lastWifiReconnect = 0;
 
 void stateMachine(void * parameter)
 {
@@ -37,6 +38,7 @@ void stateMachine(void * parameter)
       //digitalWrite(HVAC_FAN_PIN, LOW);
       digitalWrite(LED_COOL_PIN, LOW);
       digitalWrite(LED_HEAT_PIN, LOW);
+      digitalWrite(LED_IDLE_PIN, LOW);
     }
     else if (OperatingParameters.hvacSetMode == FAN)
     {
@@ -46,6 +48,7 @@ void stateMachine(void * parameter)
       //digitalWrite(HVAC_FAN_PIN, HIGH);
       digitalWrite(LED_COOL_PIN, LOW);
       digitalWrite(LED_HEAT_PIN, LOW);
+      digitalWrite(LED_IDLE_PIN, LOW);
     }
     else if (OperatingParameters.hvacSetMode == HEAT)
     {
@@ -53,12 +56,14 @@ void stateMachine(void * parameter)
       {
         //digitalWrite(HVAC_COOL_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, LOW);
       }
       if (currentTemp < minTemp)
       {
         OperatingParameters.hvacOpMode = HEAT;
         //digitalWrite(HVAC_HEAT_PIN, HIGH);
         digitalWrite(LED_HEAT_PIN, HIGH);
+        digitalWrite(LED_IDLE_PIN, LOW);
       }
       else
       {
@@ -71,16 +76,19 @@ void stateMachine(void * parameter)
       {
         //digitalWrite(HVAC_HEAT_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, LOW);
       }
       if (currentTemp > maxTemp)
       {
         OperatingParameters.hvacOpMode = COOL;
         //digitalWrite(HVAC_COOL_PIN, HIGH);
         digitalWrite(LED_COOL_PIN, HIGH);
+        digitalWrite(LED_IDLE_PIN, LOW);
       }
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
+        digitalWrite(LED_IDLE_PIN, HIGH);
       }
     }
     else if (OperatingParameters.hvacSetMode == AUTO)
@@ -92,6 +100,7 @@ void stateMachine(void * parameter)
         digitalWrite(LED_HEAT_PIN, HIGH);
         //digitalWrite(HVAC_COOL_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, LOW);
       }
       else if (currentTemp > autoMaxTemp)
       {
@@ -100,6 +109,7 @@ void stateMachine(void * parameter)
         digitalWrite(LED_COOL_PIN, HIGH);
         //digitalWrite(HVAC_HEAT_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, LOW);
       }
       else
       {
@@ -108,6 +118,7 @@ void stateMachine(void * parameter)
         //digitalWrite(HVAC_HEAT_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, HIGH);
       }
     }
 
@@ -118,6 +129,7 @@ void stateMachine(void * parameter)
         //digitalWrite(HVAC_COOL_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, HIGH);
     }
 
     if (millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL)
@@ -130,12 +142,27 @@ void stateMachine(void * parameter)
     webPump();
 
     // Check wifi
-    if (!wifiConnected()) wifiReconnect();
+    if (!wifiConnected()) 
+    {
+      if (millis() > lastWifiReconnect + 15000)
+      {
+        if (wifiReconnect(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password))
+        {
+          lastWifiReconnect = 0;
+          OperatingParameters.wifiConnected = true;
+        }
+        else
+        {
+          lastWifiReconnect = millis();
+          OperatingParameters.wifiConnected = false;
+        }
+      }
+    }
 
 //    if (OperatingParameters.motionDetected)
     if (lastMotionDetected > 0)
     {
-      if (millis() - lastMotionDetected > MOTION_TIMEOUT)
+      if (millis() > lastMotionDetected + MOTION_TIMEOUT)
       {
         digitalWrite(LED_BUILTIN, LOW);
         lastMotionDetected = 0;
@@ -146,12 +173,12 @@ void stateMachine(void * parameter)
     if (millis() > lcdTimestamp + 20000)
     {
       Serial.println("Restore display");
-      displayStartDemo();
+      //displayStartDemo();
       lcdTimestamp = millis();
     }
     else
     {
-      displayDimDemo(millis() - lcdTimestamp, false);
+      //displayDimDemo(millis() - lcdTimestamp, false);
     }
 
     // Pause the task again for 40ms

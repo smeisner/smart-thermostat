@@ -21,12 +21,19 @@ void audioStartupBeep()
   ledcWriteTone(channel, 0);
 }
 
+// Use lastBeep to rate limit the beeping
+unsigned long lastBeep = 0;
+
 void audioBeep()
 {
-  ledcWriteTone(channel, 4000);
-  ledcWrite(channel, 125);
-  delay(125);
-  ledcWriteTone(channel, 0);
+  if (millis() - lastBeep > 125)  // 1/8 of a sec
+  {
+    ledcWriteTone(channel, 4000);
+    ledcWrite(channel, 125);
+    delay(125);
+    ledcWriteTone(channel, 0);
+    lastBeep = millis();
+  }
 }
 
 
@@ -36,7 +43,7 @@ void indicatorsInit()
 
   pinMode(LED_HEAT_PIN, OUTPUT);
   pinMode(LED_COOL_PIN, OUTPUT);
-  // pinMode(LED_IDLE_PIN, OUTPUT);
+  pinMode(LED_IDLE_PIN, OUTPUT);
 
   digitalWrite(LED_COOL_PIN, LOW);
   digitalWrite(LED_HEAT_PIN, LOW);
@@ -49,9 +56,9 @@ void indicatorsInit()
   delay(750);
   digitalWrite(LED_HEAT_PIN, LOW);
 
-  // digitalWrite(LED_IDLE_PIN, HIGH);
-  // delay(1000);
-  // digitalWrite(LED_IDLE_PIN, LOW);
+  digitalWrite(LED_IDLE_PIN, HIGH);
+  delay(1000);
+  digitalWrite(LED_IDLE_PIN, LOW);
 
   audioBuzzerInit();
 }

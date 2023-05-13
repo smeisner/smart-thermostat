@@ -1,5 +1,10 @@
 #pragma once
 
+#include "ui/ui.h"
+
+#undef LGFX_USE_V0
+#define LGFX_USE_V1
+
 #include <LovyanGFX.hpp>
 
 // Setting example when using LovyanGFX with original settings on ESP32
@@ -22,47 +27,15 @@ class LGFX : public lgfx::LGFX_Device
 
 
 // Prepare an instance that matches the type of panel to be connected.
-//lgfx::Panel_GC9A01      _panel_instance;
-//lgfx::Panel_GDEW0154M09 _panel_instance;
-//lgfx::Panel_HX8357B     _panel_instance;
-//lgfx::Panel_HX8357D     _panel_instance;
-//lgfx::Panel_ILI9163     _panel_instance;
   lgfx::Panel_ILI9341     _panel_instance;
-//lgfx::Panel_ILI9342     _panel_instance;
-//lgfx::Panel_ILI9481     _panel_instance;
-//lgfx::Panel_ILI9486     _panel_instance;
-//lgfx::Panel_ILI9488     _panel_instance;
-//lgfx::Panel_IT8951      _panel_instance;
-//lgfx::Panel_RA8875      _panel_instance;
-//lgfx::Panel_SH110x      _panel_instance; // SH1106, SH1107
-//lgfx::Panel_SSD1306     _panel_instance;
-//lgfx::Panel_SSD1327     _panel_instance;
-//lgfx::Panel_SSD1331     _panel_instance;
-//lgfx::Panel_SSD1351     _panel_instance; // SSD1351, SSD1357
-//lgfx::Panel_SSD1963     _panel_instance;
-//lgfx::Panel_ST7735      _panel_instance;
-//lgfx::Panel_ST7735S     _panel_instance;
-//lgfx::Panel_ST7789      _panel_instance;
-//lgfx::Panel_ST7796      _panel_instance;
-
 
 // Prepare an instance that matches the type of bus that connects the panels.
   lgfx::Bus_SPI        _bus_instance;   // SPI bus instance
-//lgfx::Bus_I2C        _bus_instance;   // I2C bus instance
-//lgfx::Bus_Parallel8  _bus_instance;   // 8-bit parallel bus instance
 
 // Prepare an instance if backlight control is possible. (remove if not needed)
   lgfx::Light_PWM     _light_instance;
 
 // Prepare an instance that matches the type of touch screen. (remove if not needed)
-//lgfx::Touch_FT5x06           _touch_instance; // FT5206, FT5306, FT5406, FT6206, FT6236, FT6336, FT6436
-//lgfx::Touch_GSL1680E_800x480 _touch_instance; // GSL_1680E, 1688E, 2681B, 2682B
-//lgfx::Touch_GSL1680F_800x480 _touch_instance;
-//lgfx::Touch_GSL1680F_480x272 _touch_instance;
-//lgfx::Touch_GSLx680_320x320  _touch_instance;
-//lgfx::Touch_GT911            _touch_instance;
-//lgfx::Touch_STMPE610         _touch_instance;
-//lgfx::Touch_TT21xxx          _touch_instance; // TT21100
   lgfx::Touch_XPT2046          _touch_instance;
 
 public:
@@ -74,7 +47,7 @@ public:
     { // Configure bus control settings.
       auto cfg = _bus_instance.config();    // Get a structure for bus settings.
 
-// SPI bus settings
+      // SPI bus settings
       cfg.spi_host = VSPI_HOST;     // Select SPI to use ESP32-S2,C3 : SPI2_HOST or SPI3_HOST / ESP32 : VSPI_HOST or HSPI_HOST
       // * With the ESP-IDF version upgrade, the description of VSPI_HOST and HSPI_HOST will be deprecated, so if an error occurs, use SPI2_HOST and SPI3_HOST instead.
       cfg.spi_mode = 0;             // Set SPI communication mode (0 ~ 3)
@@ -93,32 +66,6 @@ public:
       // cfg.pin_dc   = 27;            // Set SPI D/C pin number (-1 = disable)
       cfg.pin_dc   = TFT_DC_PIN;            // Set SPI D/C pin number (-1 = disable)
      // When using the same SPI bus as the SD card, be sure to set MISO without omitting it.
-//*/
-/*
-// I2Cバスの設定
-      cfg.i2c_port    = 0;          // 使用するI2Cポートを選択 (0 or 1)
-      cfg.freq_write  = 400000;     // 送信時のクロック
-      cfg.freq_read   = 400000;     // 受信時のクロック
-      cfg.pin_sda     = 21;         // SDAを接続しているピン番号
-      cfg.pin_scl     = 22;         // SCLを接続しているピン番号
-      cfg.i2c_addr    = 0x3C;       // I2Cデバイスのアドレス
-//*/
-/*
-// 8ビットパラレルバスの設定
-      cfg.i2s_port = I2S_NUM_0;     // 使用するI2Sポートを選択 (I2S_NUM_0 or I2S_NUM_1) (ESP32のI2S LCDモードを使用します)
-      cfg.freq_write = 20000000;    // 送信クロック (最大20MHz, 80MHzを整数で割った値に丸められます)
-      cfg.pin_wr =  4;              // WR を接続しているピン番号
-      cfg.pin_rd =  2;              // RD を接続しているピン番号
-      cfg.pin_rs = 15;              // RS(D/C)を接続しているピン番号
-      cfg.pin_d0 = 12;              // D0を接続しているピン番号
-      cfg.pin_d1 = 13;              // D1を接続しているピン番号
-      cfg.pin_d2 = 26;              // D2を接続しているピン番号
-      cfg.pin_d3 = 25;              // D3を接続しているピン番号
-      cfg.pin_d4 = 17;              // D4を接続しているピン番号
-      cfg.pin_d5 = 16;              // D5を接続しているピン番号
-      cfg.pin_d6 = 27;              // D6を接続しているピン番号
-      cfg.pin_d7 = 14;              // D7を接続しているピン番号
-//*/
 
       _bus_instance.config(cfg);    // Reflects the set value on the bus
       _panel_instance.setBus(&_bus_instance);      // set the bus on the panel
@@ -146,14 +93,9 @@ public:
       cfg.dlen_16bit       = false;  // Set to true for panels that transmit data length in 16-bit units with 16-bit parallel or SPI
       cfg.bus_shared       =  true;  // If the bus is shared with the SD card, set to true (bus control with drawJpgFile etc.)
 
-// The following should be set only when the display is shifted by a variable driver, such as ST7735 or ILI9163.
-//    cfg.memory_width     =   240;  // The maximum width supported by the driver IC
-//    cfg.memory_height    =   320;  // The maximum height supported by the driver IC
-
       _panel_instance.config(cfg);
     }
 
-//*
     { // Set backlight control. (Delete if not necessary)
       auto cfg = _light_instance.config();    // Get a structure for backlight settings
 
@@ -165,9 +107,7 @@ public:
       _light_instance.config(cfg);
       _panel_instance.setLight(&_light_instance);  // Set the backlight on the panel
     }
-//*/
 
-//*
     { // Set the touch screen control. (Delete if not necessary)
       auto cfg = _touch_instance.config();
 
@@ -179,7 +119,7 @@ public:
       cfg.bus_shared = true; // Set to true when using a common bus with the screen
       cfg.offset_rotation = 0;// Adjustment when the display and touch direction do not match Set with a value of 0 to 7
 
-// In the case of SPI connection
+      // In the case of SPI connection
       cfg.spi_host = VSPI_HOST;// Select the SPI to use (HSPI_HOST or VSPI_HOST)
       cfg.freq = 1000000;      // Set the SPI clock
       cfg.pin_sclk = TFT_CLK_PIN;     // Pin number connected to SCLK
@@ -187,18 +127,48 @@ public:
       cfg.pin_miso = TFT_MISO_PIN;    // Pin number connected to MISO
       cfg.pin_cs   = TOUCH_CS_PIN;    // Pin number connected to CS
 
-// In the case of I2C connection
-    //   cfg.i2c_port = 1;      // Select the I2C to use (0 or 1)
-    //   cfg.i2c_addr = 0x38;   // I2C device address number
-    //   cfg.pin_sda  = 25;     // Pin number connected to SDA
-    //   cfg.pin_scl  = 32;     // Pin number connected to SCL
-    //   cfg.freq = 400000;     // Set the I2C clock
-
       _touch_instance.config(cfg);
       _panel_instance.setTouch(&_touch_instance);  // Set the touch screen on the panel
     }
-//*/
 
     setPanel(&_panel_instance); // Set the panel to be used
   }
 };
+
+
+#include <lvgl.h>
+
+LGFX tft;
+
+#define screenWidth 320
+#define screenHeight 240
+
+static lv_disp_draw_buf_t draw_buf;
+static lv_color_t buf[screenWidth * 10];
+
+void my_disp_flush(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
+{
+  uint32_t w = (area->x2 - area->x1 + 1);
+  uint32_t h = (area->y2 - area->y1 + 1);
+  tft.startWrite();
+  tft.setAddrWindow(area->x1, area->y1, w, h);
+  tft.writePixels((lgfx::rgb565_t *)&color_p->full, w * h);
+  tft.endWrite();
+  lv_disp_flush_ready(disp);
+}
+
+void my_touch_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
+{
+  uint16_t touchX, touchY;
+  bool touched = tft.getTouch(&touchX, &touchY);
+  if (!touched)
+  {
+    data->state = LV_INDEV_STATE_REL;
+  } else {
+    data->state = LV_INDEV_STATE_PR;
+    data->point.x = touchX;
+    data->point.y = touchY;
+
+//    Serial.printf ("Touch X: %d  Y: %d\n", touchX, touchY);
+  }
+}

@@ -56,7 +56,7 @@ body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Col
 <br>Light:       %d\
 <br>Motion:      %s</p></pre>\
 <form action='/upload'><input type='submit' value='FW Update' /></form>\
-<button onclick=\"window.location.href = '/resetFirmware';\">RESET Config</button>&nbsp\
+<button onclick=\"window.location.href = '/clearFirmware';\">CLEAR Config</button>&nbsp\
 <p></p>Set Temp: <button onclick=\"window.location.href = '/tempDown';\">TEMP &laquo;</button>&nbsp\
 <button onclick=\"window.location.href = '/tempUp';\">TEMP &raquo;</button>\
 <p></p>\
@@ -89,7 +89,7 @@ void webInit()
     server.on("/tempUp", tempUp);
     server.on("/tempDown", tempDown);
 
-    server.on("/resetFirmware", HTTP_GET, []() {
+    server.on("/clearFirmware", HTTP_GET, []() {
         clearNVS();
         server.send(200, "text/html", serverRedirect);
     });

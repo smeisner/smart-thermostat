@@ -6,6 +6,10 @@
 Preferences wifiCreds;
 Preferences thermostat;
 
+//@@@
+//Timezone info, such as "America/New York"
+//Zipcode, for outdoor temp & weather
+
 void clearNVS()
 {
   nvs_flash_erase(); // erase the NVS partition and...

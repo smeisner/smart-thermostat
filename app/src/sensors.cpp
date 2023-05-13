@@ -1,6 +1,7 @@
 #include "thermostat.hpp"
 #include <Adafruit_AHTX0.h>
 #include <Smoothed.h>
+#include <timezonedb_lookup.h>
 
 Smoothed <float> sensorTemp;
 Smoothed <float> sensorHumidity;
@@ -45,6 +46,18 @@ void readAht()
     sensorTemp.get(), temp_f, temp.temperature, sensorHumidity.get(), humidity.relative_humidity);
 }
 
+int getTemp()
+{
+  if (OperatingParameters.tempUnits == 'F')
+    return (int)((sensorTemp.get() * 9.0/5.0) + 32.0 + 0.5) + OperatingParameters.tempCorrection;
+  else
+    return (int)(sensorTemp.get() + 0.5) + OperatingParameters.tempCorrection;
+}
+int getHumidity()
+{
+  return (int)(sensorHumidity.get() + 0.5);
+}
+
 void updateAht(void * parameter)
 {
   for(;;) // infinite loop
@@ -67,10 +80,14 @@ void IRAM_ATTR MotionDetect_ISR()
   }
 }
 
-const char* ntpServer = "time.google.com";
+//const char* ntpServer = "time.google.com";
+const char* ntpServer = "pool.ntp.org";
+//const char* timezone = "Africa/Luanda";
+const char* timezone = "America/New York";
 
 void updateTimeSntp()
 {
+  struct tm time;
   char buffer[16];
    
   if (!getLocalTime(&time))
@@ -87,7 +104,20 @@ void updateTimeSntp()
 void initTimeSntp()
 {
   Serial.printf ("Time server: %s\n", ntpServer);
-  configTime(-5*60*60, 3600, ntpServer);
+
+  configTime(0, 0, ntpServer);
+
+  auto tz = lookup_posix_timezone_tz(timezone);
+  if (tz)
+  {
+    setenv("TZ", tz, 1);
+  }
+  else
+  {
+    Serial.printf ("Invalid Timezone: %s\n", timezone);
+  }
+  tzset();
+
   updateTimeSntp();
 }
 

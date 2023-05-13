@@ -47,15 +47,23 @@ bool wifiConnected() { return (WiFi.status() == WL_CONNECTED); }
 
 int32_t lastWifiMillis = 0;
 
-bool wifiReconnect()
+bool wifiReconnect(const char *hostname, const char *ssid, const char *pass)
 {
   if ((WiFi.status() != WL_CONNECTED) && (millis() - lastWifiMillis >= WIFI_CONNECT_INTERVAL))
   {
-    Serial.printf ("Reconnecting wifi...");
-    WiFi.disconnect(true);
+    Serial.printf ("Reconnecting wifi - ");
+    WiFi.disconnect(true, true);
+    delay(500);
+
+#if 1
+    return (wifiStart(hostname, ssid, pass));
+#else
+    WiFi.mode(WIFI_MODE_NULL);
+    WiFi.setHostname(hostname);
     WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-    WiFi.setHostname(WifiCreds.hostname);
-    WiFi.begin();
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, pass);
+
     lastWifiMillis = millis();
 
     vTaskDelay(200 / portTICK_PERIOD_MS);
@@ -67,9 +75,11 @@ bool wifiReconnect()
       return true;
     } else {
       Serial.printf ("Failed\n");
+      return false;
     }
+#endif
   }
-  return false;
+  return true;
 }
 
 uint16_t rssiToPercent(int rssi_i)

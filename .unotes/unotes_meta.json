@@ -1,0 +1,71 @@
+{
+  "name": "",
+  "isOrdered": true,
+  "folders": {
+    "datasheets": {
+      "name": "datasheets",
+      "isOrdered": true,
+      "folders": {},
+      "files": {}
+    },
+    "pcb": {
+      "name": "pcb",
+      "isOrdered": true,
+      "folders": {},
+      "files": {}
+    },
+    "source": {
+      "name": "source",
+      "isOrdered": true,
+      "folders": {
+        "SmartThermostat": {
+          "name": "SmartThermostat",
+          "isOrdered": true,
+          "folders": {
+            "include": {
+              "name": "include",
+              "isOrdered": true,
+              "folders": {},
+              "files": {}
+            },
+            "lib": {
+              "name": "lib",
+              "isOrdered": true,
+              "folders": {},
+              "files": {}
+            },
+            "src": {
+              "name": "src",
+              "isOrdered": true,
+              "folders": {},
+              "files": {}
+            },
+            "test": {
+              "name": "test",
+              "isOrdered": true,
+              "folders": {},
+              "files": {}
+            }
+          },
+          "files": {}
+        },
+        "app": {
+          "name": "app",
+          "isOrdered": true,
+          "folders": {},
+          "files": {}
+        },
+        "switch_test": {
+          "name": "switch_test",
+          "isOrdered": true,
+          "folders": {},
+          "files": {}
+        }
+      },
+      "files": {}
+    }
+  },
+  "files": {
+    "README": 0
+  }
+}
