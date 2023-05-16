@@ -19,6 +19,7 @@ const char *hvacModeToString(HVAC_MODE mode)
         case HEAT: return "Heat";
         case COOL: return "Cool";
         case FAN:  return "Fan";
+        case AUX_HEAT: return "Aux Heat";
         default:   return "Error";
     }
 }

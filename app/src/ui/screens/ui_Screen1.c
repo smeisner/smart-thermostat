@@ -66,7 +66,7 @@ void ui_Screen1_screen_init(void)
     lv_obj_set_style_text_font(ui_Humidity, &lv_font_montserrat_24, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_ModeDropdown = lv_dropdown_create(ui_Screen1);
-    lv_dropdown_set_options(ui_ModeDropdown, "Off\nIdle\nAuto\nHeat\nCool\nFan");
+    lv_dropdown_set_options(ui_ModeDropdown, "Off\nAuto\nHeat\nCool\nFan\nAux Heat");
     lv_obj_set_width(ui_ModeDropdown, 99);
     lv_obj_set_height(ui_ModeDropdown, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_ModeDropdown, 109);

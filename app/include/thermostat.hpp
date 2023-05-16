@@ -10,12 +10,13 @@
 typedef enum
 {
     OFF = 0,
-    IDLE,
     AUTO,
     HEAT,
     COOL,
     FAN,
-    ERROR
+    AUX_HEAT,
+    ERROR,
+    IDLE
 } HVAC_MODE;
 
 typedef struct

@@ -170,8 +170,14 @@ Cal data:
   ui_init();
 
   // Build up HVAC mode dropdown from enum list
-//  for (int n=0; n != ERROR; n++)
-//    lv_dropdown_set_options(ui_ModeDropdown, hvacModeToString((HVAC_MODE)(n)));
+  static char thermostatModes[48] = {0};
+  for (int n=OFF; n != ERROR; n++)
+  {
+    strcat (thermostatModes, hvacModeToString((HVAC_MODE)(n)));
+    strcat (thermostatModes, "\n");
+  }
+  thermostatModes[strlen(thermostatModes)-1] = '\0';
+  lv_dropdown_set_options(ui_ModeDropdown, thermostatModes);
 
   lv_arc_set_value(ui_Arc2, (int)(OperatingParameters.tempSet + 0.5));
 
