@@ -46,11 +46,14 @@ typedef struct
 
 extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
+extern int32_t ui_WifiStatusLabel_timestamp;
+
 
 #define MOTION_TIMEOUT 5000
 #define WIFI_CONNECT_INTERVAL 3000
 //#define UPDATE_TIME_INTERVAL 14400000   // Every 4 hours: 4 * 60 * 60 * 1000(ms)
 #define UPDATE_TIME_INTERVAL 60000   // Every 60 seconds
+#define UI_TEXT_DELAY 3000
 
 
 /////////////////////////////////////////////////////////////////////
@@ -75,15 +78,21 @@ const char *hvacModeToString(HVAC_MODE mode);
 // Routine to control wifi
 bool wifiStart(const char *hostname, const char *ssid, const char *pass);
 bool wifiConnected();
+void WifiDisconnect();
 bool wifiReconnect(const char *hostname, const char *ssid, const char *pass);
 uint16_t wifiSignal();
+char *wifiAddress();
+char *Get_WiFiSSID_DD_List( void );
+void WiFi_ScanSSID( void );
 
 // TFT
 void tftInit();
 void tftCreateTask();
+void tftPump();
 // void displaySplash();
 // void displayStartDemo();
 // void displayDimDemo(int32_t timeDelta, bool abort);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -106,8 +115,8 @@ int getHumidity();
 
 // Indicators
 void audioStartupBeep();
-void audioBeep();
 void indicatorsInit();
+void audioBeep();
 
 // SNTP Time Sync
 void initTimeSntp();
