@@ -70,7 +70,7 @@ HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</butto
 </body></html>",
         hvacModeToString(OperatingParameters.hvacOpMode), hvacModeToString(OperatingParameters.hvacSetMode),
         OperatingParameters.tempCurrent + OperatingParameters.tempCorrection, OperatingParameters.humidCurrent,
-        wifiSignal(), WiFi.localIP().toString(),
+        wifiSignal(), wifiAddress(),
         OperatingParameters.tempUnits, OperatingParameters.tempSwing,
         OperatingParameters.tempSet, OperatingParameters.tempCorrection,
         OperatingParameters.lightDetected, (OperatingParameters.motionDetected == true) ? "True" : "False",

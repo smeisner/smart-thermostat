@@ -75,15 +75,16 @@ void tftUpdateTouchTimestamp()
 }
 void tftWakeDisplay()
 {
+  audioBeep();
   lv_obj_clear_flag(ui_ModeDropdown, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_clear_flag(ui_Panel1, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_clear_flag(ui_Panel2, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(ui_TempDecreaseBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(ui_TempIncreaseBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(ui_InfoBtn, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_SetupBtn, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_clear_flag(ui_Arc2, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(ui_TempArc, LV_OBJ_FLAG_HIDDEN);
   tft.setBrightness(START_BRIGHTNESS);
   tftEnableTouchTimer();
   tftUpdateTouchTimestamp();
-  audioBeep();
 }
 void tftDimDisplay()
 {
@@ -92,10 +93,11 @@ void tftDimDisplay()
     tft.setBrightness(END_BRIGHTNESS);
 
     lv_obj_add_flag(ui_ModeDropdown, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_Panel1, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_Panel2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_TempDecreaseBtn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_TempIncreaseBtn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_InfoBtn, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_SetupBtn, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_Arc2, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_TempArc, LV_OBJ_FLAG_HIDDEN);
   }
 }
 
@@ -110,13 +112,18 @@ void tftUpdateDisplay()
 
   getLocalTime(&time);
   strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
-  lv_label_set_text(ui_Time, buffer);
+  lv_label_set_text(ui_TimeLabel, buffer);
 
-  lv_label_set_text_fmt(ui_Temp, "%d°", getTemp());
-  lv_label_set_text_fmt(ui_Humidity, "%d%%", getHumidity());
+  lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());
+  lv_label_set_text_fmt(ui_HumidityLabel, "%d%%", getHumidity());
   lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)(OperatingParameters.tempSet + 0.5));
 
   lv_dropdown_set_selected(ui_ModeDropdown, OperatingParameters.hvacSetMode);
+
+  if (wifiConnected())
+    lv_label_set_text(ui_WifiIndicatorLabel, "#0000A0 " LV_SYMBOL_WIFI);
+  else
+    lv_label_set_text(ui_WifiIndicatorLabel, "#808080 " LV_SYMBOL_WIFI);
 }
 
 
@@ -173,13 +180,14 @@ Cal data:
   static char thermostatModes[48] = {0};
   for (int n=OFF; n != ERROR; n++)
   {
+    if (n != OFF)
+      strcat (thermostatModes, "\n");
     strcat (thermostatModes, hvacModeToString((HVAC_MODE)(n)));
-    strcat (thermostatModes, "\n");
   }
-  thermostatModes[strlen(thermostatModes)-1] = '\0';
+//  thermostatModes[strlen(thermostatModes)-1] = '\0';
   lv_dropdown_set_options(ui_ModeDropdown, thermostatModes);
 
-  lv_arc_set_value(ui_Arc2, (int)(OperatingParameters.tempSet + 0.5));
+  lv_arc_set_value(ui_TempArc, (int)(OperatingParameters.tempSet + 0.5));
 
   tftWakeDisplay();
   tftUpdateDisplay();
@@ -264,6 +272,7 @@ void displayDimDemo(int32_t timeDelta, bool abort)
 
 }
 
+int32_t ui_WifiStatusLabel_timestamp = 0;
 
 void tftPump()
 {
@@ -273,6 +282,12 @@ void tftPump()
 
   if (millis() - lastTouchDetected > 30000)
     tftDimDisplay();
+
+  if ((ui_WifiStatusLabel_timestamp > 0) && (millis() - ui_WifiStatusLabel_timestamp > UI_TEXT_DELAY))
+  {
+    lv_label_set_text(ui_WifiStatusLabel, "");
+    ui_WifiStatusLabel_timestamp = 0;
+  }
 
   delay(5);
 }
