@@ -24,49 +24,106 @@ Basic layout of thermostat:
 
 <img src="./Block%20Diagram.drawio.png">
 
+# May 2023 update - V0.2
+
+Great progress! The processor has been selected, the ESP-32 and the user interface is (albeit crude) created! To generate the user interface elements and menuing system, [SquareLine Studio](https://squareline.io/) was used. This integrates with the graphics library used; [LVGL](https://lvgl.io/).
+
 ## Operating environment
 
-FreeRTOS will be the OS. Events will be driven by timers and interrupts (see list below under Specs...). A state machine will make up the primary task that runs on a continuous, low-priority loop. All events will have higher priorities.
+FreeRTOS will be the OS. Tasks are created to drive the user interface, the statemachine, the web server and reading of the sensors. The state machine will make up the primary task that runs on a continuous, low-priority loop. The user interface task, which drives the TFT is the highest priority. All other tasks will have higher priorities.
 
-There is a concern around capabilites to run the thermostat code with wifi, ssh, web server, Thread / Zigbee, etc. and all required libraries. Will there be enough space for the code and processing power to successfully run everything?
+The code is currently exceeding the usual partitioning table, so the large_app partition scheme was used. OTA update has not been tried sicne switching to this partition scheme, but it may now be broken. Later with an ESP32 chip with a larger FLASH should be able to handle the code and perform OTA updates.
 
 ## MCU
 
-The processor will be either one or more microcontrollers (ESP32) or a SBC (RPi CM4). The CM4 will provide a full Linux implementation allowing for ssh, web site, dev environment, package management, etc. but will have higher power requirements. The microcontroller will be more limited when it comes to implementing funtionalty and developing locally on the t-stat.
+The processor of choice is the ESP32 with 4MB FLASH.
 
-* [ ] Raspberry Pi Zero W 2
-* [ ] Raspberry Pi CM4
-* [x] ESP32
-* [ ] Other
+The coice to use an Espressif MCU was made since it is cheaper, smaller and more simple to integrate into the circuit. It also provides enough GPIO pins to control everything.
 
-The coice to use an Espressif MCU was made since it is cheaper, smaller and more simple to integrate into the circuit. It also provides many GPIO pins to control everything.
+Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB. Alternatively, wifi plus Matter could be used and skip Zigbee and Thread. This is still under investigation.
 
-Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB.
+Currently, build output shows:
+
+Processing esp32dev (platform: espressif32; board: esp32dev; framework: arduino)
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32dev.html
+PLATFORM: Espressif 32 (6.3.0) > Espressif ESP32 Dev Module
+HARDWARE: ESP32 240MHz, 320KB RAM, 4MB Flash
+DEBUG: Current (esp-prog) External (cmsis-dap, esp-bridge, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - framework-arduinoespressif32 @ 3.20009.0 (2.0.9) 
+ - tool-esptoolpy @ 1.40501.0 (4.5.1) 
+ - tool-mkfatfs @ 2.0.1 
+ - tool-mklittlefs @ 1.203.210628 (2.3) 
+ - tool-mkspiffs @ 2.230.0 (2.30) 
+ - toolchain-xtensa-esp32 @ 8.4.0+2021r2-patch5
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ deep, Compatibility ~ soft
+Found 42 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- LovyanGFX @ 1.1.6
+|-- Adafruit AHTX0 @ 2.0.3
+|-- Smoothed @ 1.2.0
+|-- micro-timezonedb @ 1.0.2
+|-- lvgl @ 8.3.7
+|-- Preferences @ 2.0.0
+|-- ESPmDNS @ 2.0.0
+|-- Update @ 2.0.0
+|-- WebServer @ 2.0.0
+|-- WiFi @ 2.0.0
+Building in release mode
+Retrieving maximum program size .pio/build/esp32dev/firmware.elf
+Checking size .pio/build/esp32dev/firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [===       ]  33.1% (used 108372 bytes from 327680 bytes)
+Flash: [=====     ]  45.9% (used 1445209 bytes from 3145728 bytes)
+Configuring upload protocol...
+AVAILABLE: cmsis-dap, esp-bridge, esp-prog, espota, esptool, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa
+CURRENT: upload_protocol = esptool
+Looking for upload port...
+Using manually specified: /dev/ttyUSB1
+Uploading .pio/build/esp32dev/firmware.bin
+esptool.py v4.5.1
+Serial port /dev/ttyUSB1
+Connecting.....
+Chip is ESP32-D0WD-V3 (revision v3.0)
+Features: WiFi, BT, Dual Core, 240MHz, VRef calibration in efuse, Coding Scheme None
+Crystal is 40MHz
+MAC: 78:21:84:e2:28:1c
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 921600
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00001000 to 0x00005fff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+Flash will be erased from 0x0000e000 to 0x0000ffff...
+etc...
 
 ## Touch screen
 
-There are many choices for touchscreens available. The display should be \~3" diag and use SPI, I2C or DSI. Some SBCs/uControllers allow for 1 SPI bus. At the same time, some touch screens require 2 (1 for the TFT display; 1 for the touch interface). So this must be considered.
-
-The TFT display chosen is the [MSP3218](http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218) with the ILI9341 TFT driver and the XPT2046 touch controller.
+The TFT display chosen is the [MSP3218](http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218) with the ILI9341 TFT driver and the XPT2046 touch controller. LVGL supports this display nicely (see lvgl_conf.h). The 3.2" screen is a bit tight for all menus and controls, but with a stylus, it is fine ... might be tough with a finger.
 
 ## Power Supply
 
-Built into the PCB will be a power supply capable of providing stable 5V DC for the processor and sensors. An LM2576HVT-5 will be used to allow for 24V in and still remain stable regulating the power.
+Built into the PCB is a power supply capable of providing stable 5V DC for the processor and sensors. An LM2576HVT-5 will be used to allow for 24V in and still remain stable regulating the power.
 
 [LM2576HVT Datasheet](https://www.ti.com/general/docs/suppproductinfo.tsp?distId=10&gotoUrl=https%3A%2F%2Fwww.ti.com%2Flit%2Fgpn%2Flm2576hv)
+
+A low droput voltage regulator is incorporated into the PCB to regulate the 5V to 3v3. [AMS1117 Datasheet](http://www.advanced-monolithic.com/pdf/ds1117.pdf)
 
 ## Sensors
 
 Other than an onboard Temp/Humidity/Air quality sensor setup, there can also be remote sensors (maybe connected via MQTT or proprietary ethernet protocol?) that will provide data to make various decisions. These could be inside the home, outside or even from online sources (such as local weather sites).
 
-A light sensor (LDR) and motion sensor (RCWL-0516) will also be incoporated into the design. The TFT display has a built in touch sensor for user selections.
+A light sensor (LDR) is currently incoporated into the PCB and is being measured for ambient light. It will be used to determine brightness of the TFT display when it is woken.
+
+Motion sensing will be used to wake the TFT display. Currently there are 2 uWave devices being reviewed - RCWL-0516 and the LD2410. The RCWL does not appear to be consistent and premade board are too sensitive. More of these modules need to be tested. The LD2410 is much smaller and appears to be more reliable.
 
 ## Possibilities
-
-#### ~~Use CSI connected camera to detect light level and person approaching.~~
-
-~~When person approaches, turn on Touchscreen backlight. When detected light level is low, turn off backlight after a delay.~~
-~~Could also use proximity sensor (PiR or RADAR) for detecting person. A simple LDR could also be used to detect light level.~~
 
 #### Integrate SMS/chat ability
 
@@ -78,24 +135,35 @@ This would maintain power during brief power outages
 
 ***
 
-Task list:
+V1 task list:
 
 * [x] Build 24VAC to 5VDC power supply with minimal ripple (< 2%)
 * [x] Decide on MCU/SBC
 * [x] Determine sensors to be used (temp, humidity, air quality)
-* [ ] Develop V1 of host app (including MQTT/HA communications)
+* [x] Develop V1 of host app (to get basic thermostat functionality)
 * [x] Generate schematic & PCB
 * [x] Generate PCB BOM (compatible with JLCPCB parts list)
 * [x] Have PCB manufactured (JLCPCB)
+* [x] Add OTA update ability (via web page)
 
 V2 task list:
 
-* [ ] Design device web page
-* [ ] Design 3D printed case (Polycase may be good supplier)
+* [x] Design device web page; crude but done
+* [ ] Design 3D printed case (Polycase may be good supplier or JLCPCB)
 * [ ] Implement Matter
-* [ ] Develop Home Assistant integration
-* [ ] Add OTA update ability
+* [ ] Develop Home Assistant integration (maybe via Matter?)
+* [ ] Add MQTT/HA communications (publish and subscriber support)
+
+Maybe:
+
 * [ ] Add air quality monitoring (to PCB and app)
+
+General to-do:
+
+* [ ] Measure current draw of entire thermostat, TFT LED backlight on & off
+* [ ] Measure current draw with no TFT display attached
+* [ ] Measure voltage ripple while under load
+* [ ] Redesign PCB to incoporate ESP chip and tighten up layout
 
 ## Specs...
  
@@ -146,13 +214,13 @@ V2 task list:
 
 #### To be added:
 
-* [ ] Wifi
-* [ ] Web server
+* [x] Wifi
+* [x] Web server
 * [ ] Telnet / ssh server
 * [ ] Bluetooth
 * [ ] Zigbee / Thread (update for ESP32-C6)
 * [ ] Add air quality monitoring device
-* [ ] OTA updates
+* [x] OTA updates
 
 #### Parameters set by user:
 
@@ -163,7 +231,7 @@ V2 task list:
 * Max / min temp (when to alert user)
 * email list / SMS for notifications
 * c / f
-* reversing valve
+* reversing valve (for a heat pump)
 * auto changeover (A/C to/from Heat)
 
 #### Calculated params:
