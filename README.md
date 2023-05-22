@@ -121,7 +121,9 @@ A low droput voltage regulator is incorporated into the PCB to regulate the 5V t
 
 Other than an onboard Temp/Humidity/Air quality sensor setup, there can also be remote sensors (maybe connected via MQTT or proprietary ethernet protocol?) that will provide data to make various decisions. These could be inside the home, outside or even from online sources (such as local weather sites).
 
-A light sensor (LDR) is currently incoporated into the PCB and is being measured for ambient light. It will be used to determine brightness of the TFT display when it is woken.
+To measure indoor temp & humidity, the [Aosong AHT20](http://www.aosong.com/userfiles/files/media/Data%20Sheet%20AHT20.pdf) is being used. More manufacturer information can be found [HERE](http://www.aosong.com/en/products-32.html).
+
+A light sensor (LDR) is currently incoporated into the PCB (as a voltage divider) and is being measured for ambient light. It will be used to determine brightness of the TFT display when it is woken.
 
 Motion sensing will be used to wake the TFT display. Currently there are 2 uWave devices being reviewed - RCWL-0516 and the LD2410. The RCWL does not appear to be consistent and premade board are too sensitive. More of these modules need to be tested. The LD2410 is much smaller and appears to be more reliable.
 
