@@ -44,6 +44,7 @@ Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / 
 
 Currently, build output shows:
 
+```
 Processing esp32dev (platform: espressif32; board: esp32dev; framework: arduino)
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Verbose mode can be enabled via `-v, --verbose` option
@@ -102,6 +103,7 @@ Flash will be erased from 0x00001000 to 0x00005fff...
 Flash will be erased from 0x00008000 to 0x00008fff...
 Flash will be erased from 0x0000e000 to 0x0000ffff...
 etc...
+```
 
 ## Touch screen
 
