@@ -4,57 +4,10 @@
 #define START_BRIGHTNESS 255
 #define END_BRIGHTNESS 0
 
-//static LGFX lcd;
+TaskHandle_t xTouchUIHandle;
 int32_t lastTouchDetected = 0;
-TaskHandle_t xTouchHandle;
 bool tftTouchTimerEnabled = true;
-
-// RTC_DATA_ATTR int bootCount = 0;  // Retains the number of starts (the value does not disappear even if deepsleep is performed)
-int bootCount = 0;  // Retains the number of starts (the value does not disappear even if deepsleep is performed)
-
-void tftTouchScreenDriver(void * parameter)
-{
-  int32_t x, y;
-  for(;;) // infinite loop
-  {
-    vTaskSuspend( NULL );
-
-    if (millis() - lastTouchDetected > 300)  // debounce
-    {
-      if (tft.getTouchRaw(&x, &y))
-      {
-        audioBeep();
-        Serial.print(millis() - lastTouchDetected);
-        Serial.print(" - Touch - X: "); Serial.print(x); Serial.print(" Y: "); Serial.println(y);
-        lastTouchDetected = millis();
-
-//        displayDimDemo(0, true);
-
-      }
-    }
-  }
-}
-
-void IRAM_ATTR TouchDetect_ISR()
-{
-  BaseType_t xYieldRequired;
-  xYieldRequired = xTaskResumeFromISR( xTouchHandle );
-  portYIELD_FROM_ISR( xYieldRequired );
-}
-
-void tftCreateTask()
-{
-    // attachInterrupt(TOUCH_IRQ_PIN, TouchDetect_ISR, FALLING);
-
-    // xTaskCreate (
-    //     tftTouchScreenDriver,
-    //     "Touch Screen",
-    //     4096,
-    //     NULL,
-    //     tskIDLE_PRIORITY+1,
-    //     &xTouchHandle
-    // );
-}
+int32_t ui_WifiStatusLabel_timestamp = 0;
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,9 +26,11 @@ void tftUpdateTouchTimestamp()
 {
   lastTouchDetected = millis();
 }
-void tftWakeDisplay()
+
+void tftWakeDisplay(bool beep)
 {
-  audioBeep();
+  if (beep)
+    audioBeep();
   lv_obj_clear_flag(ui_ModeDropdown, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_TempDecreaseBtn, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_TempIncreaseBtn, LV_OBJ_FLAG_HIDDEN);
@@ -86,6 +41,7 @@ void tftWakeDisplay()
   tftEnableTouchTimer();
   tftUpdateTouchTimestamp();
 }
+
 void tftDimDisplay()
 {
   if (tftTouchTimerEnabled)
@@ -114,18 +70,67 @@ void tftUpdateDisplay()
   strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
   lv_label_set_text(ui_TimeLabel, buffer);
 
-  lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());
+  lv_label_set_text_fmt(ui_TempLabel, "%d°", tempOut(getTemp()));
   lv_label_set_text_fmt(ui_HumidityLabel, "%d%%", getHumidity());
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)(OperatingParameters.tempSet + 0.5));
+
+  if (OperatingParameters.tempUnits == 'C')
+  {
+
+    lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", degCfrac(OperatingParameters.tempSet));
+
+  } else {
+
+    int temp;
+    temp = tempOut(OperatingParameters.tempSet);
+    lv_arc_set_value(ui_TempArc, temp*10.0);
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", temp);
+
+  }
 
   lv_dropdown_set_selected(ui_ModeDropdown, OperatingParameters.hvacSetMode);
 
   if (wifiConnected())
     lv_label_set_text(ui_WifiIndicatorLabel, "#0000A0 " LV_SYMBOL_WIFI);
   else
-    lv_label_set_text(ui_WifiIndicatorLabel, "#808080 " LV_SYMBOL_WIFI);
+    lv_label_set_text(ui_WifiIndicatorLabel, "#4f4f4f " LV_SYMBOL_WIFI);
+//    lv_label_set_text(ui_WifiIndicatorLabel, "#7d7d7d " LV_SYMBOL_WIFI);
+//    lv_label_set_text(ui_WifiIndicatorLabel, "#808080 " LV_SYMBOL_WIFI);
+
+  switch (OperatingParameters.hvacOpMode)
+  {
+    // Set color of inner circle representing the operating mode
+    case HEAT: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0xa00b0b), LV_PART_MAIN); break;
+    case COOL: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x435deb), LV_PART_MAIN); break;
+    case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x3c8945), LV_PART_MAIN); break;  //@@@
+    default:   lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x7a92b2), LV_PART_MAIN); break;
+  }
+
 }
 
+void setHvacModesDropdown()
+{
+  // Build up HVAC mode dropdown from enum list
+  static char thermostatModes[48] = {0};
+  char tempModes[48] = {0};
+  for (int n=OFF; n != ERROR; n++)
+  {
+    if ((n == AUTO) && !OperatingParameters.hvacCoolEnable)
+      continue;
+    if ((n == FAN) && !OperatingParameters.hvacFanEnable)
+      continue;
+    if ((n == COOL) && !OperatingParameters.hvacCoolEnable)
+      continue;
+    if ((n == AUX_HEAT) && !OperatingParameters.hvac2StageHeatEnable)
+      continue;
+    if (n != OFF)
+      strcat (tempModes, "\n");
+    strcat (tempModes, hvacModeToString((HVAC_MODE)(n)));
+  }
+  strncpy (thermostatModes, tempModes, sizeof(thermostatModes));
+  lv_dropdown_set_options(ui_ModeDropdown, thermostatModes);
+}
 
 void tftInit()
 {
@@ -176,118 +181,44 @@ Cal data:
 
   ui_init();
 
-  // Build up HVAC mode dropdown from enum list
-  static char thermostatModes[48] = {0};
-  for (int n=OFF; n != ERROR; n++)
-  {
-    if (n != OFF)
-      strcat (thermostatModes, "\n");
-    strcat (thermostatModes, hvacModeToString((HVAC_MODE)(n)));
-  }
-//  thermostatModes[strlen(thermostatModes)-1] = '\0';
-  lv_dropdown_set_options(ui_ModeDropdown, thermostatModes);
+  setHvacModesDropdown();
 
-  lv_arc_set_value(ui_TempArc, (int)(OperatingParameters.tempSet + 0.5));
+  lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
 
-  tftWakeDisplay();
+  tftWakeDisplay(true);
   tftUpdateDisplay();
 }
 
-void displaySplash()
+void tftPump(void * parameter)
 {
-  // lcd.clear(TFT_BLACK);
+  for(;;) // infinite loop
+  {
+    lv_timer_handler();
 
-  // lcd.startWrite();      // draw the background
-  // lcd.setColorDepth(24);
-  // {
-  //   LGFX_Sprite sp(&lcd);
-  //   sp.createSprite(128, 128);
-  //   sp.createPalette();
-  //   for (int y = 0; y < 128; y++)
-  //     for (int x = 0; x < 128; x++)
-  //       sp.writePixel(x, y, sp.color888(x << 1, x + y, y << 1));
-  //   for (int y = 0; y < lcd.height(); y += 128)
-  //     for (int x = 0; x < lcd.width(); x += 128)
-  //       sp.pushSprite(x, y);
-  // }
-  // lcd.endWrite();
+    tftUpdateDisplay();
+
+    if (millis() - lastTouchDetected > OperatingParameters.thermostatSleepTime * 1000)
+      tftDimDisplay();
+
+    if ((ui_WifiStatusLabel_timestamp > 0) && (millis() - ui_WifiStatusLabel_timestamp > UI_TEXT_DELAY))
+    {
+      lv_label_set_text(ui_WifiStatusLabel, "");
+      ui_WifiStatusLabel_timestamp = 0;
+    }
+
+    delay(10);
+  }
 }
 
-void displayStartDemo()
+void tftCreateTask()
 {
-//   displaySplash();
-
-//   lcd.setCursor(bootCount*6, bootCount*8);
-//   lcd.setBrightness(START_BRIGHTNESS);
-//   lcd.setTextColor(TFT_WHITE, TFT_BLACK);  // Draw the black and white reversed state once
-//   lcd.print("Display test : " + String(bootCount));
-
-//   ++bootCount;
-//   if ((bootCount == 0) || (bootCount > 37)) bootCount = 1; // bootCount wrapped?
-
-//   lcd.setCursor(bootCount*6, bootCount*8);
-//   lcd.setTextColor(TFT_BLACK, TFT_WHITE);
-//   lcd.print("Display test : " + String(bootCount));
-// //  lcd.powerSaveOn(); // Power saving specification M5Stack CoreInk prevents colors from fading when power is turned off
-//   lcd.waitDisplay(); // stand-by
-}
-
-void displayDimDemo(int32_t timeDelta, bool abort)
-{
-  static int brightness;
-  static bool dimming = false;
-  static bool demo_started = false;
-
-  if (abort)
-  {
-    tft.setBrightness(START_BRIGHTNESS);
-    dimming = false;
-    brightness = END_BRIGHTNESS;
-    demo_started = false;
-    return;
-  }
-
-  if ((demo_started == false) && (timeDelta < 2000))
-  {
-    brightness = START_BRIGHTNESS;
-    demo_started = true;
-    dimming = false;
-  }
-
-  if ((timeDelta > 2000) && (!dimming))
-  {
-    Serial.println("Dimming started...");
-    dimming = true;
-  }
-
-  if ((dimming) && (brightness > END_BRIGHTNESS))
-  {
-    --brightness;
-    tft.setBrightness(brightness);
-    //delay(40);
-  }
-
-  if (brightness == END_BRIGHTNESS)
-    demo_started = false;
-
-}
-
-int32_t ui_WifiStatusLabel_timestamp = 0;
-
-void tftPump()
-{
-  lv_timer_handler();
-
-  tftUpdateDisplay();
-
-  if (millis() - lastTouchDetected > 30000)
-    tftDimDisplay();
-
-  if ((ui_WifiStatusLabel_timestamp > 0) && (millis() - ui_WifiStatusLabel_timestamp > UI_TEXT_DELAY))
-  {
-    lv_label_set_text(ui_WifiStatusLabel, "");
-    ui_WifiStatusLabel_timestamp = 0;
-  }
-
-  delay(5);
+  xTaskCreate (
+      tftPump,
+      "Touch Screen UI",
+      4096,
+      NULL,
+      tskIDLE_PRIORITY+1,
+      &xTouchUIHandle
+  );
 }

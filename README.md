@@ -42,6 +42,8 @@ The coice to use an Espressif MCU was made since it is cheaper, smaller and more
 
 Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB. Alternatively, wifi plus Matter could be used and skip Zigbee and Thread. This is still under investigation.
 
+Built onto the PCB is a SWD interface allowing GDB debugging, as well as loading firmware. 
+
 Currently, build output shows:
 
 ```
@@ -168,6 +170,7 @@ General to-do:
 * [ ] Measure current draw with no TFT display attached
 * [ ] Measure voltage ripple while under load
 * [ ] Redesign PCB to incoporate ESP chip and tighten up layout
+* [ ] Add serial output pins to connect serial terminal to catch print statements
 
 ## Specs...
  

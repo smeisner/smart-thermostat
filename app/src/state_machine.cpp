@@ -1,9 +1,7 @@
 #include "thermostat.hpp"
-//#include "tft.hpp"
 
 OPERATING_PARAMETERS OperatingParameters;
 
-int32_t lcdTimestamp = millis() - 18000;
 extern int32_t lastMotionDetected;
 extern int32_t lastTimeUpdate;
 int32_t lastWifiReconnect = 0;
@@ -168,17 +166,6 @@ void stateMachine(void * parameter)
         lastMotionDetected = 0;
         OperatingParameters.motionDetected = false;
       }
-    }
-
-    if (millis() > lcdTimestamp + 20000)
-    {
-      Serial.println("Restore display");
-      //displayStartDemo();
-      lcdTimestamp = millis();
-    }
-    else
-    {
-      //displayDimDemo(millis() - lcdTimestamp, false);
     }
 
     // Pause the task again for 40ms

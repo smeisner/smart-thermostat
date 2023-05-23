@@ -26,16 +26,18 @@ unsigned long lastBeep = 0;
 
 void audioBeep()
 {
-  if (millis() - lastBeep > 125)  // 1/8 of a sec
+  if (OperatingParameters.thermostatBeepEnable)
   {
-    ledcWriteTone(channel, 4000);
-    ledcWrite(channel, 125);
-    delay(125);
-    ledcWriteTone(channel, 0);
-    lastBeep = millis();
+    if (millis() - lastBeep > 125)  // 1/8 of a sec
+    {
+      ledcWriteTone(channel, 4000);
+      ledcWrite(channel, 125);
+      delay(125);
+      ledcWriteTone(channel, 0);
+      lastBeep = millis();
+    }
   }
 }
-
 
 void indicatorsInit()
 {

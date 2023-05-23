@@ -59,8 +59,6 @@ void WiFi_ScanSSID( void )
           ssid_name = ssid_name + '\n';
           ssid_name = ssid_name + WiFi.SSID(i);
         }
-        //delay(10);
-        tftPump();
       }
     }
     // clear the array, it might be possible that we coming after rescanning

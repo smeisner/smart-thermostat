@@ -70,3 +70,43 @@ def tftClearPsk(event_struct):
 def stopWifiScan(event_struct):
     return
 
+
+def SaveConfig(event_struct):
+    return
+
+
+def SaveConfigSettings(event_struct):
+    return
+
+
+def LoadConfigSettings(event_struct):
+    return
+
+
+def LoadUncommonSettings(event_struct):
+    return
+
+
+def SaveUncommonConfigSettings(event_struct):
+    return
+
+
+def tftUpdateUiSleepValue(event_struct):
+    return
+
+
+def ShitShitShit(event_struct):
+    return
+
+
+def tftIncreaseSetTemp(event_struct):
+    return
+
+
+def tftSetTempDown(event_struct):
+    return
+
+
+def tftDecreaseSetTemp(event_struct):
+    return
+

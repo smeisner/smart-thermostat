@@ -6,6 +6,48 @@
 Smoothed <float> sensorTemp;
 Smoothed <float> sensorHumidity;
 
+
+float degFtoC(float degF)
+{
+  return ((degF - 32.0) / (9.0/5.0));
+}
+
+// Return the fractional as 0 or 5 based on frac part of num
+// .0 - .4 returns 0
+// .5 to .9 returns 5
+int degCfrac(float tempF)
+{
+  if (OperatingParameters.tempUnits == 'C')
+  {
+    int whole;
+    float roundUp = degFtoC(tempF);
+    whole = (int)(roundUp);
+    float frac = roundUp - (float)(whole);
+
+    if (frac < 0.5)
+      return 0;
+    else
+      return 5;
+  }
+  return 0;
+}
+
+int tempOut(float tempF)
+{
+  if (OperatingParameters.tempUnits == 'F')
+    return (int)(tempF + 0.5);
+  else
+    return (int)(degFtoC(tempF));
+}
+
+float tempIn(float tempC)
+{
+  if (OperatingParameters.tempUnits == 'C')
+    return ((tempC * 9.0/5.0) + 32.0);
+  else
+    return tempC;
+}
+
 Adafruit_AHTX0 aht;
 int32_t lastMotionDetected = 0;
 int32_t lastTimeUpdate = 0;
@@ -42,17 +84,16 @@ void readAht()
   OperatingParameters.tempCurrent = temp_f;
   OperatingParameters.humidCurrent = sensorHumidity.get();
 
-  Serial.printf ("Temp: %0.1f / %0.1f F (raw: %0.2f)  Humidity: %0.1f (raw: %0.2f)\n", 
+  Serial.printf ("Temp: %0.1f C / %0.1f F (raw: %0.2f C)  Humidity: %0.1f (raw: %0.2f)\n", 
     sensorTemp.get(), temp_f, temp.temperature, sensorHumidity.get(), humidity.relative_humidity);
 }
 
+// Read sensor temp and return in deg F, rounded up and correction applied
 int getTemp()
 {
-  if (OperatingParameters.tempUnits == 'F')
-    return (int)((sensorTemp.get() * 9.0/5.0) + 32.0 + 0.5) + OperatingParameters.tempCorrection;
-  else
-    return (int)(sensorTemp.get() + 0.5) + OperatingParameters.tempCorrection;
+  return (((sensorTemp.get() * 9.0/5.0) + 32.0 + 0.5) + OperatingParameters.tempCorrection);
 }
+
 int getHumidity()
 {
   return (int)(sensorHumidity.get() + 0.5);
@@ -83,7 +124,23 @@ void IRAM_ATTR MotionDetect_ISR()
 //const char* ntpServer = "time.google.com";
 const char* ntpServer = "pool.ntp.org";
 //const char* timezone = "Africa/Luanda";
-const char* timezone = "America/New York";
+//const char* timezone = "America/New York";
+
+void updateTimezone()
+{
+  char tz_lookup[16] = "Etc/";
+  strcat (tz_lookup, OperatingParameters.timezone);
+  Serial.printf ("Timezone: %s\n", tz_lookup);
+  auto tz = lookup_posix_timezone_tz(tz_lookup);
+  if (!tz)
+  {
+    Serial.printf ("Invalid Timezone: %s\n", OperatingParameters.timezone);
+    return;
+  }
+
+  setenv("TZ", tz, 1);
+  tzset();
+}
 
 void updateTimeSntp()
 {
@@ -98,7 +155,6 @@ void updateTimeSntp()
 
   strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
   Serial.printf("Current time: %s\n", buffer);
-
 }
 
 void initTimeSntp()
@@ -106,18 +162,7 @@ void initTimeSntp()
   Serial.printf ("Time server: %s\n", ntpServer);
 
   configTime(0, 0, ntpServer);
-
-  auto tz = lookup_posix_timezone_tz(timezone);
-  if (tz)
-  {
-    setenv("TZ", tz, 1);
-  }
-  else
-  {
-    Serial.printf ("Invalid Timezone: %s\n", timezone);
-  }
-  tzset();
-
+  updateTimezone();
   updateTimeSntp();
 }
 
@@ -148,6 +193,8 @@ bool sensorsInit()
     return true;
 
   } else {
+
     return false;
+
   }
 }

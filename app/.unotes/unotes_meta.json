@@ -1,0 +1,62 @@
+{
+  "name": "",
+  "isOrdered": true,
+  "folders": {
+    "include": {
+      "name": "include",
+      "isOrdered": true,
+      "folders": {},
+      "files": {}
+    },
+    "lib": {
+      "name": "lib",
+      "isOrdered": true,
+      "folders": {},
+      "files": {}
+    },
+    "src": {
+      "name": "src",
+      "isOrdered": true,
+      "folders": {
+        "assets": {
+          "name": "assets",
+          "isOrdered": true,
+          "folders": {},
+          "files": {}
+        },
+        "backup": {
+          "name": "backup",
+          "isOrdered": true,
+          "folders": {},
+          "files": {}
+        },
+        "cache": {
+          "name": "cache",
+          "isOrdered": true,
+          "folders": {},
+          "files": {}
+        },
+        "components": {
+          "name": "components",
+          "isOrdered": true,
+          "folders": {},
+          "files": {}
+        },
+        "ui": {
+          "name": "ui",
+          "isOrdered": true,
+          "folders": {},
+          "files": {}
+        }
+      },
+      "files": {}
+    },
+    "test": {
+      "name": "test",
+      "isOrdered": true,
+      "folders": {},
+      "files": {}
+    }
+  },
+  "files": {}
+}

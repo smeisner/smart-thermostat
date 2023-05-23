@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <driver/rtc_io.h>
+#include "gpio_defs.hpp"
 
 /////////////////////////////////////////////////////////////////////
 //     Shared data structures
@@ -17,6 +18,7 @@ typedef enum
     AUX_HEAT,
     ERROR,
     IDLE
+
 } HVAC_MODE;
 
 typedef struct
@@ -34,7 +36,20 @@ typedef struct
     int lightDetected;
     bool motionDetected;
     bool wifiConnected;
-    
+
+    bool hvacCoolEnable;
+    bool hvacFanEnable;
+    bool hvac2StageHeatEnable;
+    bool hvacReverseValveEnable;
+
+    bool thermostatBeepEnable;
+    uint16_t thermostatSleepTime;
+
+    char *timezone;
+    uint16_t timezone_sel;
+
+    //@@@ Zipcode for outside temp??
+
 } OPERATING_PARAMETERS;
 
 typedef struct
@@ -42,18 +57,21 @@ typedef struct
     char hostname[24];
     char ssid[24];
     char password[16];
+
 } WIFI_CREDS;
 
 extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
 extern int32_t ui_WifiStatusLabel_timestamp;
 
-
 #define MOTION_TIMEOUT 5000
 #define WIFI_CONNECT_INTERVAL 3000
-//#define UPDATE_TIME_INTERVAL 14400000   // Every 4 hours: 4 * 60 * 60 * 1000(ms)
-#define UPDATE_TIME_INTERVAL 60000   // Every 60 seconds
+#define UPDATE_TIME_INTERVAL 60000
 #define UI_TEXT_DELAY 3000
+
+static const char *gmt_timezones[] = 
+  {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
+   "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
 
 
 /////////////////////////////////////////////////////////////////////
@@ -88,10 +106,7 @@ void WiFi_ScanSSID( void );
 // TFT
 void tftInit();
 void tftCreateTask();
-void tftPump();
-// void displaySplash();
-// void displayStartDemo();
-// void displayDimDemo(int32_t timeDelta, bool abort);
+void setHvacModesDropdown();
 
 #ifdef __cplusplus
 extern "C" {
@@ -100,7 +115,7 @@ extern "C" {
 void tftDisableTouchTimer();
 void tftEnableTouchTimer();
 void tftUpdateTouchTimestamp();
-void tftWakeDisplay();
+void tftWakeDisplay(bool beep);
 void tftDimDisplay();
 
 #ifdef __cplusplus
@@ -108,10 +123,15 @@ void tftDimDisplay();
 #endif
 
 // Sensors
+int degCfrac(float tempF);
+int tempOut(float tempF);
+float tempIn(float tempC);
+float degFtoC(float degF);
 bool sensorsInit();
 void testToggleRelays();
 int getTemp();
 int getHumidity();
+void updateTimezone();
 
 // Indicators
 void audioStartupBeep();
@@ -121,65 +141,3 @@ void audioBeep();
 // SNTP Time Sync
 void initTimeSntp();
 void updateTimeSntp();
-
-//
-// Define all the GPIO pins used
-//
-
-#define LED_BUILTIN 2
-
-#if 0
-
-// HW Version 0.01
-
-#define MOTION_PIN 0
-#define BUZZER_PIN 4
-#define TOUCH_CS_PIN 5
-#define LED_COOL_PIN 9
-#define HVAC_FAN_PIN 10
-#define HVAC_COOL_PIN 12
-#define HVAC_HEAT_PIN 13
-#define TFT_CS_PIN 16
-#define TFT_CLK_PIN 18
-#define TFT_LED_PIN 32
-#define TFT_RESET_PIN 33
-#define TFT_MISO_PIN 34
-#define TOUCH_IRQ_PIN 35
-#define LED_IDLE_PIN 36
-#define LED_HEAT_PIN 39
-#define SDA_PIN 21
-#define SCL_PIN 22
-#define TFT_MOSI_PIN 23
-#define TFT_DC_PIN 27
-
-
-#else
-
-// HW Version 0.02
-
-#define LED_HEAT_PIN 0
-#define BUZZER_PIN 4
-#define TOUCH_CS_PIN 5
-#define SWD_TDI_PIN 12
-#define SWD_TCK_PIN 13
-#define SWD_TMS_PIN 14
-#define TFT_CS_PIN 16
-#define HVAC_HEAT_PIN 17
-#define TFT_CLK_PIN 18
-#define HVAC_COOL_PIN 19
-#define TFT_LED_PIN 32
-#define TFT_RESET_PIN 33
-#define TFT_MISO_PIN 34
-#define TOUCH_IRQ_PIN 35
-#define LIGHT_SENS_PIN 36
-#define MOTION_PIN 39
-#define SDA_PIN 21
-#define SCL_PIN 22
-#define TFT_MOSI_PIN 23
-#define HVAC_FAN_PIN 25
-#define LED_COOL_PIN 26
-#define TFT_DC_PIN 27
-//#define LED_IDLE_PIN -1
-#define LED_IDLE_PIN 2
-
-#endif
