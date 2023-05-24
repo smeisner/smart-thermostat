@@ -31,13 +31,13 @@ body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Col
 </style></head><body><h1>Thermostat operating parameters:</h1>\
 <pre><p style=\"font-size:16px; \">\
 <br>HVAC Mode:   %s (Set: %s)\
-<br>Temperature: %d.x%c\
+<br>Temperature: %0.1f%c\
 <br>Humidity:    %0.1f%%\
 <br>\
 <br>Wifi:        %d%%  [IP: %s]\
 <br>Units:       %c\
 <br>Swing:       %0.1f\
-<br>Set Temp:    %d%c\
+<br>Set Temp:    %d.%d%c\
 <br>Correction:  %0.1f\
 <br>Light:       %d\
 <br>Motion:      %s</p></pre>\
@@ -54,11 +54,12 @@ HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</butto
 <pre><p style=\"font-size:14px; \"><br>Firmware version: %s (%s)<br>%s</p></pre>\
 </body></html>",
         hvacModeToString(OperatingParameters.hvacOpMode), hvacModeToString(OperatingParameters.hvacSetMode),
-        tempOut(OperatingParameters.tempCurrent + OperatingParameters.tempCorrection), 
+        (OperatingParameters.tempUnits == 'C') ? degFtoC(OperatingParameters.tempCurrent + OperatingParameters.tempCorrection): (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection), 
         OperatingParameters.tempUnits, 
         OperatingParameters.humidCurrent, wifiSignal(), wifiAddress(),
         OperatingParameters.tempUnits, OperatingParameters.tempSwing,
-        tempOut(OperatingParameters.tempSet), OperatingParameters.tempUnits, OperatingParameters.tempCorrection,
+        tempOut(OperatingParameters.tempSet), degCfrac(OperatingParameters.tempSet),
+        OperatingParameters.tempUnits, OperatingParameters.tempCorrection,
         OperatingParameters.lightDetected, (OperatingParameters.motionDetected == true) ? "True" : "False",
         VERSION_STRING, VERSION_BUILD_DATE_TIME, VERSION_COPYRIGHT
     );
