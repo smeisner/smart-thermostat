@@ -111,6 +111,13 @@ etc...
 
 The TFT display chosen is the [MSP3218](http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218) with the ILI9341 TFT driver and the XPT2046 touch controller. LVGL supports this display nicely (see lvgl_conf.h). The 3.2" screen is a bit tight for all menus and controls, but with a stylus, it is fine ... might be tough with a finger.
 
+SquareLine Sudio designed screens:<br>
+<img src="./thermostat-main.png">
+<img src="./thermostat-info.png">
+<img src="./thermostat-setup.png">
+<img src="./thermostat-lesscommon.png">
+<img src="./thermostat-wificonfig.png">
+
 ## Power Supply
 
 Built into the PCB is a power supply capable of providing stable 5V DC for the processor and sensors. An LM2576HVT-5 will be used to allow for 24V in and still remain stable regulating the power.
