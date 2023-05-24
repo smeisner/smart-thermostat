@@ -22,7 +22,7 @@ Main features are:
 
 Basic layout of thermostat:
 
-<img src="./Block%20Diagram.drawio.png">
+<img src="./assets/Block%20Diagram.drawio.png">
 
 # May 2023 update - V0.2
 
@@ -112,11 +112,11 @@ etc...
 The TFT display chosen is the [MSP3218](http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218) with the ILI9341 TFT driver and the XPT2046 touch controller. LVGL supports this display nicely (see lvgl_conf.h). The 3.2" screen is a bit tight for all menus and controls, but with a stylus, it is fine ... might be tough with a finger.
 
 SquareLine Sudio designed screens:<br>
-<img src="./thermostat-main.png">
-<img src="./thermostat-info.png">
-<img src="./thermostat-setup.png">
-<img src="./thermostat-lesscommon.png">
-<img src="./thermostat-wificonfig.png">
+<img src="./assets/thermostat-main.png">
+<img src="./assets/thermostat-info.png">
+<img src="./assets/thermostat-setup.png">
+<img src="./assets/thermostat-lesscommon.png">
+<img src="./assets/thermostat-wificonfig.png">
 
 ## Power Supply
 
