@@ -155,6 +155,7 @@ void updateTimeSntp()
 
   strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
   Serial.printf("Current time: %s\n", buffer);
+
 }
 
 void initTimeSntp()

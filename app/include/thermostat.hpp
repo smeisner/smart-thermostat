@@ -90,7 +90,7 @@ bool eepromUpdateHvacSetMode();
 
 // HTTP Server
 void webInit();
-void webPump();
+void webPump(void * parameter);
 const char *hvacModeToString(HVAC_MODE mode);
 
 // Routine to control wifi
@@ -106,6 +106,8 @@ void WiFi_ScanSSID( void );
 // TFT
 void tftInit();
 void tftCreateTask();
+HVAC_MODE strToHvacMode(char *mode);
+HVAC_MODE convertSelectedHvacMode();
 void setHvacModesDropdown();
 
 #ifdef __cplusplus

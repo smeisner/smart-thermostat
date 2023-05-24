@@ -9,21 +9,6 @@ const char* serverIndex = "<form method='POST' action='/update' enctype='multipa
 const char* serverRedirect = "<meta http-equiv=\"refresh\" content=\"0; url='/'\" />";
 const char *host = "thermostat";
 
-const char *hvacModeToString(HVAC_MODE mode)
-{
-    switch (mode)
-    {
-        case OFF: return "Off";
-        case IDLE: return "Idle";
-        case AUTO: return "Auto";
-        case HEAT: return "Heat";
-        case COOL: return "Cool";
-        case FAN:  return "Fan";
-        case AUX_HEAT: return "Aux Heat";
-        default:   return "Error";
-    }
-}
-
 void tempUp()
 {
     OperatingParameters.tempSet += 1.0;
@@ -81,10 +66,34 @@ HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</butto
     server.send(200, "text/html", html);
 }
 
+void webPump(void * parameter)
+{
+  server.handleClient();
+  // Pause the task again for 40ms
+//  vTaskDelay(40 / portTICK_PERIOD_MS);
+  //yield();
+  //delay(40);
+}
+
+void webCreateTask()
+{
+  xTaskCreate (
+      webPump,
+      "Web Server",
+      4096,
+      NULL,
+      tskIDLE_PRIORITY-1,
+      NULL
+  );
+}
+
 void webInit()
 {
-  if (wifiConnected())
-  {
+  if (!wifiConnected())
+    Serial.printf ("***  WARNING: Starting web server while wifi down!!  *****\n");
+
+  // if (wifiConnected())
+  // {
     MDNS.begin(host);
 
     server.on("/", handleRoot);
@@ -163,12 +172,11 @@ void webInit()
     MDNS.addService("http", "tcp", 80);
 
     Serial.printf("Ready! Open http://%s.local in your browser\n", host);
-  } else {
-    Serial.println("Wifi not connected!");
-  }
-}
+  // } else {
+  //   Serial.println("Wifi not connected!");
+  // }
 
-void webPump()
-{
-  server.handleClient();
+//  Serial.printf ("Starting web server task\n");
+//  webCreateTask();
+
 }

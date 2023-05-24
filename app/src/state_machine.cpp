@@ -66,6 +66,37 @@ void stateMachine(void * parameter)
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
+        digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_HEAT_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, HIGH);
+      }
+    }
+    else if (OperatingParameters.hvacSetMode == AUX_HEAT)
+    {
+      //
+      // Set up for 2-stage, emergency or aux heat mode
+      // Set relays correct
+      // For now, just emulate HEAT mode
+      //
+      if (OperatingParameters.hvacOpMode == COOL)
+      {
+        //digitalWrite(HVAC_COOL_PIN, LOW);
+        digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, LOW);
+      }
+      if (currentTemp < minTemp)
+      {
+        OperatingParameters.hvacOpMode = HEAT;
+        //digitalWrite(HVAC_HEAT_PIN, HIGH);
+        digitalWrite(LED_HEAT_PIN, HIGH);
+        digitalWrite(LED_IDLE_PIN, LOW);
+      }
+      else
+      {
+        OperatingParameters.hvacOpMode = IDLE;
+        digitalWrite(LED_COOL_PIN, LOW);
+        digitalWrite(LED_HEAT_PIN, LOW);
+        digitalWrite(LED_IDLE_PIN, HIGH);
       }
     }
     else if (OperatingParameters.hvacSetMode == COOL)
@@ -87,6 +118,8 @@ void stateMachine(void * parameter)
       {
         OperatingParameters.hvacOpMode = IDLE;
         digitalWrite(LED_IDLE_PIN, HIGH);
+        digitalWrite(LED_HEAT_PIN, LOW);
+        digitalWrite(LED_COOL_PIN, LOW);
       }
     }
     else if (OperatingParameters.hvacSetMode == AUTO)
@@ -137,7 +170,8 @@ void stateMachine(void * parameter)
     }
 
     // Provide time for the web server
-    webPump();
+// Now a FreeRTOS task, so no need to call from here
+    webPump(NULL);
 
     // Check wifi
     if (!wifiConnected()) 

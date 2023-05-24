@@ -4,6 +4,7 @@
 #define START_BRIGHTNESS 255
 #define END_BRIGHTNESS 0
 
+static char thermostatModes[48] = {0};
 TaskHandle_t xTouchUIHandle;
 int32_t lastTouchDetected = 0;
 bool tftTouchTimerEnabled = true;
@@ -89,12 +90,14 @@ void tftUpdateDisplay()
 
   }
 
-  lv_dropdown_set_selected(ui_ModeDropdown, OperatingParameters.hvacSetMode);
+//  lv_dropdown_set_selected(ui_ModeDropdown, OperatingParameters.hvacSetMode);
+  lv_dropdown_set_selected(ui_ModeDropdown, convertSelectedHvacMode());
 
   if (wifiConnected())
     lv_label_set_text(ui_WifiIndicatorLabel, "#0000A0 " LV_SYMBOL_WIFI);
   else
-    lv_label_set_text(ui_WifiIndicatorLabel, "#4f4f4f " LV_SYMBOL_WIFI);
+    lv_label_set_text(ui_WifiIndicatorLabel, "#d0e719 " LV_SYMBOL_WIFI);
+//    lv_label_set_text(ui_WifiIndicatorLabel, "#5f4f4f " LV_SYMBOL_WIFI);
 //    lv_label_set_text(ui_WifiIndicatorLabel, "#7d7d7d " LV_SYMBOL_WIFI);
 //    lv_label_set_text(ui_WifiIndicatorLabel, "#808080 " LV_SYMBOL_WIFI);
 
@@ -106,13 +109,85 @@ void tftUpdateDisplay()
     case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x3c8945), LV_PART_MAIN); break;  //@@@
     default:   lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x7a92b2), LV_PART_MAIN); break;
   }
+  switch (OperatingParameters.hvacSetMode)
+  {
+    // Set color of outer circle representing the enabled or set mode
+    case AUX_HEAT:
+    case HEAT: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
+    case COOL: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
+    case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x23562b), LV_PART_MAIN); break;  //@@@
+    case AUTO: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
+    default:   lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
+  }
 
+}
+
+
+const char *hvacModeToString(HVAC_MODE mode)
+{
+  switch (mode)
+  {
+    case OFF: return "Off";
+    case IDLE: return "Idle";
+    case AUTO: return "Auto";
+    case HEAT: return "Heat";
+    case COOL: return "Cool";
+    case FAN:  return "Fan";
+    case AUX_HEAT: return "Aux Heat";
+    default:   return "Error";
+  }
+}
+
+HVAC_MODE strToHvacMode(char *mode)
+{
+  int n;
+  for (n=OFF; n != ERROR; n++)
+  {
+    if (strcmp(mode, hvacModeToString((HVAC_MODE)n)) == 0)
+      break;
+  }
+  return (HVAC_MODE)n;
+}
+
+// Pass in selected HVAC mode from list of available modes
+// based on HVAC configuration. Then map this value to the
+// list of all HVAC modes.
+HVAC_MODE convertSelectedHvacMode()
+{
+  char selMode[12];
+
+  // Check to see if the selected HVAC mode is now disabled (after config menu)
+  if ((OperatingParameters.hvacSetMode == AUTO) && !OperatingParameters.hvacCoolEnable)
+    OperatingParameters.hvacSetMode = OFF;
+  if ((OperatingParameters.hvacSetMode == FAN) && !OperatingParameters.hvacFanEnable)
+    OperatingParameters.hvacSetMode = OFF;
+  if ((OperatingParameters.hvacSetMode == COOL) && !OperatingParameters.hvacCoolEnable)
+    OperatingParameters.hvacSetMode = OFF;
+  if ((OperatingParameters.hvacSetMode == AUX_HEAT) && !OperatingParameters.hvac2StageHeatEnable)
+    OperatingParameters.hvacSetMode = OFF;
+
+  // Retrieve currently selected HVAC mode
+  strncpy (selMode, hvacModeToString(OperatingParameters.hvacSetMode), sizeof(selMode));
+
+  char tempModes[48] = {0};
+  memcpy (tempModes, thermostatModes, sizeof(thermostatModes));
+
+  char *pch = strtok(tempModes, "\n");
+  int idx = 0;
+  while (pch)
+  {
+    if (strcmp(pch, selMode) == 0)
+      break;
+    pch = strtok(NULL, "\n");
+    idx++;
+  }
+
+  return (HVAC_MODE)idx;
 }
 
 void setHvacModesDropdown()
 {
   // Build up HVAC mode dropdown from enum list
-  static char thermostatModes[48] = {0};
   char tempModes[48] = {0};
   for (int n=OFF; n != ERROR; n++)
   {
@@ -207,7 +282,8 @@ void tftPump(void * parameter)
       ui_WifiStatusLabel_timestamp = 0;
     }
 
-    delay(10);
+    // Pause the task again for 10ms
+    vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
 
