@@ -1499,7 +1499,6 @@
               },
               {
                 "nid": 1617772992,
-                "flags": 1048576,
                 "strtype": "OBJECT/Flags",
                 "InheritedType": 1
               },
@@ -1578,31 +1577,31 @@
               {
                 "nid": 1767686504,
                 "strtype": "OBJECT/Scrollable",
-                "strval": "True",
+                "strval": "False",
                 "InheritedType": 2
               },
               {
                 "nid": -1511296982,
                 "strtype": "OBJECT/Scroll_elastic",
-                "strval": "True",
+                "strval": "False",
                 "InheritedType": 2
               },
               {
                 "nid": -1055807457,
                 "strtype": "OBJECT/Scroll_momentum",
-                "strval": "True",
+                "strval": "False",
                 "InheritedType": 2
               },
               {
                 "nid": 82537400,
                 "strtype": "OBJECT/Scroll_on_focus",
-                "strval": "True",
+                "strval": "False",
                 "InheritedType": 2
               },
               {
                 "nid": 1773262025,
                 "strtype": "OBJECT/Scroll_chain",
-                "strval": "True",
+                "strval": "False",
                 "InheritedType": 2
               },
               {
@@ -1614,7 +1613,7 @@
               {
                 "nid": 43205349,
                 "strtype": "OBJECT/Scrollbar_mode",
-                "strval": "AUTO",
+                "strval": "OFF",
                 "InheritedType": 3
               },
               {
@@ -3241,7 +3240,27 @@
               },
               {
                 "part": "lv.PART.SCROLLBAR",
-                "childs": [],
+                "childs": [
+                  {
+                    "nid": 533119012,
+                    "strtype": "_style/StyleState",
+                    "strval": "DEFAULT",
+                    "childs": [
+                      {
+                        "nid": 1607761408,
+                        "strtype": "_style/Bg_Color",
+                        "intarray": [
+                          95,
+                          79,
+                          79,
+                          255
+                        ],
+                        "InheritedType": 7
+                      }
+                    ],
+                    "InheritedType": 1
+                  }
+                ],
                 "nid": -2036528634,
                 "strtype": "PANEL/Style_scrollbar",
                 "strval": "lv.PART.SCROLLBAR, Rectangle, Pad",
@@ -16965,7 +16984,6 @@
               },
               {
                 "nid": -1020322706,
-                "flags": 1048576,
                 "strtype": "OBJECT/Flags",
                 "InheritedType": 1
               },
@@ -17091,7 +17109,6 @@
               },
               {
                 "nid": 1922745163,
-                "flags": 1048576,
                 "strtype": "OBJECT/States",
                 "InheritedType": 1
               },

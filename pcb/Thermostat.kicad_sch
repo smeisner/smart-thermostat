@@ -3488,8 +3488,8 @@
     (uuid fe3f7616-1882-4ae5-a75e-02bf73df9be9)
   )
 
-  (text "Next:\n- ESP32-S3-WROOM-1-N16R8\n  JLCPCB # C2913202\n- Needs xtal and support components\n- Holy Grail: \n	ESP32-C6-WROOM-1-N16\n- Add relay for reversing valve"
-    (at 12.7 38.1 0)
+  (text "Next:\n- ESP32-S3-WROOM-1-N16R8\n  JLCPCB # C2913202 (no 802.15)\n- ESP32-C6-WROOM-1-N8\n  JLCPCB # C5366877\n  ** Verify GPIO Count **\n- Holy Grail: \n	ESP32-C6-WROOM-1-N16\n    JLCPCB: C5445014 <-- Verify\n- Needs xtal and support components\n- Add relay for reversing valve"
+    (at 12.7 45.72 0)
     (effects (font (size 1.5 1.5) (thickness 0.3) bold) (justify left bottom))
     (uuid 32857cd3-b765-4f38-ac04-c7e066018284)
   )
@@ -4625,7 +4625,7 @@
   (symbol (lib_id "power:+5V") (at 252.73 81.28 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid 5f3969b1-6eb7-483e-9f92-ecf328367214)
-    (property "Reference" "#PWR?" (id 0) (at 252.73 85.09 0)
+    (property "Reference" "#PWR0138" (id 0) (at 252.73 85.09 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "+5V" (id 1) (at 251.333 79.5762 0)
@@ -4814,7 +4814,7 @@
   (symbol (lib_id "power:GND") (at 83.82 45.72 0) (unit 1)
     (in_bom yes) (on_board yes) (fields_autoplaced)
     (uuid 78dd7a69-e5d6-4c03-acc4-559c9badc5bd)
-    (property "Reference" "#PWR?" (id 0) (at 83.82 52.07 0)
+    (property "Reference" "#PWR0139" (id 0) (at 83.82 52.07 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (id 1) (at 83.82 50.1634 0))
@@ -4906,7 +4906,7 @@
   (symbol (lib_id "power:+3V3") (at 39.37 158.75 0) (unit 1)
     (in_bom yes) (on_board yes) (fields_autoplaced)
     (uuid 911e15d4-cdab-44ee-bac8-71d2a05ed451)
-    (property "Reference" "#PWR?" (id 0) (at 39.37 162.56 0)
+    (property "Reference" "#PWR0136" (id 0) (at 39.37 162.56 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "+3V3" (id 1) (at 39.37 155.1742 0))
@@ -5185,7 +5185,7 @@
   (symbol (lib_id "power:GND") (at 63.5 45.72 0) (unit 1)
     (in_bom yes) (on_board yes) (fields_autoplaced)
     (uuid abf6cafb-1ccc-4a69-a4ff-ad1a5059dbb1)
-    (property "Reference" "#PWR?" (id 0) (at 63.5 52.07 0)
+    (property "Reference" "#PWR0140" (id 0) (at 63.5 52.07 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (id 1) (at 63.5 50.1634 0))
@@ -5661,7 +5661,7 @@
   (symbol (lib_id "power:GND") (at 252.73 88.9 0) (unit 1)
     (in_bom yes) (on_board yes)
     (uuid f9888c2d-8c4d-42c3-abe9-550f4599bf90)
-    (property "Reference" "#PWR?" (id 0) (at 252.73 95.25 0)
+    (property "Reference" "#PWR0137" (id 0) (at 252.73 95.25 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Value" "GND" (id 1) (at 247.65 91.44 0)
@@ -5821,20 +5821,20 @@
     (path "/2894faec-446b-44b4-85c0-f3105d60b327"
       (reference "#PWR0129") (unit 1) (value "GND") (footprint "")
     )
-    (path "/5f3969b1-6eb7-483e-9f92-ecf328367214"
-      (reference "#PWR?") (unit 1) (value "+5V") (footprint "")
-    )
-    (path "/78dd7a69-e5d6-4c03-acc4-559c9badc5bd"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
-    )
     (path "/911e15d4-cdab-44ee-bac8-71d2a05ed451"
-      (reference "#PWR?") (unit 1) (value "+3V3") (footprint "")
-    )
-    (path "/abf6cafb-1ccc-4a69-a4ff-ad1a5059dbb1"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+      (reference "#PWR0136") (unit 1) (value "+3V3") (footprint "")
     )
     (path "/f9888c2d-8c4d-42c3-abe9-550f4599bf90"
-      (reference "#PWR?") (unit 1) (value "GND") (footprint "")
+      (reference "#PWR0137") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/5f3969b1-6eb7-483e-9f92-ecf328367214"
+      (reference "#PWR0138") (unit 1) (value "+5V") (footprint "")
+    )
+    (path "/78dd7a69-e5d6-4c03-acc4-559c9badc5bd"
+      (reference "#PWR0139") (unit 1) (value "GND") (footprint "")
+    )
+    (path "/abf6cafb-1ccc-4a69-a4ff-ad1a5059dbb1"
+      (reference "#PWR0140") (unit 1) (value "GND") (footprint "")
     )
     (path "/09ee31ba-5ccf-4bca-ba10-49edff6a0851"
       (reference "BR1") (unit 1) (value "KBP208G") (footprint "Custom Footprints:KBP208G")

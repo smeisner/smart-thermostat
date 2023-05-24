@@ -8,24 +8,57 @@
 #include "version.h"
 
 #define screenWidth 320
+TaskHandle_t ntScanTaskHandler = NULL;
 
 void tftUpdateTempSet(lv_event_t * e)
 {
-  char tmp[16];
-  strncpy(tmp, lv_label_get_text(ui_SetTemp), sizeof(tmp));
-  OperatingParameters.tempSet = atoi(tmp);
-  tftWakeDisplay();
+//  char tmp[16];
+//  strncpy(tmp, lv_label_get_text(ui_SetTemp), sizeof(tmp));
+
+  OperatingParameters.tempSet = tempIn((float)lv_arc_get_value(ui_TempArc) / 10.0);
+
+//  OperatingParameters.tempSet = tmp)/10);
+  tftWakeDisplay(false);
+}
+
+void tftDecreaseSetTemp(lv_event_t * e)
+{
+  OperatingParameters.tempSet -= 1.0;
+  lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
+}
+
+void tftIncreaseSetTemp(lv_event_t * e)
+{
+  OperatingParameters.tempSet += 1.0;
+  lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
 }
 
 void tftHvacModeChange(lv_event_t * e)
 {
-  OperatingParameters.hvacSetMode = (HVAC_MODE)(lv_dropdown_get_selected(ui_ModeDropdown));
-  tftWakeDisplay();
+//  OperatingParameters.hvacSetMode = (HVAC_MODE)(lv_dropdown_get_selected(ui_ModeDropdown));
+//  OperatingParameters.hvacSetMode = getHvacMode();
+  char mode[12];
+  lv_dropdown_get_selected_str(ui_ModeDropdown, mode, sizeof(mode));
+  OperatingParameters.hvacSetMode = strToHvacMode(mode);
+
+  switch (OperatingParameters.hvacSetMode)
+  {
+    // Set color of outer ring to represent set mode
+    case HEAT: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
+    case COOL: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
+    case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x23562b), LV_PART_MAIN); break;  //@@@
+    case AUTO: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
+    default:   lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
+  }
+  
+  tftWakeDisplay(true);
 }
 
 void tftAwaken(lv_event_t * e)
 {
-  tftWakeDisplay();
+  tftWakeDisplay(true);
 }
 
 void tftStopTouchTimer(lv_event_t * e)
@@ -48,10 +81,9 @@ void wifiScanner(void *pvParameters)
   lv_obj_clear_state(ui_ScanBtn, LV_STATE_DISABLED);
   audioBeep();
 
+  ntScanTaskHandler = NULL;
   vTaskDelete(NULL);
 }
-
-TaskHandle_t ntScanTaskHandler = NULL;
 
 static void networkScanner() {
   xTaskCreate(wifiScanner,
@@ -115,14 +147,6 @@ void LoadInfoStrings(lv_event_t * e)
   lv_label_set_text_fmt(ui_CopyrightLabel, "%s", VERSION_COPYRIGHT);
 }
 
-void LoadConfigStrings(lv_event_t * e)
-{
-  lv_label_set_text_fmt(ui_TempCorrectionLabel, "%.1f", OperatingParameters.tempCorrection);
-  lv_slider_set_value(ui_TempCorrectionSlider, OperatingParameters.tempCorrection*10, LV_ANIM_OFF);
-  lv_label_set_text_fmt(ui_TempSwingLabel, "%.1f", OperatingParameters.tempSwing);
-  lv_slider_set_value(ui_TempSwingSlider, OperatingParameters.tempSwing*10, LV_ANIM_OFF);
-}
-
 void tftUpdateTempCorrectionValue(lv_event_t * e)
 {
   lv_obj_t * slider = lv_event_get_target(e);
@@ -141,6 +165,15 @@ void tftUpdateTempSwingValue(lv_event_t * e)
   OperatingParameters.tempSwing = (float)lv_slider_get_value(slider)/10.0;
 }
 
+void tftUpdateUiSleepValue(lv_event_t * e)
+{
+  lv_obj_t * slider = lv_event_get_target(e);
+  char buf[8];
+  lv_snprintf(buf, sizeof(buf), "%d s", lv_slider_get_value(slider));
+  lv_label_set_text(ui_UiSleepLabel, buf);
+  OperatingParameters.thermostatSleepTime = lv_slider_get_value(slider);
+}
+
 void tftSetNewWifi(lv_event_t * e)
 {
   lv_dropdown_get_selected_str(ui_SsidDropdown, WifiCreds.ssid, sizeof(WifiCreds.ssid));
@@ -152,3 +185,88 @@ void tftClearPsk(lv_event_t * e)
 {
   lv_textarea_set_text(ui_PSK, "");
 }
+
+void SaveConfigSettings(lv_event_t * e)
+{
+  if (lv_obj_has_state(ui_TempUnitsSwitch, LV_STATE_CHECKED))
+  {
+    OperatingParameters.tempUnits = 'C';
+    lv_arc_set_range(ui_TempArc, degFtoC(45.0)*10, degFtoC(92.0)*10);
+    lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
+    // Set smaller fractional part of temp
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", degCfrac(OperatingParameters.tempSet));
+  } else {
+    OperatingParameters.tempUnits = 'F';
+    lv_arc_set_range(ui_TempArc, 450, 920);
+    lv_obj_add_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
+  }
+
+  lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
+
+  OperatingParameters.hvacCoolEnable = lv_obj_has_state(ui_HvacCoolCheckbox, LV_STATE_CHECKED);
+  OperatingParameters.hvacFanEnable = lv_obj_has_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
+
+  setHvacModesDropdown();
+}
+
+void LoadConfigSettings(lv_event_t * e)
+{
+  lv_label_set_text_fmt(ui_TempCorrectionLabel, "%.1f", OperatingParameters.tempCorrection);
+  lv_slider_set_value(ui_TempCorrectionSlider, OperatingParameters.tempCorrection*10, LV_ANIM_OFF);
+  lv_label_set_text_fmt(ui_TempSwingLabel, "%.1f", OperatingParameters.tempSwing);
+  lv_slider_set_value(ui_TempSwingSlider, OperatingParameters.tempSwing*10, LV_ANIM_OFF);
+  if (OperatingParameters.tempUnits == 'F')
+    lv_obj_clear_state(ui_TempUnitsSwitch, LV_STATE_CHECKED);
+  else
+    lv_obj_add_state(ui_TempUnitsSwitch, LV_STATE_CHECKED);
+  if (OperatingParameters.hvacCoolEnable)
+    lv_obj_add_state(ui_HvacCoolCheckbox, LV_STATE_CHECKED);
+  else
+    lv_obj_clear_state(ui_HvacCoolCheckbox, LV_STATE_CHECKED);
+  if (OperatingParameters.hvacFanEnable)
+    lv_obj_add_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
+  else
+    lv_obj_clear_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
+}
+
+void LoadUncommonSettings(lv_event_t * e)
+{
+  lv_dropdown_set_selected(ui_TimezoneDropdown, OperatingParameters.timezone_sel);
+
+  lv_slider_set_value(ui_UiSleepSlider, OperatingParameters.thermostatSleepTime, LV_ANIM_OFF);
+  lv_label_set_text_fmt(ui_UiSleepLabel, "%d s", OperatingParameters.thermostatSleepTime);
+
+  if (OperatingParameters.thermostatBeepEnable)
+    lv_obj_add_state(ui_AudibleBeepCheckbox, LV_STATE_CHECKED);
+  else
+    lv_obj_clear_state(ui_AudibleBeepCheckbox, LV_STATE_CHECKED);
+
+  if (OperatingParameters.hvac2StageHeatEnable)
+    lv_obj_add_state(ui_Hvac2StageHeatCheckbox, LV_STATE_CHECKED);
+  else
+    lv_obj_clear_state(ui_Hvac2StageHeatCheckbox, LV_STATE_CHECKED);
+
+  if (OperatingParameters.hvacReverseValveEnable)
+    lv_obj_add_state(ui_RevValveCheckbox, LV_STATE_CHECKED);
+  else
+    lv_obj_clear_state(ui_RevValveCheckbox, LV_STATE_CHECKED);
+}
+
+void SaveUncommonConfigSettings(lv_event_t * e)
+{
+  OperatingParameters.timezone_sel = lv_dropdown_get_selected(ui_TimezoneDropdown);
+  OperatingParameters.timezone = (char *)(gmt_timezones[OperatingParameters.timezone_sel]);
+  OperatingParameters.hvacReverseValveEnable = lv_obj_has_state(ui_RevValveCheckbox, LV_STATE_CHECKED);
+  OperatingParameters.hvac2StageHeatEnable = lv_obj_has_state(ui_Hvac2StageHeatCheckbox, LV_STATE_CHECKED);
+  OperatingParameters.thermostatBeepEnable = lv_obj_has_state(ui_AudibleBeepCheckbox, LV_STATE_CHECKED);
+
+  setHvacModesDropdown();
+  updateTimezone();
+}
+
+void ShitShitShit(lv_event_t * e)
+{
+	// Your code here
+}
+

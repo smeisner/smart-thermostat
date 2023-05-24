@@ -17,32 +17,11 @@ void ui_Setup_screen_init(void)
     lv_obj_set_style_bg_grad_color(ui_Setup, lv_color_hex(0xBE5757), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_grad_dir(ui_Setup, LV_GRAD_DIR_HOR, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_TimezoneLabel = lv_label_create(ui_Setup);
-    lv_obj_set_width(ui_TimezoneLabel, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_TimezoneLabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_TimezoneLabel, 7);
-    lv_obj_set_y(ui_TimezoneLabel, -100);
-    lv_obj_set_align(ui_TimezoneLabel, LV_ALIGN_LEFT_MID);
-    lv_label_set_text(ui_TimezoneLabel, "Time Zone:");
-
-    ui_TimezoneDropdown = lv_dropdown_create(ui_Setup);
-    lv_dropdown_set_options(ui_TimezoneDropdown,
-                            "GMT +10\nGMT +9\nGMT +8\nGMT +7\nGMT +6\nGMT +5\nGMT +4\nGMT +3\nGMT +2\nGMT +1\nGMT\nGMT -1\nGMT -2\nGMT -3\nGMT -4\nGMT -5\nGMT -6\nGMT -7\nGMT -8\nGMT -9\nGMT -10\n");
-    lv_obj_set_width(ui_TimezoneDropdown, 104);
-    lv_obj_set_height(ui_TimezoneDropdown, 32);
-    lv_obj_set_x(ui_TimezoneDropdown, 133);
-    lv_obj_set_y(ui_TimezoneDropdown, -100);
-    lv_obj_set_align(ui_TimezoneDropdown, LV_ALIGN_LEFT_MID);
-    lv_obj_add_flag(ui_TimezoneDropdown, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
-    lv_obj_set_style_bg_color(ui_TimezoneDropdown, lv_color_hex(0x2095F6), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_TimezoneDropdown, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_border_width(ui_TimezoneDropdown, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-
     ui_TempUnitsLabel = lv_label_create(ui_Setup);
     lv_obj_set_width(ui_TempUnitsLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempUnitsLabel, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_TempUnitsLabel, 7);
-    lv_obj_set_y(ui_TempUnitsLabel, -68);
+    lv_obj_set_y(ui_TempUnitsLabel, -15);
     lv_obj_set_align(ui_TempUnitsLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_TempUnitsLabel, "Temp Units: ");
 
@@ -50,7 +29,7 @@ void ui_Setup_screen_init(void)
     lv_obj_set_width(ui_FahrenheitLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_FahrenheitLabel, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_FahrenheitLabel, 133);
-    lv_obj_set_y(ui_FahrenheitLabel, -68);
+    lv_obj_set_y(ui_FahrenheitLabel, -15);
     lv_obj_set_align(ui_FahrenheitLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_FahrenheitLabel, "F");
 
@@ -58,7 +37,7 @@ void ui_Setup_screen_init(void)
     lv_obj_set_width(ui_TempUnitsSwitch, 50);
     lv_obj_set_height(ui_TempUnitsSwitch, 22);
     lv_obj_set_x(ui_TempUnitsSwitch, 13);
-    lv_obj_set_y(ui_TempUnitsSwitch, -68);
+    lv_obj_set_y(ui_TempUnitsSwitch, -15);
     lv_obj_set_align(ui_TempUnitsSwitch, LV_ALIGN_CENTER);
     lv_obj_add_state(ui_TempUnitsSwitch, LV_STATE_CHECKED);       /// States
     lv_obj_set_style_bg_color(ui_TempUnitsSwitch, lv_color_hex(0x2095F6), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -68,7 +47,7 @@ void ui_Setup_screen_init(void)
     lv_obj_set_width(ui_CelciusLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_CelciusLabel, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_CelciusLabel, 203);
-    lv_obj_set_y(ui_CelciusLabel, -68);
+    lv_obj_set_y(ui_CelciusLabel, -15);
     lv_obj_set_align(ui_CelciusLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_CelciusLabel, "C");
 
@@ -76,7 +55,7 @@ void ui_Setup_screen_init(void)
     lv_obj_set_width(ui_TempCorrectionTextLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempCorrectionTextLabel, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_TempCorrectionTextLabel, 7);
-    lv_obj_set_y(ui_TempCorrectionTextLabel, -37);
+    lv_obj_set_y(ui_TempCorrectionTextLabel, -100);
     lv_obj_set_align(ui_TempCorrectionTextLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_TempCorrectionTextLabel, "Temp Correction:");
 
@@ -84,25 +63,25 @@ void ui_Setup_screen_init(void)
     lv_obj_set_width(ui_TempCorrectionLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempCorrectionLabel, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_TempCorrectionLabel, 138);
-    lv_obj_set_y(ui_TempCorrectionLabel, -37);
+    lv_obj_set_y(ui_TempCorrectionLabel, -100);
     lv_obj_set_align(ui_TempCorrectionLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_TempCorrectionLabel, "-3.8°");
 
     ui_TempCorrectionSlider = lv_slider_create(ui_Setup);
-    lv_slider_set_range(ui_TempCorrectionSlider, -60, 20);
+    lv_slider_set_range(ui_TempCorrectionSlider, -65, 10);
     if(lv_slider_get_mode(ui_TempCorrectionSlider) == LV_SLIDER_MODE_RANGE) lv_slider_set_left_value(
-            ui_TempCorrectionSlider, -60, LV_ANIM_OFF);
+            ui_TempCorrectionSlider, -65, LV_ANIM_OFF);
     lv_obj_set_width(ui_TempCorrectionSlider, 127);
     lv_obj_set_height(ui_TempCorrectionSlider, 10);
     lv_obj_set_x(ui_TempCorrectionSlider, -9);
-    lv_obj_set_y(ui_TempCorrectionSlider, -37);
+    lv_obj_set_y(ui_TempCorrectionSlider, -100);
     lv_obj_set_align(ui_TempCorrectionSlider, LV_ALIGN_RIGHT_MID);
 
     ui_TempSwingTextLabel = lv_label_create(ui_Setup);
     lv_obj_set_width(ui_TempSwingTextLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempSwingTextLabel, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_TempSwingTextLabel, 7);
-    lv_obj_set_y(ui_TempSwingTextLabel, -6);
+    lv_obj_set_y(ui_TempSwingTextLabel, -58);
     lv_obj_set_align(ui_TempSwingTextLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_TempSwingTextLabel, "Temp Swing:");
 
@@ -110,7 +89,7 @@ void ui_Setup_screen_init(void)
     lv_obj_set_width(ui_TempSwingLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempSwingLabel, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_TempSwingLabel, 138);
-    lv_obj_set_y(ui_TempSwingLabel, -6);
+    lv_obj_set_y(ui_TempSwingLabel, -58);
     lv_obj_set_align(ui_TempSwingLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_TempSwingLabel, "3.5°");
 
@@ -122,7 +101,7 @@ void ui_Setup_screen_init(void)
     lv_obj_set_width(ui_TempSwingSlider, 127);
     lv_obj_set_height(ui_TempSwingSlider, 10);
     lv_obj_set_x(ui_TempSwingSlider, -9);
-    lv_obj_set_y(ui_TempSwingSlider, -6);
+    lv_obj_set_y(ui_TempSwingSlider, -58);
     lv_obj_set_align(ui_TempSwingSlider, LV_ALIGN_RIGHT_MID);
 
     ui_HvacCoolLabel = lv_label_create(ui_Setup);
@@ -167,39 +146,40 @@ void ui_Setup_screen_init(void)
     lv_obj_set_y(ui_RevValveLabel, 95);
     lv_obj_set_align(ui_RevValveLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_long_mode(ui_RevValveLabel, LV_LABEL_LONG_SCROLL);
-    lv_label_set_text(ui_RevValveLabel, "Reverse Valve:");
+    lv_label_set_text(ui_RevValveLabel, "********");
 
-    ui_RevValveCheckbox = lv_checkbox_create(ui_Setup);
-    lv_checkbox_set_text(ui_RevValveCheckbox, "");
-    lv_obj_set_width(ui_RevValveCheckbox, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_RevValveCheckbox, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_RevValveCheckbox, 0);
-    lv_obj_set_y(ui_RevValveCheckbox, 95);
-    lv_obj_set_align(ui_RevValveCheckbox, LV_ALIGN_CENTER);
-    lv_obj_add_flag(ui_RevValveCheckbox, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+    ui_DisabledCheckbox3 = lv_checkbox_create(ui_Setup);
+    lv_checkbox_set_text(ui_DisabledCheckbox3, "");
+    lv_obj_set_width(ui_DisabledCheckbox3, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_DisabledCheckbox3, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_DisabledCheckbox3, 0);
+    lv_obj_set_y(ui_DisabledCheckbox3, 95);
+    lv_obj_set_align(ui_DisabledCheckbox3, LV_ALIGN_CENTER);
+    lv_obj_add_state(ui_DisabledCheckbox3, LV_STATE_DISABLED);       /// States
+    lv_obj_add_flag(ui_DisabledCheckbox3, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
 
-    ui_SetupWifiBtn = lv_btn_create(ui_Setup);
-    lv_obj_set_width(ui_SetupWifiBtn, 100);
-    lv_obj_set_height(ui_SetupWifiBtn, 36);
-    lv_obj_set_x(ui_SetupWifiBtn, -2);
-    lv_obj_set_y(ui_SetupWifiBtn, -45);
-    lv_obj_set_align(ui_SetupWifiBtn, LV_ALIGN_BOTTOM_RIGHT);
-    lv_obj_add_flag(ui_SetupWifiBtn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
-    lv_obj_clear_flag(ui_SetupWifiBtn, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_bg_color(ui_SetupWifiBtn, lv_color_hex(0x2095F6), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui_SetupWifiBtn, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_grad_color(ui_SetupWifiBtn, lv_color_hex(0x2620F6), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_grad_dir(ui_SetupWifiBtn, LV_GRAD_DIR_VER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_SetupUncommonBtn = lv_btn_create(ui_Setup);
+    lv_obj_set_width(ui_SetupUncommonBtn, 100);
+    lv_obj_set_height(ui_SetupUncommonBtn, 36);
+    lv_obj_set_x(ui_SetupUncommonBtn, -2);
+    lv_obj_set_y(ui_SetupUncommonBtn, -45);
+    lv_obj_set_align(ui_SetupUncommonBtn, LV_ALIGN_BOTTOM_RIGHT);
+    lv_obj_add_flag(ui_SetupUncommonBtn, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+    lv_obj_clear_flag(ui_SetupUncommonBtn, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_bg_color(ui_SetupUncommonBtn, lv_color_hex(0x2095F6), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_SetupUncommonBtn, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_grad_color(ui_SetupUncommonBtn, lv_color_hex(0x2620F6), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_grad_dir(ui_SetupUncommonBtn, LV_GRAD_DIR_VER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_SetupWifiLabel = lv_label_create(ui_Setup);
-    lv_obj_set_width(ui_SetupWifiLabel, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_SetupWifiLabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_SetupWifiLabel, -36);
-    lv_obj_set_y(ui_SetupWifiLabel, -56);
-    lv_obj_set_align(ui_SetupWifiLabel, LV_ALIGN_BOTTOM_RIGHT);
-    lv_label_set_text(ui_SetupWifiLabel, "Wifi");
-    lv_obj_set_style_text_color(ui_SetupWifiLabel, lv_color_hex(0xFFE300), LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_opa(ui_SetupWifiLabel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_SetupUncommonLabel = lv_label_create(ui_Setup);
+    lv_obj_set_width(ui_SetupUncommonLabel, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_SetupUncommonLabel, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_SetupUncommonLabel, -21);
+    lv_obj_set_y(ui_SetupUncommonLabel, -56);
+    lv_obj_set_align(ui_SetupUncommonLabel, LV_ALIGN_BOTTOM_RIGHT);
+    lv_label_set_text(ui_SetupUncommonLabel, "Unusual");
+    lv_obj_set_style_text_color(ui_SetupUncommonLabel, lv_color_hex(0xFFE300), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui_SetupUncommonLabel, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_SetupHomeBtn = lv_btn_create(ui_Setup);
     lv_obj_set_width(ui_SetupHomeBtn, 100);
@@ -226,7 +206,7 @@ void ui_Setup_screen_init(void)
 
     lv_obj_add_event_cb(ui_TempCorrectionSlider, ui_event_TempCorrectionSlider, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_TempSwingSlider, ui_event_TempSwingSlider, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_SetupWifiBtn, ui_event_SetupWifiBtn, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(ui_SetupUncommonBtn, ui_event_SetupUncommonBtn, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_SetupHomeBtn, ui_event_SetupHomeBtn, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_Setup, ui_event_Setup, LV_EVENT_ALL, NULL);
 

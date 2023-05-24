@@ -384,7 +384,6 @@
           "C",
           "GND",
           "Net-(BR1-Pad4)",
-          "Net-(C5-Pad1)",
           "RH"
         ],
         "pcb_color": "rgba(0, 0, 0, 0.000)",
@@ -406,12 +405,7 @@
         "name": "Pwr-",
         "nets": [
           "G",
-          "Net-(D1-Pad1)",
-          "Net-(D1-Pad3)",
-          "Net-(D2-Pad1)",
           "Net-(D3-Pad2)",
-          "Net-(D4-Pad2)",
-          "Net-(D5-Pad2)",
           "RC",
           "W",
           "Y"

@@ -7,7 +7,7 @@
 WebServer server(80);
 const char* serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 const char* serverRedirect = "<meta http-equiv=\"refresh\" content=\"0; url='/'\" />";
-const char *host = "thermostat";
+//const char *host = "thermostat";
 
 void tempUp()
 {
@@ -22,10 +22,11 @@ void tempDown()
     server.send(200, "text/html", serverRedirect);
 }
 
+static char html[1700];
+
 void handleRoot()
 {
-    char html[1536];
-    snprintf(html, 1536, 
+    snprintf(html, 1700, 
 "<html><head><meta http-equiv='refresh' content='5'/><title>Truly Smart Thermostat</title><style>\
 body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
 </style></head><body><h1>Thermostat operating parameters:</h1>\
@@ -52,6 +53,7 @@ HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</butto
 <button onclick=\"window.location.href = '/hvacModeCool';\">COOL</button>&nbsp\
 <button onclick=\"window.location.href = '/hvacModeFan';\">FAN</button>\
 <pre><p style=\"font-size:14px; \"><br>Firmware version: %s (%s)<br>%s</p></pre>\
+<p></p><a href=\"https://github.com/smeisner/smart-thermostat\" target=\"_blank\">Smart Thermostat Project on GitHub</a>\
 </body></html>",
         hvacModeToString(OperatingParameters.hvacOpMode), hvacModeToString(OperatingParameters.hvacSetMode),
         (OperatingParameters.tempUnits == 'C') ? degFtoC(OperatingParameters.tempCurrent + OperatingParameters.tempCorrection): (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection), 
@@ -76,16 +78,22 @@ void webPump(void * parameter)
   //delay(40);
 }
 
+void test(void * parameter)
+{
+  Serial.printf ("Test\n");
+  vTaskDelay(5000 / portTICK_PERIOD_MS);
+}
+
 void webCreateTask()
 {
-  xTaskCreate (
-      webPump,
-      "Web Server",
-      4096,
-      NULL,
-      tskIDLE_PRIORITY-1,
-      NULL
-  );
+  // xTaskCreate (
+  //     test,
+  //     "Web Server",
+  //     4096,
+  //     NULL,
+  //     tskIDLE_PRIORITY-1,
+  //     NULL
+  // );
 }
 
 void webInit()
@@ -95,7 +103,7 @@ void webInit()
 
   // if (wifiConnected())
   // {
-    MDNS.begin(host);
+    MDNS.begin(WifiCreds.hostname);
 
     server.on("/", handleRoot);
     server.on("/tempUp", tempUp);
@@ -172,12 +180,12 @@ void webInit()
     server.begin();
     MDNS.addService("http", "tcp", 80);
 
-    Serial.printf("Ready! Open http://%s.local in your browser\n", host);
+    Serial.printf("Ready! Open http://%s.local in your browser\n", WifiCreds.hostname);
   // } else {
   //   Serial.println("Wifi not connected!");
   // }
 
-//  Serial.printf ("Starting web server task\n");
-//  webCreateTask();
+  Serial.printf ("Starting web server task\n");
+  webCreateTask();
 
 }

@@ -24,14 +24,17 @@ void ui_Info_screen_init(void)
     lv_obj_set_y(ui_WifiConnectedLabel, -100);
     lv_obj_set_align(ui_WifiConnectedLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_WifiConnectedLabel, "Connected:");
+    lv_obj_set_style_text_font(ui_WifiConnectedLabel, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_WifiConnCheckBox = lv_checkbox_create(ui_Info);
     lv_checkbox_set_text(ui_WifiConnCheckBox, "");
     lv_obj_set_width(ui_WifiConnCheckBox, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_WifiConnCheckBox, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_WifiConnCheckBox, 96);
-    lv_obj_set_y(ui_WifiConnCheckBox, 10);
+    lv_obj_set_x(ui_WifiConnCheckBox, 120);
+    lv_obj_set_y(ui_WifiConnCheckBox, 8);
     lv_obj_add_flag(ui_WifiConnCheckBox, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+    lv_obj_clear_flag(ui_WifiConnCheckBox, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_CLICK_FOCUSABLE);      /// Flags
+    lv_obj_set_style_text_font(ui_WifiConnCheckBox, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_set_style_bg_color(ui_WifiConnCheckBox, lv_color_hex(0xFFFFFF), LV_PART_INDICATOR | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_WifiConnCheckBox, 0, LV_PART_INDICATOR | LV_STATE_DEFAULT);
@@ -40,10 +43,11 @@ void ui_Info_screen_init(void)
     ui_WifiSsidLabel = lv_label_create(ui_Info);
     lv_obj_set_width(ui_WifiSsidLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_WifiSsidLabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_WifiSsidLabel, 140);
+    lv_obj_set_x(ui_WifiSsidLabel, 160);
     lv_obj_set_y(ui_WifiSsidLabel, -100);
     lv_obj_set_align(ui_WifiSsidLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_WifiSsidLabel, "SSID:");
+    lv_obj_set_style_text_font(ui_WifiSsidLabel, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_IPLabel = lv_label_create(ui_Info);
     lv_obj_set_width(ui_IPLabel, LV_SIZE_CONTENT);   /// 1
@@ -52,6 +56,7 @@ void ui_Info_screen_init(void)
     lv_obj_set_y(ui_IPLabel, -74);
     lv_obj_set_align(ui_IPLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_IPLabel, "IP Address:");
+    lv_obj_set_style_text_font(ui_IPLabel, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_HostnameLabel = lv_label_create(ui_Info);
     lv_obj_set_width(ui_HostnameLabel, LV_SIZE_CONTENT);   /// 1
@@ -60,6 +65,7 @@ void ui_Info_screen_init(void)
     lv_obj_set_y(ui_HostnameLabel, -48);
     lv_obj_set_align(ui_HostnameLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_HostnameLabel, "Hostname:");
+    lv_obj_set_style_text_font(ui_HostnameLabel, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_RssiLabel = lv_label_create(ui_Info);
     lv_obj_set_width(ui_RssiLabel, LV_SIZE_CONTENT);   /// 1
@@ -68,6 +74,7 @@ void ui_Info_screen_init(void)
     lv_obj_set_y(ui_RssiLabel, -22);
     lv_obj_set_align(ui_RssiLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_RssiLabel, "Signal:");
+    lv_obj_set_style_text_font(ui_RssiLabel, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_FwVersionLabel = lv_label_create(ui_Info);
     lv_obj_set_width(ui_FwVersionLabel, LV_SIZE_CONTENT);   /// 1
@@ -76,6 +83,7 @@ void ui_Info_screen_init(void)
     lv_obj_set_y(ui_FwVersionLabel, 4);
     lv_obj_set_align(ui_FwVersionLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_FwVersionLabel, "Firmware:");
+    lv_obj_set_style_text_font(ui_FwVersionLabel, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_BuildDateLabel = lv_label_create(ui_Info);
     lv_obj_set_width(ui_BuildDateLabel, LV_SIZE_CONTENT);   /// 1
@@ -84,6 +92,7 @@ void ui_Info_screen_init(void)
     lv_obj_set_y(ui_BuildDateLabel, 30);
     lv_obj_set_align(ui_BuildDateLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_text(ui_BuildDateLabel, "Build Date:");
+    lv_obj_set_style_text_font(ui_BuildDateLabel, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_CopyrightLabel = lv_label_create(ui_Info);
     lv_obj_set_width(ui_CopyrightLabel, LV_SIZE_CONTENT);   /// 1
@@ -94,6 +103,7 @@ void ui_Info_screen_init(void)
     lv_label_set_long_mode(ui_CopyrightLabel, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(ui_CopyrightLabel, "Copyright: ");
     lv_obj_set_style_text_align(ui_CopyrightLabel, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui_CopyrightLabel, &lv_font_montserrat_18, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_HomeBtn = lv_btn_create(ui_Info);
     lv_obj_set_width(ui_HomeBtn, 100);

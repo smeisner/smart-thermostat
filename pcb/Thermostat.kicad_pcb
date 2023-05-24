@@ -89,9 +89,9 @@
       (subtractmaskfromsilk false)
       (outputformat 4)
       (mirror false)
-      (drillshape 0)
+      (drillshape 1)
       (scaleselection 1)
-      (outputdirectory "")
+      (outputdirectory "/home/steve/projects/smart-thermostat/pcb/")
     )
   )
 
