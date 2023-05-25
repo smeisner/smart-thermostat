@@ -89,9 +89,7 @@ bool eepromUpdateHvacSetTemp();
 bool eepromUpdateHvacSetMode();
 
 // HTTP Server
-void webInit();
-void webPump(void * parameter);
-const char *hvacModeToString(HVAC_MODE mode);
+void webCreateTask();
 
 // Routine to control wifi
 bool wifiStart(const char *hostname, const char *ssid, const char *pass);
@@ -109,6 +107,7 @@ void tftCreateTask();
 HVAC_MODE strToHvacMode(char *mode);
 HVAC_MODE convertSelectedHvacMode();
 void setHvacModesDropdown();
+const char *hvacModeToString(HVAC_MODE mode);
 
 #ifdef __cplusplus
 extern "C" {
