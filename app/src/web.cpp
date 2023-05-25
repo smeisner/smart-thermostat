@@ -7,7 +7,7 @@
 WebServer server(80);
 const char* serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 const char* serverRedirect = "<meta http-equiv=\"refresh\" content=\"0; url='/'\" />";
-//const char *host = "thermostat";
+static char html[1600];
 
 void tempUp()
 {
@@ -22,11 +22,9 @@ void tempDown()
     server.send(200, "text/html", serverRedirect);
 }
 
-static char html[1700];
-
 void handleRoot()
 {
-    snprintf(html, 1700, 
+    snprintf(html, sizeof(html), 
 "<html><head><meta http-equiv='refresh' content='5'/><title>Truly Smart Thermostat</title><style>\
 body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
 </style></head><body><h1>Thermostat operating parameters:</h1>\
@@ -69,123 +67,103 @@ HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</butto
     server.send(200, "text/html", html);
 }
 
-void webPump(void * parameter)
-{
-  server.handleClient();
-  // Pause the task again for 40ms
-//  vTaskDelay(40 / portTICK_PERIOD_MS);
-  //yield();
-  //delay(40);
-}
-
-void test(void * parameter)
-{
-  Serial.printf ("Test\n");
-  vTaskDelay(5000 / portTICK_PERIOD_MS);
-}
-
-void webCreateTask()
-{
-  // xTaskCreate (
-  //     test,
-  //     "Web Server",
-  //     4096,
-  //     NULL,
-  //     tskIDLE_PRIORITY-1,
-  //     NULL
-  // );
-}
-
-void webInit()
+void webInit(void * parameter)
 {
   if (!wifiConnected())
     Serial.printf ("***  WARNING: Starting web server while wifi down!!  *****\n");
 
-  // if (wifiConnected())
-  // {
-    MDNS.begin(WifiCreds.hostname);
+  MDNS.begin(WifiCreds.hostname);
 
-    server.on("/", handleRoot);
-    server.on("/tempUp", tempUp);
-    server.on("/tempDown", tempDown);
+  server.on("/", handleRoot);
+  server.on("/tempUp", tempUp);
+  server.on("/tempDown", tempDown);
 
-    server.on("/clearFirmware", HTTP_GET, []() {
-        clearNVS();
-        server.send(200, "text/html", serverRedirect);
-    });
+  server.on("/clearFirmware", HTTP_GET, []() {
+      clearNVS();
+      server.send(200, "text/html", serverRedirect);
+  });
 
-    server.on("/hvacModeOff", HTTP_GET, []() {
-        OperatingParameters.hvacSetMode = OFF;
-        eepromUpdateHvacSetMode();
-        server.send(200, "text/html", serverRedirect);
-    });
+  server.on("/hvacModeOff", HTTP_GET, []() {
+      OperatingParameters.hvacSetMode = OFF;
+      eepromUpdateHvacSetMode();
+      server.send(200, "text/html", serverRedirect);
+  });
 
-    server.on("/hvacModeAuto", HTTP_GET, []() {
-        OperatingParameters.hvacSetMode = AUTO;
-        eepromUpdateHvacSetMode();
-        server.send(200, "text/html", serverRedirect);
-    });
+  server.on("/hvacModeAuto", HTTP_GET, []() {
+      OperatingParameters.hvacSetMode = AUTO;
+      eepromUpdateHvacSetMode();
+      server.send(200, "text/html", serverRedirect);
+  });
 
-    server.on("/hvacModeHeat", HTTP_GET, []() {
-        OperatingParameters.hvacSetMode = HEAT;
-        eepromUpdateHvacSetMode();
-        server.send(200, "text/html", serverRedirect);
-    });
+  server.on("/hvacModeHeat", HTTP_GET, []() {
+      OperatingParameters.hvacSetMode = HEAT;
+      eepromUpdateHvacSetMode();
+      server.send(200, "text/html", serverRedirect);
+  });
 
-    server.on("/hvacModeCool", HTTP_GET, []() {
-        OperatingParameters.hvacSetMode = COOL;
-        eepromUpdateHvacSetMode();
-        server.send(200, "text/html", serverRedirect);
-    });
+  server.on("/hvacModeCool", HTTP_GET, []() {
+      OperatingParameters.hvacSetMode = COOL;
+      eepromUpdateHvacSetMode();
+      server.send(200, "text/html", serverRedirect);
+  });
 
-    server.on("/hvacModeFan", HTTP_GET, []() {
-        OperatingParameters.hvacSetMode = FAN;
-        eepromUpdateHvacSetMode();
-        server.send(200, "text/html", serverRedirect);
-    });
+  server.on("/hvacModeFan", HTTP_GET, []() {
+      OperatingParameters.hvacSetMode = FAN;
+      eepromUpdateHvacSetMode();
+      server.send(200, "text/html", serverRedirect);
+  });
 
-    server.on("/upload", HTTP_GET, []() {
-      server.sendHeader("Connection", "close");
-      server.send(200, "text/html", serverIndex);
-    });
+  server.on("/upload", HTTP_GET, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/html", serverIndex);
+  });
 
-    server.on("/update", HTTP_POST, []() {
-      server.sendHeader("Connection", "close");
-      server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
-      vTaskDelay(500 / portTICK_PERIOD_MS);
-      ESP.restart();
-    }, []() {
-      HTTPUpload& upload = server.upload();
-      if (upload.status == UPLOAD_FILE_START) {
-        Serial.setDebugOutput(true);
-        Serial.printf("Update: %s\n", upload.filename.c_str());
-        if (!Update.begin()) { //start with max available size
-          Update.printError(Serial);
-        }
-      } else if (upload.status == UPLOAD_FILE_WRITE) {
-        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-          Update.printError(Serial);
-        }
-      } else if (upload.status == UPLOAD_FILE_END) {
-        if (Update.end(true)) { //true to set the size to the current progress
-          Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-        } else {
-          Update.printError(Serial);
-        }
-        Serial.setDebugOutput(false);
-      } else {
-        Serial.printf("Update Failed Unexpectedly (likely broken connection): status=%d\n", upload.status);
+  server.on("/update", HTTP_POST, []() {
+    server.sendHeader("Connection", "close");
+    server.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+    ESP.restart();
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.setDebugOutput(true);
+      Serial.printf("Update: %s\n", upload.filename.c_str());
+      if (!Update.begin()) { //start with max available size
+        Update.printError(Serial);
       }
-    });
-    server.begin();
-    MDNS.addService("http", "tcp", 80);
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+        Update.printError(Serial);
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      if (Update.end(true)) { //true to set the size to the current progress
+        Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+      } else {
+        Update.printError(Serial);
+      }
+      Serial.setDebugOutput(false);
+    } else {
+      Serial.printf("Update Failed Unexpectedly (likely broken connection): status=%d\n", upload.status);
+    }
+  });
+  server.begin();
+  MDNS.addService("http", "tcp", 80);
 
-    Serial.printf("Ready! Open http://%s.local in your browser\n", WifiCreds.hostname);
-  // } else {
-  //   Serial.println("Wifi not connected!");
-  // }
+  Serial.printf("Ready! Open http://%s.local in your browser\n", WifiCreds.hostname);
 
   Serial.printf ("Starting web server task\n");
-  webCreateTask();
+  for (;;) { server.handleClient(); delay(1); }
 
+}
+
+void webCreateTask()
+{
+  xTaskCreate (
+      webInit,
+      "Web Server",
+      4096,
+      NULL,
+      tskIDLE_PRIORITY-1,
+      NULL
+  );
 }

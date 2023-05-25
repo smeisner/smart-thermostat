@@ -169,10 +169,6 @@ void stateMachine(void * parameter)
       updateTimeSntp();
     }
 
-    // Provide time for the web server
-// Now a FreeRTOS task, so no need to call from here
-    webPump(NULL);
-
     // Check wifi
     if (!wifiConnected()) 
     {

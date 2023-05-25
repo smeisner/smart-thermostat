@@ -28,7 +28,7 @@ void setup(void)
   stateCreateTask();
   // Start web server
   Serial.printf ("Starting web server\n");
-  webInit();
+  webCreateTask();
   // Play the startup sound
   audioStartupBeep();
   // Do a quick test of the relays
