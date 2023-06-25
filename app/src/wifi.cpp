@@ -1,17 +1,17 @@
 #include "thermostat.hpp"
 #include <WiFi.h>
-//#include "wifi-credentials.h"
+
+///////////////////////////////////////////////////////////////////////////////////////
+// Support for TFT UI
+//
+// From: https://github.com/xpress-embedo/ESP32/blob/master/ConnectToWiFi/src/main.cpp
+///////////////////////////////////////////////////////////////////////////////////////
+
+#define WIFI_MAX_SSID (6u)
 
 WiFiClient wclient;
 WIFI_CREDS WifiCreds;
 
-/////////////////////////////////////////////////////////////////
-// Support for TFT UI
-//
-// From: https://github.com/xpress-embedo/ESP32/blob/master/ConnectToWiFi/src/main.cpp
-/////////////////////////////////////////////////////////////////
-
-#define WIFI_MAX_SSID                       (6u)
 static char wifi_dd_list[WIFI_MAX_SSID*20] = { 0 };
 
 /**
@@ -79,8 +79,7 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   int loop = 0;
   boolean result = false;
 
-  Serial.print("Connecting to ");
-  Serial.print(ssid);
+  Serial.printf("Connecting to %s\n", ssid);
   // set up the wifi
   WiFi.mode(WIFI_MODE_NULL);
   WiFi.setHostname(hostname);
@@ -90,7 +89,7 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   result = (WiFi.status() == WL_CONNECTED);
   while ((result == false) && (loop < 10)) // Wait for connection
   {
-    delay (1500);
+    vTaskDelay(1500 / portTICK_PERIOD_MS);
     Serial.print(".");
     result = (WiFi.status() == WL_CONNECTED);
     loop++;
@@ -98,15 +97,13 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 
   if (result == true)
   {
-    Serial.println("Ready");
-    Serial.print("Host name: ");
-    Serial.println (WiFi.getHostname());
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+    Serial.printf("Ready\n");
+    Serial.printf("Host name: %s\n", WiFi.getHostname());
+    Serial.printf("IP address: %s\n", WiFi.localIP().toString());
   }
   else
   {
-    Serial.println ("WiFi connection Failed!");
+    Serial.printf ("WiFi connection Failed!\n");
   }
 
   return result;
@@ -114,44 +111,68 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 
 bool wifiConnected() { return (WiFi.status() == WL_CONNECTED); }
 
-void WifiDisconnect() { Serial.printf ("** Disconnecting wifi **\n"); WiFi.disconnect(true, true); delay(100); }
+void WifiDisconnect() { Serial.printf ("** Disconnecting wifi **\n"); WiFi.disconnect(true, true); vTaskDelay(100 / portTICK_PERIOD_MS); }
 
 int32_t lastWifiMillis = 0;
+TaskHandle_t ntReconnectTaskHandler = NULL;
 
 bool wifiReconnect(const char *hostname, const char *ssid, const char *pass)
 {
-  if ((WiFi.status() != WL_CONNECTED) && (millis() - lastWifiMillis >= WIFI_CONNECT_INTERVAL))
-  {
+  // if (WiFi.status() != WL_CONNECTED)
+  // {
     Serial.printf ("Reconnecting wifi - ");
     WiFi.disconnect(true, true);
-    delay(500);
+    vTaskDelay(500 / portTICK_PERIOD_MS);
 
-#if 1
     return (wifiStart(hostname, ssid, pass));
-#else
-    WiFi.mode(WIFI_MODE_NULL);
-    WiFi.setHostname(hostname);
-    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, pass);
-
-    lastWifiMillis = millis();
-
-    vTaskDelay(200 / portTICK_PERIOD_MS);
-
-    if (WiFi.status() == WL_CONNECTED)
-    {
-      lastWifiMillis = 0;
-      Serial.printf ("Connected!\n");
-      return true;
-    } else {
-      Serial.printf ("Failed\n");
-      return false;
-    }
-#endif
-  }
-  return true;
+  // }
+  // return true;
 }
+
+void networkReconnectTask(void *pvParameters)
+{
+  Serial.printf("Starting network reconnect task\n");
+
+  if (millis() - lastWifiMillis < WIFI_CONNECT_INTERVAL)
+  {
+    Serial.printf ("Wifi reconnect retry too soon ... delaying\n");
+    ntReconnectTaskHandler = NULL;
+    vTaskDelete(NULL);
+    return; // Will never get here, but wanted to give the compiler an exit path
+  }
+
+  lastWifiMillis = millis();
+
+  if (wifiReconnect(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password) == true)
+  {
+    OperatingParameters.wifiConnected = true;
+  }
+  else
+  {
+    OperatingParameters.wifiConnected = false;
+  }
+
+  ntReconnectTaskHandler = NULL;
+  vTaskDelete(NULL);
+}
+
+void startReconnectTask()
+{
+  if (ntReconnectTaskHandler)
+  {
+    Serial.printf ("Network reconnect task already running ... Exiting\n");
+    return;
+  }
+
+  xTaskCreate(
+    networkReconnectTask,
+    "NetworkReconnectTask",
+    4096,
+    NULL,
+    1,
+    &ntReconnectTaskHandler);
+}
+
 
 uint16_t rssiToPercent(int rssi_i)
 {

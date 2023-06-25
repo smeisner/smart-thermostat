@@ -110,3 +110,7 @@ def tftSetTempDown(event_struct):
 def tftDecreaseSetTemp(event_struct):
     return
 
+
+def tftCalibrate(event_struct):
+    return
+

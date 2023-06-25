@@ -48,7 +48,7 @@ public:
       auto cfg = _bus_instance.config();    // Get a structure for bus settings.
 
       // SPI bus settings
-      cfg.spi_host = VSPI_HOST;     // Select SPI to use ESP32-S2,C3 : SPI2_HOST or SPI3_HOST / ESP32 : VSPI_HOST or HSPI_HOST
+      cfg.spi_host = SPI3_HOST;     // Select SPI to use ESP32-S2,C3 : SPI2_HOST or SPI3_HOST / ESP32 : VSPI_HOST or HSPI_HOST
       // * With the ESP-IDF version upgrade, the description of VSPI_HOST and HSPI_HOST will be deprecated, so if an error occurs, use SPI2_HOST and SPI3_HOST instead.
       cfg.spi_mode = 0;             // Set SPI communication mode (0 ~ 3)
       cfg.freq_write = 40000000;    // SPI clock for transmission (up to 80MHz, rounded to the value obtained by dividing 80MHz by an integer)
@@ -120,7 +120,7 @@ public:
       cfg.offset_rotation = 0;// Adjustment when the display and touch direction do not match Set with a value of 0 to 7
 
       // In the case of SPI connection
-      cfg.spi_host = VSPI_HOST;// Select the SPI to use (HSPI_HOST or VSPI_HOST)
+      cfg.spi_host = SPI3_HOST;// Select the SPI to use (HSPI_HOST or VSPI_HOST)
       cfg.freq = 1000000;      // Set the SPI clock
       cfg.pin_sclk = TFT_CLK_PIN;     // Pin number connected to SCLK
       cfg.pin_mosi = TFT_MOSI_PIN;    // Pin number connected to MOSI

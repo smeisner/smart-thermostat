@@ -31,16 +31,17 @@ void setDefaultThermostatParams()
 {
   thermostat.putInt("currMode", IDLE);
   thermostat.putInt("setMode", OFF);
-  thermostat.putFloat("setTemp", 74.0);
+  thermostat.putFloat("setTemp", 70.0);
   thermostat.putFloat("setTempAutoMin",68.0);
   thermostat.putFloat("setTempAutoMax",74.0);
   thermostat.putFloat("currTemp", 0.0);
   thermostat.putFloat("currHumid", 50.0);
   thermostat.putChar("setUnits", 'F');
   thermostat.putFloat("setSwing", 3.0);
-  thermostat.putFloat("setCorr", -3.8);
+  thermostat.putFloat("setTempCorr", -4.8);
+  thermostat.putFloat("setHumidityCorr", 10);
   thermostat.putInt("sleepTime", 30);
-  thermostat.putInt("timezoneSel", 16);
+  thermostat.putInt("timezoneSel", 17);
   thermostat.putBool("Beep", true);
   thermostat.end();
 }
@@ -49,16 +50,17 @@ void getThermostatParams()
 {
   OperatingParameters.hvacOpMode = (HVAC_MODE)thermostat.getInt("currMode", (int)IDLE);
   OperatingParameters.hvacSetMode = (HVAC_MODE)thermostat.getInt("setMode", (int)OFF);
-  OperatingParameters.tempSet = thermostat.getFloat("setTemp", 74.0);
+  OperatingParameters.tempSet = thermostat.getFloat("setTemp", 70.0);
   OperatingParameters.tempSetAutoMin = thermostat.getFloat("setTempAutoMin", 68.0);
   OperatingParameters.tempSetAutoMax = thermostat.getFloat("setTempAutoMax", 74.0);
   OperatingParameters.tempCurrent = thermostat.getFloat("currTemp", 0.0);
   OperatingParameters.humidCurrent = thermostat.getFloat("currHumid", 50.0);
   OperatingParameters.tempUnits = thermostat.getChar("setUnits", 'F');
   OperatingParameters.tempSwing = thermostat.getFloat("setSwing", 3.0);
-  OperatingParameters.tempCorrection = thermostat.getFloat("setCorr", -3.8);
+  OperatingParameters.tempCorrection = thermostat.getFloat("setTempCorr", -4.8);
+  OperatingParameters.humidityCorrection = thermostat.getFloat("setHumidityCorr", 10);
   OperatingParameters.thermostatSleepTime = thermostat.getInt("sleepTime", 30);
-  OperatingParameters.timezone_sel = thermostat.getInt("timezoneSel", 16);
+  OperatingParameters.timezone_sel = thermostat.getInt("timezoneSel", 17);
   OperatingParameters.timezone = (char *)gmt_timezones[OperatingParameters.timezone_sel];
   OperatingParameters.thermostatBeepEnable = thermostat.getBool("Beep", true);
   OperatingParameters.lightDetected = 1024;

@@ -107,7 +107,7 @@ void ui_MainScreen_screen_init(void)
     ui_SetTempBg1 = lv_obj_create(ui_MainScreen);
     lv_obj_set_width(ui_SetTempBg1, 134);
     lv_obj_set_height(ui_SetTempBg1, 134);
-    lv_obj_set_x(ui_SetTempBg1, -70);
+    lv_obj_set_x(ui_SetTempBg1, -71);
     lv_obj_set_y(ui_SetTempBg1, 11);
     lv_obj_set_align(ui_SetTempBg1, LV_ALIGN_CENTER);
     lv_obj_clear_flag(ui_SetTempBg1, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
@@ -120,7 +120,7 @@ void ui_MainScreen_screen_init(void)
     ui_SetTempBg = lv_obj_create(ui_MainScreen);
     lv_obj_set_width(ui_SetTempBg, 110);
     lv_obj_set_height(ui_SetTempBg, 110);
-    lv_obj_set_x(ui_SetTempBg, -70);
+    lv_obj_set_x(ui_SetTempBg, -71);
     lv_obj_set_y(ui_SetTempBg, 11);
     lv_obj_set_align(ui_SetTempBg, LV_ALIGN_CENTER);
     lv_obj_clear_flag(ui_SetTempBg, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
@@ -136,7 +136,7 @@ void ui_MainScreen_screen_init(void)
     ui_TempArc = lv_arc_create(ui_MainScreen);
     lv_obj_set_width(ui_TempArc, 164);
     lv_obj_set_height(ui_TempArc, 164);
-    lv_obj_set_x(ui_TempArc, -70);
+    lv_obj_set_x(ui_TempArc, -71);
     lv_obj_set_y(ui_TempArc, 11);
     lv_obj_set_align(ui_TempArc, LV_ALIGN_CENTER);
     lv_arc_set_range(ui_TempArc, 450, 920);
@@ -145,7 +145,7 @@ void ui_MainScreen_screen_init(void)
     ui_SetTemp = lv_label_create(ui_MainScreen);
     lv_obj_set_width(ui_SetTemp, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_SetTemp, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_SetTemp, -70);
+    lv_obj_set_x(ui_SetTemp, -71);
     lv_obj_set_y(ui_SetTemp, 11);
     lv_obj_set_align(ui_SetTemp, LV_ALIGN_CENTER);
     lv_label_set_long_mode(ui_SetTemp, LV_LABEL_LONG_CLIP);
@@ -175,8 +175,8 @@ void ui_MainScreen_screen_init(void)
     ui_TempDecreaseBtn = lv_obj_create(ui_MainScreen);
     lv_obj_set_width(ui_TempDecreaseBtn, 45);
     lv_obj_set_height(ui_TempDecreaseBtn, 45);
-    lv_obj_set_x(ui_TempDecreaseBtn, 35);
-    lv_obj_set_y(ui_TempDecreaseBtn, 61);
+    lv_obj_set_x(ui_TempDecreaseBtn, 39);
+    lv_obj_set_y(ui_TempDecreaseBtn, 56);
     lv_obj_set_align(ui_TempDecreaseBtn, LV_ALIGN_CENTER);
     lv_obj_clear_flag(ui_TempDecreaseBtn, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_blend_mode(ui_TempDecreaseBtn, LV_BLEND_MODE_MULTIPLY, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -184,8 +184,8 @@ void ui_MainScreen_screen_init(void)
     ui_TempDecreaseLabel = lv_label_create(ui_MainScreen);
     lv_obj_set_width(ui_TempDecreaseLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempDecreaseLabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_TempDecreaseLabel, 35);
-    lv_obj_set_y(ui_TempDecreaseLabel, 57);
+    lv_obj_set_x(ui_TempDecreaseLabel, 39);
+    lv_obj_set_y(ui_TempDecreaseLabel, 52);
     lv_obj_set_align(ui_TempDecreaseLabel, LV_ALIGN_CENTER);
     lv_label_set_long_mode(ui_TempDecreaseLabel, LV_LABEL_LONG_CLIP);
     lv_label_set_text(ui_TempDecreaseLabel, "-");
@@ -194,7 +194,7 @@ void ui_MainScreen_screen_init(void)
     ui_TempIncreaseBtn = lv_obj_create(ui_MainScreen);
     lv_obj_set_width(ui_TempIncreaseBtn, 45);
     lv_obj_set_height(ui_TempIncreaseBtn, 45);
-    lv_obj_set_x(ui_TempIncreaseBtn, 35);
+    lv_obj_set_x(ui_TempIncreaseBtn, 39);
     lv_obj_set_y(ui_TempIncreaseBtn, -40);
     lv_obj_set_align(ui_TempIncreaseBtn, LV_ALIGN_CENTER);
     lv_obj_clear_flag(ui_TempIncreaseBtn, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
@@ -203,7 +203,7 @@ void ui_MainScreen_screen_init(void)
     ui_TempIncreaseLabel = lv_label_create(ui_MainScreen);
     lv_obj_set_width(ui_TempIncreaseLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_TempIncreaseLabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_TempIncreaseLabel, 35);
+    lv_obj_set_x(ui_TempIncreaseLabel, 39);
     lv_obj_set_y(ui_TempIncreaseLabel, -40);
     lv_obj_set_align(ui_TempIncreaseLabel, LV_ALIGN_CENTER);
     lv_label_set_long_mode(ui_TempIncreaseLabel, LV_LABEL_LONG_CLIP);
@@ -255,7 +255,6 @@ void ui_MainScreen_screen_init(void)
     lv_obj_add_event_cb(ui_ModeDropdown, ui_event_ModeDropdown, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_SetupBtn, ui_event_SetupBtn, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_TempArc, ui_event_TempArc, LV_EVENT_ALL, NULL);
-    lv_obj_add_event_cb(ui_SetTemp, ui_event_SetTemp, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_TempDecreaseBtn, ui_event_TempDecreaseBtn, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_TempIncreaseBtn, ui_event_TempIncreaseBtn, LV_EVENT_ALL, NULL);
     lv_obj_add_event_cb(ui_InfoBtn, ui_event_InfoBtn, LV_EVENT_ALL, NULL);

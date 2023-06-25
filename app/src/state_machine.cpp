@@ -1,8 +1,6 @@
 #include "thermostat.hpp"
 
 OPERATING_PARAMETERS OperatingParameters;
-
-extern int32_t lastMotionDetected;
 extern int32_t lastTimeUpdate;
 int32_t lastWifiReconnect = 0;
 
@@ -31,44 +29,44 @@ void stateMachine(void * parameter)
     if (OperatingParameters.hvacSetMode == OFF)
     {
       OperatingParameters.hvacOpMode = OFF;
-      //digitalWrite(HVAC_HEAT_PIN, LOW);
-      //digitalWrite(HVAC_COOL_PIN, LOW);
-      //digitalWrite(HVAC_FAN_PIN, LOW);
+      digitalWrite(HVAC_HEAT_PIN, LOW);
+      digitalWrite(HVAC_COOL_PIN, LOW);
+      digitalWrite(HVAC_FAN_PIN, LOW);
       digitalWrite(LED_COOL_PIN, LOW);
       digitalWrite(LED_HEAT_PIN, LOW);
-      digitalWrite(LED_IDLE_PIN, LOW);
+      digitalWrite(LED_FAN_PIN, LOW);
     }
     else if (OperatingParameters.hvacSetMode == FAN)
     {
       OperatingParameters.hvacOpMode = FAN;
-      //digitalWrite(HVAC_HEAT_PIN, LOW);
-      //digitalWrite(HVAC_COOL_PIN, LOW);
-      //digitalWrite(HVAC_FAN_PIN, HIGH);
+      digitalWrite(HVAC_HEAT_PIN, LOW);
+      digitalWrite(HVAC_COOL_PIN, LOW);
+      digitalWrite(HVAC_FAN_PIN, HIGH);
       digitalWrite(LED_COOL_PIN, LOW);
       digitalWrite(LED_HEAT_PIN, LOW);
-      digitalWrite(LED_IDLE_PIN, LOW);
+      digitalWrite(LED_FAN_PIN, HIGH);
     }
     else if (OperatingParameters.hvacSetMode == HEAT)
     {
       if (OperatingParameters.hvacOpMode == COOL)
       {
-        //digitalWrite(HVAC_COOL_PIN, LOW);
+        digitalWrite(HVAC_COOL_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, LOW);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
       if (currentTemp < minTemp)
       {
         OperatingParameters.hvacOpMode = HEAT;
-        //digitalWrite(HVAC_HEAT_PIN, HIGH);
+        digitalWrite(HVAC_HEAT_PIN, HIGH);
         digitalWrite(LED_HEAT_PIN, HIGH);
-        digitalWrite(LED_IDLE_PIN, LOW);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
         digitalWrite(LED_COOL_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, HIGH);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
     }
     else if (OperatingParameters.hvacSetMode == AUX_HEAT)
@@ -82,42 +80,42 @@ void stateMachine(void * parameter)
       {
         //digitalWrite(HVAC_COOL_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, LOW);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
       if (currentTemp < minTemp)
       {
         OperatingParameters.hvacOpMode = HEAT;
-        //digitalWrite(HVAC_HEAT_PIN, HIGH);
+        digitalWrite(HVAC_HEAT_PIN, HIGH);
         digitalWrite(LED_HEAT_PIN, HIGH);
-        digitalWrite(LED_IDLE_PIN, LOW);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
         digitalWrite(LED_COOL_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, HIGH);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
     }
     else if (OperatingParameters.hvacSetMode == COOL)
     {
       if (OperatingParameters.hvacOpMode == HEAT)
       {
-        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        digitalWrite(HVAC_HEAT_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, LOW);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
       if (currentTemp > maxTemp)
       {
         OperatingParameters.hvacOpMode = COOL;
-        //digitalWrite(HVAC_COOL_PIN, HIGH);
+        digitalWrite(HVAC_COOL_PIN, HIGH);
         digitalWrite(LED_COOL_PIN, HIGH);
-        digitalWrite(LED_IDLE_PIN, LOW);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
-        digitalWrite(LED_IDLE_PIN, HIGH);
+        digitalWrite(LED_FAN_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
       }
@@ -127,40 +125,40 @@ void stateMachine(void * parameter)
       if (currentTemp < autoMinTemp)
       {
         OperatingParameters.hvacOpMode = HEAT;
-        //digitalWrite(HVAC_HEAT_PIN, HIGH);
+        digitalWrite(HVAC_HEAT_PIN, HIGH);
         digitalWrite(LED_HEAT_PIN, HIGH);
-        //digitalWrite(HVAC_COOL_PIN, LOW);
+        digitalWrite(HVAC_COOL_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, LOW);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
       else if (currentTemp > autoMaxTemp)
       {
         OperatingParameters.hvacOpMode = COOL;
-        //digitalWrite(HVAC_COOL_PIN, HIGH);
+        digitalWrite(HVAC_COOL_PIN, HIGH);
         digitalWrite(LED_COOL_PIN, HIGH);
-        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        digitalWrite(HVAC_HEAT_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, LOW);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
-        //digitalWrite(HVAC_COOL_PIN, LOW);
-        //digitalWrite(HVAC_HEAT_PIN, LOW);
+        digitalWrite(HVAC_COOL_PIN, LOW);
+        digitalWrite(HVAC_HEAT_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, HIGH);
+        digitalWrite(LED_FAN_PIN, LOW);
       }
     }
 
     if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN) && (OperatingParameters.hvacSetMode != OFF))
     {
         OperatingParameters.hvacOpMode = IDLE;
-        //digitalWrite(HVAC_HEAT_PIN, LOW);
-        //digitalWrite(HVAC_COOL_PIN, LOW);
+        digitalWrite(HVAC_HEAT_PIN, LOW);
+        digitalWrite(HVAC_COOL_PIN, LOW);
         digitalWrite(LED_COOL_PIN, LOW);
         digitalWrite(LED_HEAT_PIN, LOW);
-        digitalWrite(LED_IDLE_PIN, HIGH);
+        digitalWrite(LED_FAN_PIN, LOW);
     }
 
     if (millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL)
@@ -174,29 +172,49 @@ void stateMachine(void * parameter)
     {
       if (millis() > lastWifiReconnect + 15000)
       {
-        if (wifiReconnect(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password))
-        {
-          lastWifiReconnect = 0;
-          OperatingParameters.wifiConnected = true;
-        }
-        else
-        {
-          lastWifiReconnect = millis();
-          OperatingParameters.wifiConnected = false;
-        }
+        lastWifiReconnect = millis();
+        startReconnectTask();
       }
     }
 
-//    if (OperatingParameters.motionDetected)
-    if (lastMotionDetected > 0)
+    if (Serial.available())
     {
-      if (millis() > lastMotionDetected + MOTION_TIMEOUT)
+      String temp = Serial.readString();
+      Serial.print ("[USB] "); Serial.println(temp);
+      if (temp.indexOf("reset") > -1)
+        ESP.restart();
+      // if (temp.indexOf("scan") > -1)
+      //   scanI2cBus();
+      if (temp.indexOf("temp") > -1)
       {
-        digitalWrite(LED_BUILTIN, LOW);
-        lastMotionDetected = 0;
-        OperatingParameters.motionDetected = false;
+        Serial.printf ("Current Set Temp: %.1f\n", OperatingParameters.tempSet);
       }
     }
+
+/*
+ * Test code
+ */
+  static int loop = 0;
+  if (loop++ >= 40) 
+  {
+//    Serial.printf ("Value of Motion GPIO %d: %d\n", MOTION_PIN, analogRead(MOTION_PIN));
+//    Serial.printf ("Value of Motion GPIO %d: %d\n", MOTION_PIN, digitalRead(MOTION_PIN));
+    digitalWrite (LED_FAN_PIN, digitalRead(MOTION_PIN));
+
+    if (digitalRead(MOTION_PIN))
+      tftMotionTrigger = true;
+
+    // digitalWrite (GPIO_NUM_35, HIGH);
+    // digitalWrite (GPIO_NUM_36, HIGH);
+    // delay(50);
+    // digitalWrite (GPIO_NUM_35, LOW);
+    // digitalWrite (GPIO_NUM_36, LOW);
+
+    loop = 0;
+  }
+/*
+ * Test code
+ */
 
     // Pause the task again for 40ms
     vTaskDelay(40 / portTICK_PERIOD_MS);
@@ -219,16 +237,15 @@ void testToggleRelays()
 {
   delay(500);
   pinMode(HVAC_HEAT_PIN, OUTPUT);
-  digitalWrite(HVAC_HEAT_PIN, HIGH);
-  delay(750);
-  digitalWrite(HVAC_HEAT_PIN, LOW);
+  //@@@ digitalWrite(HVAC_HEAT_PIN, HIGH);
+  // delay(750);
+  // digitalWrite(HVAC_HEAT_PIN, LOW);
 }
 
 void serialStart()
 {
-  int32_t tmo = millis() + 5000;
+  int32_t tmo = millis() + 60000;
   Serial.begin(115200);
-  while (!Serial && millis() < tmo) delay(10);
-  if (Serial)
-    Serial.println("In serialStart()");
+  Serial.setDebugOutput(true);
+  Serial.printf("Regular Serial (via USB - usually /dev/ttyUSB0)\n");
 }

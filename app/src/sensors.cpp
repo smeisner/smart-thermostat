@@ -1,102 +1,142 @@
 #include "thermostat.hpp"
-#include <Adafruit_AHTX0.h>
 #include <Smoothed.h>
 #include <timezonedb_lookup.h>
+#include "DFRobot_AHT20.h"
+
+int32_t lastTimeUpdate = 0;
+
+DFRobot_AHT20 aht20;
 
 Smoothed <float> sensorTemp;
 Smoothed <float> sensorHumidity;
 
 
-float degFtoC(float degF)
-{
-  return ((degF - 32.0) / (9.0/5.0));
-}
 
-// Return the fractional as 0 or 5 based on frac part of num
-// .0 - .4 returns 0
-// .5 to .9 returns 5
-int degCfrac(float tempF)
-{
-  if (OperatingParameters.tempUnits == 'C')
-  {
-    int whole;
-    float roundUp = degFtoC(tempF);
-    whole = (int)(roundUp);
-    float frac = roundUp - (float)(whole);
 
-    if (frac < 0.5)
-      return 0;
-    else
-      return 5;
-  }
-  return 0;
-}
-
-int tempOut(float tempF)
+float getRoundedFrac(float value)
 {
-  if (OperatingParameters.tempUnits == 'F')
-    return (int)(tempF + 0.5);
+  int whole;
+
+  whole = (int)(value);
+  float frac = value - (float)(whole);
+
+  if (frac < 0.5)
+    return 0;
   else
-    return (int)(degFtoC(tempF));
+    return 5;
 }
 
-float tempIn(float tempC)
+float roundValue(float value, int places)
 {
-  if (OperatingParameters.tempUnits == 'C')
-    return ((tempC * 9.0/5.0) + 32.0);
-  else
-    return tempC;
+  Serial.printf ("Convert: %.1f ---> ", value);
+  float r = 0.0;
+
+  if (places == 0)
+    r = (float)((int)(value + 0.5));
+  if (places == 1)
+    r = (float)((int)(value + 0.25) + (getRoundedFrac(value + 0.25) / 10.0));
+  Serial.printf ("%.1f\n", r);
+  return r;
+
+  // 12.2 -> 12.0
+  // 12.3 -> 12.5
+  // 12.7 -> 12.5
+  // 12.8 -> 13.0
 }
 
-Adafruit_AHTX0 aht;
-int32_t lastMotionDetected = 0;
-int32_t lastTimeUpdate = 0;
+
+
+// float degFtoC(float degF)
+// {
+//   return ((degF - 32.0) / (9.0/5.0));
+// }
+
+// // Return the fractional as 0 or 5 based on frac part of num
+// // .0 - .4 returns 0
+// // .5 to .9 returns 5
+// int degCfrac(float tempF)
+// {
+//   if (OperatingParameters.tempUnits == 'C')
+//   {
+//     int whole;
+//     float roundUp = degFtoC(tempF);
+//     whole = (int)(roundUp);
+//     float frac = roundUp - (float)(whole);
+
+//     if (frac < 0.5)
+//       return 0;
+//     else
+//       return 5;
+//   }
+//   return 0;
+// }
+
+// int tempOut(float tempF)
+// {
+//   if (OperatingParameters.tempUnits == 'F')
+//     return (int)(tempF + 0.5);
+//   else
+//     return (int)(degFtoC(tempF));
+// }
+
+// float tempIn(float tempC)
+// {
+//   if (OperatingParameters.tempUnits == 'C')
+//     return ((tempC * 9.0/5.0) + 32.0);
+//   else
+//     return tempC;
+// }
 
 bool initAht()
 {
-  if (aht.begin())
+  Serial.println("Calling aht20.begin()");
+
+  uint8_t status;
+  status = aht20.begin();
+  while (status != 0)
   {
-    Serial.println("Found AHT20");
-    return true;
+    Serial.printf("AHT20 sensor initialization failed. error status : %d\n", status);
+    delay(1000);
+    status = aht20.begin();
   }
-  else
-  {
-    Serial.println("Didn't find AHT20");
-  }
-  return false;
+  return true;
 }
+
+void resetTempSmooth() { sensorTemp.clear(); }
 
 void readAht()
 {
-  sensors_event_t humidity, temp;
+  float humidity, temperature;
   float temp_f;
   
-  aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
-  // display.setCursor(0,20);
-  // display.print("AHT20 Demo");
-  // display.setCursor(0,40);
-  // display.print("Temp: "); display.print(temp.temperature); display.println(" C");
-  // display.setCursor(0,60);
-  // display.print("Hum: "); display.print(humidity.relative_humidity); display.println(" %");
-  sensorTemp.add(temp.temperature);
-  sensorHumidity.add(humidity.relative_humidity);
-  temp_f = (sensorTemp.get() * 9.0/5.0) + 32.0;
-  OperatingParameters.tempCurrent = temp_f;
-  OperatingParameters.humidCurrent = sensorHumidity.get();
+  if (aht20.startMeasurementReady(/* crcEn = */true))
+  {
+    if (OperatingParameters.tempUnits == 'C')
+      temperature = aht20.getTemperature_C();
+    else
+      temperature = aht20.getTemperature_F();
+    humidity = aht20.getHumidity_RH();
 
-  Serial.printf ("Temp: %0.1f C / %0.1f F (raw: %0.2f C)  Humidity: %0.1f (raw: %0.2f)\n", 
-    sensorTemp.get(), temp_f, temp.temperature, sensorHumidity.get(), humidity.relative_humidity);
+    sensorTemp.add(temperature);
+    sensorHumidity.add(humidity);
+
+    OperatingParameters.tempCurrent = sensorTemp.get();
+    OperatingParameters.humidCurrent = sensorHumidity.get();
+
+    Serial.printf ("Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)\n", 
+      sensorTemp.get(), temperature, OperatingParameters.tempUnits, sensorHumidity.get(), humidity);
+  }
 }
 
-// Read sensor temp and return in deg F, rounded up and correction applied
+// Read sensor temp and return rounded up and correction applied
 int getTemp()
 {
-  return (((sensorTemp.get() * 9.0/5.0) + 32.0 + 0.5) + OperatingParameters.tempCorrection);
+  return (int)((sensorTemp.get() + 0.5) + OperatingParameters.tempCorrection);
 }
 
 int getHumidity()
 {
-  return (int)(sensorHumidity.get() + 0.5);
+  return (int)((sensorHumidity.get() + 0.5) + OperatingParameters.humidityCorrection);
 }
 
 void updateAht(void * parameter)
@@ -111,16 +151,6 @@ void updateAht(void * parameter)
   }
 }
 
-void IRAM_ATTR MotionDetect_ISR()
-{
-  if (millis() - lastMotionDetected > MOTION_TIMEOUT)
-  {
-    digitalWrite(LED_BUILTIN, HIGH);
-    lastMotionDetected = millis();
-    OperatingParameters.motionDetected = true;
-  }
-}
-
 //const char* ntpServer = "time.google.com";
 const char* ntpServer = "pool.ntp.org";
 //const char* timezone = "Africa/Luanda";
@@ -128,6 +158,10 @@ const char* ntpServer = "pool.ntp.org";
 
 void updateTimezone()
 {
+  // To save on program space, let's just 
+  // use GMT+/- timezones. Otherwise, there
+  // are too many timezones.
+  // For ex, Boston would be Etc/GMT+5
   char tz_lookup[16] = "Etc/";
   strcat (tz_lookup, OperatingParameters.timezone);
   Serial.printf ("Timezone: %s\n", tz_lookup);
@@ -167,6 +201,11 @@ void initTimeSntp()
   updateTimeSntp();
 }
 
+void IRAM_ATTR MotionDetect_ISR()
+{
+  tftMotionTrigger = true;
+}
+
 bool sensorsInit()
 {
   sensorTemp.begin(SMOOTHED_EXPONENTIAL, 10);
@@ -176,7 +215,7 @@ bool sensorsInit()
 
   initTimeSntp();
 
-  pinMode (LIGHT_SENS_PIN, INPUT);
+  pinMode(LIGHT_SENS_PIN, INPUT);
   pinMode(MOTION_PIN, INPUT);
   attachInterrupt(MOTION_PIN, MotionDetect_ISR, RISING);
 

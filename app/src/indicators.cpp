@@ -1,5 +1,4 @@
 #include "thermostat.hpp"
-#include <Adafruit_AHTX0.h>     // For OUTPUT def, pinMode(), ledcXxx() and delay() calls
 
 int freq = 4000;
 int channel = 0;
@@ -41,26 +40,26 @@ void audioBeep()
 
 void indicatorsInit()
 {
-  pinMode(LED_BUILTIN, OUTPUT);
+//@@@  pinMode(LED_BUILTIN, OUTPUT);
 
   pinMode(LED_HEAT_PIN, OUTPUT);
   pinMode(LED_COOL_PIN, OUTPUT);
-  pinMode(LED_IDLE_PIN, OUTPUT);
+  pinMode(LED_FAN_PIN, OUTPUT);
 
-  digitalWrite(LED_COOL_PIN, LOW);
-  digitalWrite(LED_HEAT_PIN, LOW);
-  delay(1000);
+  // digitalWrite(LED_HEAT_PIN, LOW);
+  // digitalWrite(LED_COOL_PIN, LOW);
+  // digitalWrite(LED_FAN_PIN, LOW);
+  // delay(1000);
 
-  digitalWrite(LED_COOL_PIN, HIGH);
-  delay(750);
-  digitalWrite(LED_COOL_PIN, LOW);
   digitalWrite(LED_HEAT_PIN, HIGH);
   delay(750);
   digitalWrite(LED_HEAT_PIN, LOW);
-
-  digitalWrite(LED_IDLE_PIN, HIGH);
-  delay(1000);
-  digitalWrite(LED_IDLE_PIN, LOW);
+  digitalWrite(LED_COOL_PIN, HIGH);
+  delay(750);
+  digitalWrite(LED_COOL_PIN, LOW);
+  digitalWrite(LED_FAN_PIN, HIGH);
+  delay(750);
+  digitalWrite(LED_FAN_PIN, LOW);
 
   audioBuzzerInit();
 }

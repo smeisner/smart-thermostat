@@ -29,7 +29,6 @@ lv_obj_t * ui_SetTempBg1;
 lv_obj_t * ui_SetTempBg;
 void ui_event_TempArc(lv_event_t * e);
 lv_obj_t * ui_TempArc;
-void ui_event_SetTemp(lv_event_t * e);
 lv_obj_t * ui_SetTemp;
 lv_obj_t * ui_SetTempFrac;
 void ui_event_TempDecreaseBtn(lv_event_t * e);
@@ -80,8 +79,6 @@ lv_obj_t * ui_HvacCoolLabel;
 lv_obj_t * ui_HvacCoolCheckbox;
 lv_obj_t * ui_HvacFanLabel;
 lv_obj_t * ui_HvacFanCheckbox;
-lv_obj_t * ui_RevValveLabel;
-lv_obj_t * ui_DisabledCheckbox3;
 void ui_event_SetupUncommonBtn(lv_event_t * e);
 lv_obj_t * ui_SetupUncommonBtn;
 lv_obj_t * ui_SetupUncommonLabel;
@@ -93,6 +90,9 @@ lv_obj_t * ui_SetupHomeLabel;
 void ui_LessCommonSetup_screen_init(void);
 void ui_event_LessCommonSetup(lv_event_t * e);
 lv_obj_t * ui_LessCommonSetup;
+void ui_event_CalibrateBtn(lv_event_t * e);
+lv_obj_t * ui_CalibrateBtn;
+lv_obj_t * ui_CalibrateLabel;
 lv_obj_t * ui_TimezoneLabel1;
 lv_obj_t * ui_TimezoneDropdown;
 lv_obj_t * ui_UiSleepTextLabel;
@@ -103,14 +103,14 @@ lv_obj_t * ui_DualStageHeatLabel;
 lv_obj_t * ui_Hvac2StageHeatCheckbox;
 lv_obj_t * ui_DisableLabel1;
 lv_obj_t * ui_RevValveCheckbox;
-lv_obj_t * ui_DisableLabel2;
+lv_obj_t * ui_DisableBeepLabel;
 lv_obj_t * ui_AudibleBeepCheckbox;
-void ui_event_SetupWifiBtn1(lv_event_t * e);
-lv_obj_t * ui_SetupWifiBtn1;
-lv_obj_t * ui_SetupWifiLabel1;
-void ui_event_SetupHomeBtn1(lv_event_t * e);
-lv_obj_t * ui_SetupHomeBtn1;
-lv_obj_t * ui_SetupHomeLabel1;
+void ui_event_SetupWifiBtn(lv_event_t * e);
+lv_obj_t * ui_SetupWifiBtn;
+lv_obj_t * ui_SetupWifiLabel;
+void ui_event_SetupHomeBtn2(lv_event_t * e);
+lv_obj_t * ui_SetupHomeBtn2;
+lv_obj_t * ui_SetupHomeLabel2;
 
 // SCREEN: ui_WifiConfig
 void ui_WifiConfig_screen_init(void);
@@ -220,14 +220,6 @@ void ui_event_TempArc(lv_event_t * e)
         tftBeep(e);
     }
 }
-void ui_event_SetTemp(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-    lv_obj_t * target = lv_event_get_target(e);
-    if(event_code == LV_EVENT_VALUE_CHANGED) {
-        ShitShitShit(e);
-    }
-}
 void ui_event_TempDecreaseBtn(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
@@ -325,6 +317,14 @@ void ui_event_LessCommonSetup(lv_event_t * e)
         LoadConfigSettings(e);
     }
 }
+void ui_event_CalibrateBtn(lv_event_t * e)
+{
+    lv_event_code_t event_code = lv_event_get_code(e);
+    lv_obj_t * target = lv_event_get_target(e);
+    if(event_code == LV_EVENT_CLICKED) {
+        tftCalibrate(e);
+    }
+}
 void ui_event_UiSleepSlider(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
@@ -333,7 +333,7 @@ void ui_event_UiSleepSlider(lv_event_t * e)
         tftUpdateUiSleepValue(e);
     }
 }
-void ui_event_SetupWifiBtn1(lv_event_t * e)
+void ui_event_SetupWifiBtn(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
     lv_obj_t * target = lv_event_get_target(e);
@@ -343,7 +343,7 @@ void ui_event_SetupWifiBtn1(lv_event_t * e)
         tftBeep(e);
     }
 }
-void ui_event_SetupHomeBtn1(lv_event_t * e)
+void ui_event_SetupHomeBtn2(lv_event_t * e)
 {
     lv_event_code_t event_code = lv_event_get_code(e);
     lv_obj_t * target = lv_event_get_target(e);

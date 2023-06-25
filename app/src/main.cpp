@@ -4,11 +4,21 @@ void setup(void)
 {
   // Start serial debugger
   serialStart();
+
+  // scanI2cBus();
+
+  // Initialize the TFT display
+  Serial.printf ("Initializing TFT\n");
+  tftInit();
+  // Create the RTOS task to drive the touchscreen
+  Serial.printf ("Starting TFT task\n");
+  tftCreateTask();
+
   // Load configuration from EEPROM
   Serial.printf ("Reading EEPROM\n");
   eepromInit();
   // Start wifi
-  Serial.printf ("RConnecting to wifi\n");
+  Serial.printf ("Connecting to wifi\n");
   OperatingParameters.wifiConnected = 
     wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
   // Initialize indicators (relays, LEDs, buzzer)
@@ -17,12 +27,7 @@ void setup(void)
   // Initialize sensors (temp, humidity, motion ... air quality)
   Serial.printf ("Initializing sensors\n");
   sensorsInit();
-  // Initialize the TFT display
-  Serial.printf ("Initializing TFT\n");
-  tftInit();
-  // Create the RTOS task to drive the touchscreen
-  Serial.printf ("Starting TFT task\n");
-  tftCreateTask();
+
   // Create the RTOS task to drive the state machine
   Serial.printf ("Starting state machine task\n");
   stateCreateTask();

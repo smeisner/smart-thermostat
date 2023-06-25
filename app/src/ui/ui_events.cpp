@@ -15,7 +15,8 @@ void tftUpdateTempSet(lv_event_t * e)
 //  char tmp[16];
 //  strncpy(tmp, lv_label_get_text(ui_SetTemp), sizeof(tmp));
 
-  OperatingParameters.tempSet = tempIn((float)lv_arc_get_value(ui_TempArc) / 10.0);
+  OperatingParameters.tempSet = (float)(lv_arc_get_value(ui_TempArc)) / 10.0;
+  Serial.printf ("Current temp set to: %.1f\n", OperatingParameters.tempSet);
 
 //  OperatingParameters.tempSet = tmp)/10);
   tftWakeDisplay(false);
@@ -23,16 +24,32 @@ void tftUpdateTempSet(lv_event_t * e)
 
 void tftDecreaseSetTemp(lv_event_t * e)
 {
-  OperatingParameters.tempSet -= 1.0;
-  lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
+  if (OperatingParameters.tempUnits == 'C')
+  {
+    OperatingParameters.tempSet -= 0.5;
+    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+  } else {
+    OperatingParameters.tempSet -= 1.0;
+    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+  }
+  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", OperatingParameters.tempSet);
+  Serial.printf ("Temp decreased to: %.1f\n", OperatingParameters.tempSet);
 }
 
 void tftIncreaseSetTemp(lv_event_t * e)
 {
-  OperatingParameters.tempSet += 1.0;
-  lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
+  if (OperatingParameters.tempUnits == 'C')
+  {
+    OperatingParameters.tempSet += 0.5;
+    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+  } else {
+    OperatingParameters.tempSet += 1.0;
+    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+  }
+  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", OperatingParameters.tempSet);
+  Serial.printf ("Temp increased to: %.1f\n", OperatingParameters.tempSet);
 }
 
 void tftHvacModeChange(lv_event_t * e)
@@ -190,19 +207,37 @@ void SaveConfigSettings(lv_event_t * e)
 {
   if (lv_obj_has_state(ui_TempUnitsSwitch, LV_STATE_CHECKED))
   {
+    // Switch to Celcius
+    if (OperatingParameters.tempUnits == 'F')
+    {
+      OperatingParameters.tempSet = (OperatingParameters.tempSet - 32.0) / (9.0/5.0);
+      OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent - 32.0) / (9.0/5.0);
+      OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 5.0 / 9.0;
+      OperatingParameters.tempSwing = OperatingParameters.tempSwing * 5.0 / 9.0;
+      resetTempSmooth();
+    }
     OperatingParameters.tempUnits = 'C';
-    lv_arc_set_range(ui_TempArc, degFtoC(45.0)*10, degFtoC(92.0)*10);
+    lv_arc_set_range(ui_TempArc, 7*10, 33*10);
     lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
-    // Set smaller fractional part of temp
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", degCfrac(OperatingParameters.tempSet));
+    // Set smaller fractional part of temp rounded to nearest .5
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", getRoundedFrac(OperatingParameters.tempSet));
   } else {
+    // Switch to Fahrenheit
+    if (OperatingParameters.tempUnits == 'C')
+    {
+      OperatingParameters.tempSet = (OperatingParameters.tempSet * 9.0/5.0) + 32.0;
+      OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent * 9.0/5.0) + 32.0;
+      OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 1.8;
+      OperatingParameters.tempSwing = OperatingParameters.tempSwing * 1.8;
+      resetTempSmooth();
+    }
     OperatingParameters.tempUnits = 'F';
-    lv_arc_set_range(ui_TempArc, 450, 920);
+    lv_arc_set_range(ui_TempArc, 45*10, 92*10);
     lv_obj_add_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
   }
 
-  lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
+  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", OperatingParameters.tempSet);
 
   OperatingParameters.hvacCoolEnable = lv_obj_has_state(ui_HvacCoolCheckbox, LV_STATE_CHECKED);
   OperatingParameters.hvacFanEnable = lv_obj_has_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
@@ -265,8 +300,17 @@ void SaveUncommonConfigSettings(lv_event_t * e)
   updateTimezone();
 }
 
-void ShitShitShit(lv_event_t * e)
+void tftCalibrate(lv_event_t * e)
 {
-	// Your code here
+  tftCalibrateTouch();
+  _ui_screen_change(ui_MainScreen, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0);
+  tftAwaken(e);
 }
 
+bool isCurrentScreenMain()
+{
+  if (lv_disp_get_scr_act(NULL) == ui_MainScreen)
+    return true;
+  else
+    return false;
+}

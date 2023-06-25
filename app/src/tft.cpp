@@ -1,14 +1,20 @@
 #include "thermostat.hpp"
 #include "tft.hpp"
 
-#define START_BRIGHTNESS 255
-#define END_BRIGHTNESS 0
+#define OFF_BRIGHTNESS 0
+#define FULL_BRIGHTNESS 255
 
 static char thermostatModes[48] = {0};
 TaskHandle_t xTouchUIHandle;
 int32_t lastTouchDetected = 0;
 bool tftTouchTimerEnabled = true;
 int32_t ui_WifiStatusLabel_timestamp = 0;
+uint16_t calData_2_8[8] = { 3839, 336, 3819, 3549, 893, 390, 718, 3387 };
+uint16_t calData_3_2[8] = { 3778, 359, 3786, 3803, 266, 347, 258, 3769 };
+uint16_t calData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+int32_t lastMotionDetected = 0;
+
+volatile bool tftMotionTrigger = false;
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,10 +22,12 @@ extern "C" {
 
 void tftDisableTouchTimer()
 {
+  Serial.printf ("Disabling touch timer\n");
   tftTouchTimerEnabled = false;
 }
 void tftEnableTouchTimer()
 {
+  Serial.printf ("Enabling touch timer\n");
   tftTouchTimerEnabled = true;
 }
 
@@ -28,33 +36,58 @@ void tftUpdateTouchTimestamp()
   lastTouchDetected = millis();
 }
 
-void tftWakeDisplay(bool beep)
+void tftShowDisplayItems()
 {
-  if (beep)
-    audioBeep();
   lv_obj_clear_flag(ui_ModeDropdown, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_TempDecreaseBtn, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_TempIncreaseBtn, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_InfoBtn, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_SetupBtn, LV_OBJ_FLAG_HIDDEN);
   lv_obj_clear_flag(ui_TempArc, LV_OBJ_FLAG_HIDDEN);
-  tft.setBrightness(START_BRIGHTNESS);
+}
+
+void tftHideDisplayItems()
+{
+  lv_obj_add_flag(ui_ModeDropdown, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_TempDecreaseBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_TempIncreaseBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_InfoBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_SetupBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_TempArc, LV_OBJ_FLAG_HIDDEN);
+}
+
+void tftWakeDisplay(bool beep)
+{
+  if (beep)
+    audioBeep();
+  tftShowDisplayItems();
+  tft.setBrightness(FULL_BRIGHTNESS);
   tftEnableTouchTimer();
   tftUpdateTouchTimestamp();
+}
+
+void tftWakeDisplayMotion()
+{
+  if (!tftTouchTimerEnabled)
+  {
+    float ratio = (float)(OperatingParameters.lightDetected) / 4095.0;
+    int brightness = (int)(ratio * (float)(FULL_BRIGHTNESS));
+    tftShowDisplayItems();
+    Serial.printf ("Setting display to partial brightness: %d (%d%%)\n",
+      brightness, (int)(ratio*100.0));
+    tft.setBrightness(brightness);
+    tftEnableTouchTimer();
+    tftUpdateTouchTimestamp();
+  }
 }
 
 void tftDimDisplay()
 {
   if (tftTouchTimerEnabled)
   {
-    tft.setBrightness(END_BRIGHTNESS);
-
-    lv_obj_add_flag(ui_ModeDropdown, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_TempDecreaseBtn, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_TempIncreaseBtn, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_InfoBtn, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_SetupBtn, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_TempArc, LV_OBJ_FLAG_HIDDEN);
+    tft.setBrightness(OFF_BRIGHTNESS);
+    tftHideDisplayItems();
+    tftDisableTouchTimer();
   }
 }
 
@@ -71,35 +104,22 @@ void tftUpdateDisplay()
   strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
   lv_label_set_text(ui_TimeLabel, buffer);
 
-  lv_label_set_text_fmt(ui_TempLabel, "%d°", tempOut(getTemp()));
+  lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());
   lv_label_set_text_fmt(ui_HumidityLabel, "%d%%", getHumidity());
 
+  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10.0);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
   if (OperatingParameters.tempUnits == 'C')
   {
-
-    lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
-    lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", degCfrac(OperatingParameters.tempSet));
-
-  } else {
-
-    int temp;
-    temp = tempOut(OperatingParameters.tempSet);
-    lv_arc_set_value(ui_TempArc, temp*10.0);
-    lv_label_set_text_fmt(ui_SetTemp, "%d°", temp);
-
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
   }
 
-//  lv_dropdown_set_selected(ui_ModeDropdown, OperatingParameters.hvacSetMode);
   lv_dropdown_set_selected(ui_ModeDropdown, convertSelectedHvacMode());
 
   if (wifiConnected())
     lv_label_set_text(ui_WifiIndicatorLabel, "#0000A0 " LV_SYMBOL_WIFI);
   else
     lv_label_set_text(ui_WifiIndicatorLabel, "#d0e719 " LV_SYMBOL_WIFI);
-//    lv_label_set_text(ui_WifiIndicatorLabel, "#5f4f4f " LV_SYMBOL_WIFI);
-//    lv_label_set_text(ui_WifiIndicatorLabel, "#7d7d7d " LV_SYMBOL_WIFI);
-//    lv_label_set_text(ui_WifiIndicatorLabel, "#808080 " LV_SYMBOL_WIFI);
 
   switch (OperatingParameters.hvacOpMode)
   {
@@ -119,9 +139,7 @@ void tftUpdateDisplay()
     case AUTO: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
     default:   lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
   }
-
 }
-
 
 const char *hvacModeToString(HVAC_MODE mode)
 {
@@ -207,17 +225,14 @@ void setHvacModesDropdown()
   lv_dropdown_set_options(ui_ModeDropdown, thermostatModes);
 }
 
-void tftInit()
+void tftCalibrateTouch()
 {
-  lv_init();
-
-  tft.begin();
-
   /*Set the touchscreen calibration data,
     the actual data for your display can be acquired using
     the Generic -> Touch_calibrate example from the TFT_eSPI library*/
 //  uint16_t calData[5] = { 275, 3620, 264, 3532, 1 };
 /*
+For 3.2" TouchScreen:
 Cal data:
 0 : 3778
 1 : 359
@@ -227,13 +242,42 @@ Cal data:
 5 : 347
 6 : 258
 7 : 3769
+
+For 2.8" TouchScreen:
+Cal data:
+0 : 3839
+1 : 336
+2 : 3819
+3 : 3549
+4 : 893
+5 : 390
+6 : 718
+7 : 3387
+
 */
-//  uint16_t calData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-  uint16_t calData[8] = { 3778, 359, 3786, 3803, 266, 347, 258, 3769 };
-//  tft.calibrateTouch(calData, TFT_BLACK, TFT_WHITE);
+  // Clear screen & display instructions
+  tft.fillScreen(TFT_NAVY);
+  tft.setCursor(50, 100);
+  tft.setTextColor(TFT_YELLOW);
+  tft.setTextSize(2);
+  tft.print("TOUCH EACH CORNER WITH STYLUS");
+  // Run the calibration routine. Data points returned in calData.
+  tft.calibrateTouch(calData, TFT_BLACK, TFT_WHITE);
+  // Use calData to set up touch dimensions
   tft.setTouchCalibrate(calData);
-//  Serial.printf ("Cal data:\n");
-//  for (int n=0; n < 8; n++) Serial.printf("%d : %d\n", n, calData[n]);
+  // Dump data to debug logger
+  Serial.printf ("Touch Screen calibration data:\n");
+  for (int n=0; n < 8; n++) Serial.printf("%d : %d\n", n, calData[n]);
+}
+
+void tftInit()
+{
+  lv_init();
+
+  tft.begin();
+
+  memcpy (calData, calData_3_2, sizeof(calData));
+  tft.setTouchCalibrate(calData);
 
   lv_disp_draw_buf_init(&draw_buf, buf, NULL, screenWidth * 10);
 
@@ -258,8 +302,14 @@ Cal data:
 
   setHvacModesDropdown();
 
-  lv_arc_set_value(ui_TempArc, tempOut(OperatingParameters.tempSet)*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", tempOut(OperatingParameters.tempSet));
+  Serial.printf("Current temp set to %d°\n", OperatingParameters.tempSet);
+
+  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
+  if (OperatingParameters.tempUnits == 'C')
+  {
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
+  }
 
   tftWakeDisplay(true);
   tftUpdateDisplay();
@@ -274,13 +324,57 @@ void tftPump(void * parameter)
     tftUpdateDisplay();
 
     if (millis() - lastTouchDetected > OperatingParameters.thermostatSleepTime * 1000)
-      tftDimDisplay();
+    {
+      //
+      // Only enter display sleep if the motionTrigger is false and
+      // there is no motion currently detected. The second test is to
+      // avoid a race condition where the timeout has passed but motion
+      // was detected again. This causes the display to shut off and turn
+      // back on quickly. Annoying...
+      //
+      if ((!tftMotionTrigger) && (digitalRead(MOTION_PIN) == LOW))
+      {
+        lastTouchDetected = 0;
+        tftDimDisplay();
+      }
+    }
 
+    // Do we need to update the display and remove the "Scanning..." message?
     if ((ui_WifiStatusLabel_timestamp > 0) && (millis() - ui_WifiStatusLabel_timestamp > UI_TEXT_DELAY))
     {
       lv_label_set_text(ui_WifiStatusLabel, "");
       ui_WifiStatusLabel_timestamp = 0;
     }
+
+  // Was the motion detection triggered?
+  if (tftMotionTrigger)
+  {
+    tftMotionTrigger = false;
+    //
+    // This only matters if the touchTimer is already disabled (so the display is sleeping)
+    // and the current screen is the cefault (main screen).
+    //
+    if (/*(lastMotionDetected == 0) &&*/ (!tftTouchTimerEnabled) && isCurrentScreenMain())
+    {
+      Serial.printf("Motion wake triggered\n");
+      lastMotionDetected = millis();
+      OperatingParameters.motionDetected = true;
+      tftWakeDisplayMotion();
+    }
+  }
+
+  //
+  // If we did detect motion and now the MOTION pin is low, 
+  // reset the status ...if the MOTION_TIMEOUT period has passed.
+  //
+  if ((OperatingParameters.motionDetected) && (digitalRead(MOTION_PIN) == LOW))
+  {
+    if (millis() - lastMotionDetected > MOTION_TIMEOUT)
+    {
+      Serial.printf ("Motion detection timeout\n");
+      OperatingParameters.motionDetected = false;
+    }
+  }
 
     // Pause the task again for 10ms
     vTaskDelay(10 / portTICK_PERIOD_MS);

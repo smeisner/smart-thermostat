@@ -139,25 +139,6 @@ void ui_Setup_screen_init(void)
     lv_obj_set_align(ui_HvacFanCheckbox, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_HvacFanCheckbox, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
 
-    ui_RevValveLabel = lv_label_create(ui_Setup);
-    lv_obj_set_width(ui_RevValveLabel, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_RevValveLabel, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_RevValveLabel, 7);
-    lv_obj_set_y(ui_RevValveLabel, 95);
-    lv_obj_set_align(ui_RevValveLabel, LV_ALIGN_LEFT_MID);
-    lv_label_set_long_mode(ui_RevValveLabel, LV_LABEL_LONG_SCROLL);
-    lv_label_set_text(ui_RevValveLabel, "********");
-
-    ui_DisabledCheckbox3 = lv_checkbox_create(ui_Setup);
-    lv_checkbox_set_text(ui_DisabledCheckbox3, "");
-    lv_obj_set_width(ui_DisabledCheckbox3, LV_SIZE_CONTENT);   /// 1
-    lv_obj_set_height(ui_DisabledCheckbox3, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_DisabledCheckbox3, 0);
-    lv_obj_set_y(ui_DisabledCheckbox3, 95);
-    lv_obj_set_align(ui_DisabledCheckbox3, LV_ALIGN_CENTER);
-    lv_obj_add_state(ui_DisabledCheckbox3, LV_STATE_DISABLED);       /// States
-    lv_obj_add_flag(ui_DisabledCheckbox3, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
-
     ui_SetupUncommonBtn = lv_btn_create(ui_Setup);
     lv_obj_set_width(ui_SetupUncommonBtn, 100);
     lv_obj_set_height(ui_SetupUncommonBtn, 36);

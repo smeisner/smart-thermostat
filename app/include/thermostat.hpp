@@ -33,6 +33,7 @@ typedef struct
     char tempUnits;
     float tempSwing;
     float tempCorrection;
+    float humidityCorrection;
     int lightDetected;
     bool motionDetected;
     bool wifiConnected;
@@ -49,6 +50,7 @@ typedef struct
     uint16_t timezone_sel;
 
     //@@@ Zipcode for outside temp??
+    //@@@ Calibration data for touchscreen?
 
 } OPERATING_PARAMETERS;
 
@@ -64,8 +66,8 @@ extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
 extern int32_t ui_WifiStatusLabel_timestamp;
 
-#define MOTION_TIMEOUT 5000
-#define WIFI_CONNECT_INTERVAL 3000
+#define MOTION_TIMEOUT 10000
+#define WIFI_CONNECT_INTERVAL 30000
 #define UPDATE_TIME_INTERVAL 60000
 #define UI_TEXT_DELAY 3000
 
@@ -77,6 +79,8 @@ static const char *gmt_timezones[] =
 /////////////////////////////////////////////////////////////////////
 //          Forward Declarations
 /////////////////////////////////////////////////////////////////////
+
+void scanI2cBus();
 
 // State Machine
 void stateCreateTask();
@@ -95,7 +99,8 @@ void webCreateTask();
 bool wifiStart(const char *hostname, const char *ssid, const char *pass);
 bool wifiConnected();
 void WifiDisconnect();
-bool wifiReconnect(const char *hostname, const char *ssid, const char *pass);
+//bool wifiReconnect(const char *hostname, const char *ssid, const char *pass);
+void startReconnectTask();
 uint16_t wifiSignal();
 char *wifiAddress();
 char *Get_WiFiSSID_DD_List( void );
@@ -103,11 +108,13 @@ void WiFi_ScanSSID( void );
 
 // TFT
 void tftInit();
+void tftCalibrateTouch();
 void tftCreateTask();
 HVAC_MODE strToHvacMode(char *mode);
 HVAC_MODE convertSelectedHvacMode();
 void setHvacModesDropdown();
 const char *hvacModeToString(HVAC_MODE mode);
+extern volatile bool tftMotionTrigger;
 
 #ifdef __cplusplus
 extern "C" {
@@ -118,16 +125,20 @@ void tftEnableTouchTimer();
 void tftUpdateTouchTimestamp();
 void tftWakeDisplay(bool beep);
 void tftDimDisplay();
+// void tftWakeDisplayMotion();
 
 #ifdef __cplusplus
 } /*extern "C"*/
 #endif
 
 // Sensors
-int degCfrac(float tempF);
-int tempOut(float tempF);
-float tempIn(float tempC);
-float degFtoC(float degF);
+float roundValue(float value, int places = 0);
+float getRoundedFrac(float value);
+// int degCfrac(float tempF);
+// int tempOut(float tempF);
+// float tempIn(float tempC);
+// float degFtoC(float degF);
+void resetTempSmooth();
 bool sensorsInit();
 void testToggleRelays();
 int getTemp();
@@ -142,3 +153,6 @@ void audioBeep();
 // SNTP Time Sync
 void initTimeSntp();
 void updateTimeSntp();
+
+// ui_events.cpp
+bool isCurrentScreenMain();

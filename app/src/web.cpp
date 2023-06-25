@@ -11,15 +11,29 @@ static char html[1600];
 
 void tempUp()
 {
+  if (OperatingParameters.tempUnits == 'C')
+  {
+    OperatingParameters.tempSet += 0.5;
+    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+  } else {
     OperatingParameters.tempSet += 1.0;
-    eepromUpdateHvacSetTemp();
-    server.send(200, "text/html", serverRedirect);
+    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+  }
+  eepromUpdateHvacSetTemp();
+  server.send(200, "text/html", serverRedirect);
 }
 void tempDown()
 {
+  if (OperatingParameters.tempUnits == 'C')
+  {
+    OperatingParameters.tempSet -= 0.5;
+    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+  } else {
     OperatingParameters.tempSet -= 1.0;
-    eepromUpdateHvacSetTemp();
-    server.send(200, "text/html", serverRedirect);
+    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+  }
+  eepromUpdateHvacSetTemp();
+  server.send(200, "text/html", serverRedirect);
 }
 
 void handleRoot()
@@ -54,11 +68,12 @@ HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</butto
 <p></p><a href=\"https://github.com/smeisner/smart-thermostat\" target=\"_blank\">Smart Thermostat Project on GitHub</a>\
 </body></html>",
         hvacModeToString(OperatingParameters.hvacOpMode), hvacModeToString(OperatingParameters.hvacSetMode),
-        (OperatingParameters.tempUnits == 'C') ? degFtoC(OperatingParameters.tempCurrent + OperatingParameters.tempCorrection): (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection), 
+        OperatingParameters.tempCurrent + OperatingParameters.tempCorrection, 
         OperatingParameters.tempUnits, 
         OperatingParameters.humidCurrent, wifiSignal(), wifiAddress(),
         OperatingParameters.tempUnits, OperatingParameters.tempSwing,
-        tempOut(OperatingParameters.tempSet), degCfrac(OperatingParameters.tempSet),
+        (int)OperatingParameters.tempSet, 
+        (OperatingParameters.tempUnits == 'F') ? 0 : (int)getRoundedFrac(OperatingParameters.tempSet),
         OperatingParameters.tempUnits, OperatingParameters.tempCorrection,
         OperatingParameters.lightDetected, (OperatingParameters.motionDetected == true) ? "True" : "False",
         VERSION_STRING, VERSION_BUILD_DATE_TIME, VERSION_COPYRIGHT
