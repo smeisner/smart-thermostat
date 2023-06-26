@@ -80,6 +80,7 @@ static const char *gmt_timezones[] =
 //          Forward Declarations
 /////////////////////////////////////////////////////////////////////
 
+void showConfigurationData();
 void scanI2cBus();
 
 // State Machine
