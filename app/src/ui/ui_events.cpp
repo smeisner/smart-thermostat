@@ -33,7 +33,10 @@ void tftDecreaseSetTemp(lv_event_t * e)
     OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
   }
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", OperatingParameters.tempSet);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
+  if (OperatingParameters.tempUnits == 'C')
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", getRoundedFrac(OperatingParameters.tempSet));
+
   Serial.printf ("Temp decreased to: %.1f\n", OperatingParameters.tempSet);
 }
 
@@ -48,7 +51,11 @@ void tftIncreaseSetTemp(lv_event_t * e)
     OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
   }
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", OperatingParameters.tempSet);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
+  if (OperatingParameters.tempUnits == 'C')
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", getRoundedFrac(OperatingParameters.tempSet));
+
+
   Serial.printf ("Temp increased to: %.1f\n", OperatingParameters.tempSet);
 }
 
@@ -219,8 +226,6 @@ void SaveConfigSettings(lv_event_t * e)
     OperatingParameters.tempUnits = 'C';
     lv_arc_set_range(ui_TempArc, 7*10, 33*10);
     lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
-    // Set smaller fractional part of temp rounded to nearest .5
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", getRoundedFrac(OperatingParameters.tempSet));
   } else {
     // Switch to Fahrenheit
     if (OperatingParameters.tempUnits == 'C')
@@ -236,8 +241,18 @@ void SaveConfigSettings(lv_event_t * e)
     lv_obj_add_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
   }
 
+  // Update current temp
+  // Do not use getTemp() since it won't have any data yet.
+  lv_label_set_text_fmt(ui_TempLabel, "%d°", int(OperatingParameters.tempCurrent));
+  // Update temp set arc
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", OperatingParameters.tempSet);
+  // ...and finally the text for the set temp
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
+  if (OperatingParameters.tempUnits == 'C')
+  {
+    // Set smaller fractional part of temp rounded to nearest .5
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", getRoundedFrac(OperatingParameters.tempSet));
+  }
 
   OperatingParameters.hvacCoolEnable = lv_obj_has_state(ui_HvacCoolCheckbox, LV_STATE_CHECKED);
   OperatingParameters.hvacFanEnable = lv_obj_has_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);

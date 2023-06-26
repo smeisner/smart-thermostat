@@ -302,7 +302,7 @@ void tftInit()
 
   setHvacModesDropdown();
 
-  Serial.printf("Current temp set to %d°\n", OperatingParameters.tempSet);
+  Serial.printf("Current temp set to %.1f°\n", OperatingParameters.tempSet);
 
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
