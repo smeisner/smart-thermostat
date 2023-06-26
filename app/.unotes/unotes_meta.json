@@ -56,7 +56,21 @@
       "isOrdered": true,
       "folders": {},
       "files": {}
+    },
+    "boards": {
+      "name": "boards",
+      "isOrdered": true,
+      "folders": {},
+      "files": {}
+    },
+    "variants": {
+      "name": "variants",
+      "isOrdered": true,
+      "folders": {},
+      "files": {}
     }
   },
-  "files": {}
+  "files": {
+    "GettingStarted": 0
+  }
 }
