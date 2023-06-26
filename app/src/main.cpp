@@ -5,7 +5,8 @@ void setup(void)
   // Start serial debugger
   serialStart();
 
-  // scanI2cBus();
+  // Show diagnostic info on the serial monitor
+  showConfigurationData();
 
   // Initialize the TFT display
   Serial.printf ("Initializing TFT\n");
