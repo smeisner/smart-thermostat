@@ -1,0 +1,10 @@
+Verify update over the air works
+Motion detection operates
+Voltage ripple minimal under load
+Light detection operates corretly (display diming influenced correctly)
+Waking display (via touch) from dim and from sleep work correctly
+Validate HVAC mode change via touch
+Validate HVAC mode change via web page
+Validate temperature change via touch
+Validate temperature change via web page
+Validate all config menu items via touch
