@@ -246,3 +246,152 @@ RCWL-0516 Range (Historical as this sensor is no longer planned for fab)
 ***
 
 * [https://docs.google.com/spreadsheets/d/10CfVb4AoQPJP5FjagokVNWyHDSV7czo9InDzF5tszXg/edit#gid=0](https://docs.google.com/spreadsheets/d/10CfVb4AoQPJP5FjagokVNWyHDSV7czo9InDzF5tszXg/edit#gid=0)
+
+
+## Sample output from build (using ProxMox, passing thru the ESP32 USB device)
+```
+*  Executing task in folder SmartThermostat: platformio run --target upload 
+
+Processing esp32dev (platform: espressif32; board: esp32-s3-thermostat; framework: arduino)
+----------------------------------------------------------------------------------------------------------------
+Tool Manager: Installing platformio/tool-mkspiffs @ ~2.230.0
+Downloading  [####################################]  100%
+Unpacking  [####################################]  100%
+Tool Manager: tool-mkspiffs@2.230.0 has been installed!
+Tool Manager: Installing platformio/tool-mklittlefs @ ~1.203.0
+Downloading  [####################################]  100%
+Unpacking  [####################################]  100%
+Tool Manager: tool-mklittlefs@1.203.210628 has been installed!
+Tool Manager: Installing platformio/tool-mkfatfs @ ~2.0.0
+Downloading  [####################################]  100%
+Unpacking  [####################################]  100%
+Tool Manager: tool-mkfatfs@2.0.1 has been installed!
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32-s3-thermostat.html
+PLATFORM: Espressif 32 (6.2.0) > Espressif ESP32-S3-Thermostat (16 MB QD, No PSRAM)
+HARDWARE: ESP32S3 240MHz, 320KB RAM, 16MB Flash
+DEBUG: Current (esp-builtin) On-board (esp-builtin) External (cmsis-dap, esp-bridge, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - framework-arduinoespressif32 @ 3.20008.0 (2.0.8) 
+ - tool-esptoolpy @ 1.40501.0 (4.5.1) 
+ - tool-mkfatfs @ 2.0.1 
+ - tool-mklittlefs @ 1.203.210628 (2.3) 
+ - tool-mkspiffs @ 2.230.0 (2.30) 
+ - toolchain-riscv32-esp @ 8.4.0+2021r2-patch5 
+ - toolchain-xtensa-esp32s3 @ 8.4.0+2021r2-patch5
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ deep, Compatibility ~ soft
+Found 37 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- LovyanGFX @ 1.1.7
+|-- Smoothed @ 1.2.0
+|-- micro-timezonedb @ 1.0.2
+|-- lvgl @ 8.3.7
+|-- Wire @ 2.0.0
+|-- Preferences @ 2.0.0
+|-- ESPmDNS @ 2.0.0
+|-- Update @ 2.0.0
+|-- WebServer @ 2.0.0
+|-- WiFi @ 2.0.0
+Building in release mode
+Retrieving maximum program size .pio/build/esp32dev/firmware.elf
+Checking size .pio/build/esp32dev/firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [===       ]  33.4% (used 109528 bytes from 327680 bytes)
+Flash: [====      ]  42.8% (used 1431745 bytes from 3342336 bytes)
+Configuring upload protocol...
+AVAILABLE: cmsis-dap, esp-bridge, esp-builtin, esp-prog, espota, esptool, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa
+CURRENT: upload_protocol = esptool
+Looking for upload port...
+Auto-detected: /dev/ttyACM0
+Uploading .pio/build/esp32dev/firmware.bin
+esptool.py v4.5.1
+Serial port /dev/ttyACM0
+Connecting...
+Chip is ESP32-S3 (revision v0.1)
+Features: WiFi, BLE
+Crystal is 40MHz
+MAC: f4:12:fa:ee:3f:e4
+Uploading stub...
+Running stub...
+Stub running...
+Changing baud rate to 921600
+Changed.
+Configuring flash size...
+Flash will be erased from 0x00000000 to 0x00003fff...
+Flash will be erased from 0x00008000 to 0x00008fff...
+Flash will be erased from 0x0000e000 to 0x0000ffff...
+Flash will be erased from 0x00010000 to 0x0016dfff...
+Compressed 15040 bytes to 10333...
+Writing at 0x00000000... (100 %)
+Wrote 15040 bytes (10333 compressed) at 0x00000000 in 0.2 seconds (effective 498.7 kbit/s)...
+Hash of data verified.
+Compressed 3072 bytes to 146...
+Writing at 0x00008000... (100 %)
+Wrote 3072 bytes (146 compressed) at 0x00008000 in 0.0 seconds (effective 543.8 kbit/s)...
+Hash of data verified.
+Compressed 8192 bytes to 47...
+Writing at 0x0000e000... (100 %)
+Wrote 8192 bytes (47 compressed) at 0x0000e000 in 0.1 seconds (effective 737.3 kbit/s)...
+Hash of data verified.
+Compressed 1432112 bytes to 828286...
+Writing at 0x00010000... (1 %)
+Writing at 0x00018cb1... (3 %)
+Writing at 0x00020829... (5 %)
+Writing at 0x0002946b... (7 %)
+Writing at 0x00032cc9... (9 %)
+Writing at 0x0003fa80... (11 %)
+Writing at 0x00050787... (13 %)
+Writing at 0x000605a9... (15 %)
+Writing at 0x00070969... (17 %)
+Writing at 0x0007c4d1... (19 %)
+Writing at 0x0008ab5a... (21 %)
+Writing at 0x00093f36... (23 %)
+Writing at 0x00099473... (25 %)
+Writing at 0x0009ee0f... (27 %)
+Writing at 0x000a445d... (29 %)
+Writing at 0x000a9b47... (31 %)
+Writing at 0x000aeb6f... (33 %)
+Writing at 0x000b3e61... (35 %)
+Writing at 0x000b8fb1... (37 %)
+Writing at 0x000be0ab... (39 %)
+Writing at 0x000c32ba... (41 %)
+Writing at 0x000c8eae... (43 %)
+Writing at 0x000ced8c... (45 %)
+Writing at 0x000d4afd... (47 %)
+Writing at 0x000da61a... (49 %)
+Writing at 0x000dfca6... (50 %)
+Writing at 0x000e56f9... (52 %)
+Writing at 0x000ea6d0... (54 %)
+Writing at 0x000ef6bb... (56 %)
+Writing at 0x000f44b6... (58 %)
+Writing at 0x000f9419... (60 %)
+Writing at 0x000fe34e... (62 %)
+Writing at 0x00103267... (64 %)
+Writing at 0x001083ba... (66 %)
+Writing at 0x0010d398... (68 %)
+Writing at 0x00112d03... (70 %)
+Writing at 0x00118394... (72 %)
+Writing at 0x0011d177... (74 %)
+Writing at 0x00122281... (76 %)
+Writing at 0x00127165... (78 %)
+Writing at 0x0012c6ad... (80 %)
+Writing at 0x00131b31... (82 %)
+Writing at 0x0013787c... (84 %)
+Writing at 0x0013ce67... (86 %)
+Writing at 0x001424a3... (88 %)
+Writing at 0x0014a6b3... (90 %)
+Writing at 0x00153576... (92 %)
+Writing at 0x00158e7c... (94 %)
+Writing at 0x0015f0e6... (96 %)
+Writing at 0x00164997... (98 %)
+Writing at 0x0016a73c... (100 %)
+Wrote 1432112 bytes (828286 compressed) at 0x00010000 in 9.9 seconds (effective 1156.4 kbit/s)...
+Hash of data verified.
+
+Leaving...
+Hard resetting via RTS pin...
+========================================= [SUCCESS] Took 28.32 seconds =========================================
+ *  Terminal will be reused by tasks, press any key to close it. 
+```
