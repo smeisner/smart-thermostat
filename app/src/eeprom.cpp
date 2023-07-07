@@ -69,6 +69,13 @@ void getThermostatParams()
   prefs.end();
 }
 
+//
+// These default values are included with wifi-credentials.h
+// If the eeprom area is in tack (crc matches), then the value is not changed.
+// (Change it via the touch screen)
+// If the crc is not correct, you can set the wifi info via the UART serial
+// console or the touch screen UI.
+//
 void setDefaultWifiCreds()
 {
   prefs.begin("wificreds", false);
