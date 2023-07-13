@@ -98,6 +98,7 @@ The method implemented is very crude, so be careful!
 `/dev/ttyACMx` is the ESP32
 
 <br>
+
 ### Resources/Links:
 
 ***
@@ -241,11 +242,14 @@ RCWL-0516 Range (Historical as this sensor is no longer planned for fab)
 * [https://www.mouser.com/ProductDetail/JAE-Electronics/DX07S016JA1R1500?qs=GBLSl2Akirucb2YMMGCxCQ%3D%3D](https://www.mouser.com/ProductDetail/JAE-Electronics/DX07S016JA1R1500?qs=GBLSl2Akirucb2YMMGCxCQ%3D%3D)
 
 
-#### Google Sheet to determine GPIO pin usage
+#### Google Sheets
 
 ***
 
-* [https://docs.google.com/spreadsheets/d/10CfVb4AoQPJP5FjagokVNWyHDSV7czo9InDzF5tszXg/edit#gid=0](https://docs.google.com/spreadsheets/d/10CfVb4AoQPJP5FjagokVNWyHDSV7czo9InDzF5tszXg/edit#gid=0)
+* Sheet to determine GPIO pin usage
+   * [https://docs.google.com/spreadsheets/d/10CfVb4AoQPJP5FjagokVNWyHDSV7czo9InDzF5tszXg/edit#gid=0](https://docs.google.com/spreadsheets/d/10CfVb4AoQPJP5FjagokVNWyHDSV7czo9InDzF5tszXg/edit#gid=0)
+* BOM Analysis
+   * [https://docs.google.com/spreadsheets/d/14w7VYzvXJafxjo8qtsvuFqKP_Zvz_vr7KMgLZYts2Cs/edit?pli=1#gid=310427562](https://docs.google.com/spreadsheets/d/14w7VYzvXJafxjo8qtsvuFqKP_Zvz_vr7KMgLZYts2Cs/edit?pli=1#gid=310427562)
 
 
 ## Sample output from build (using ProxMox, passing thru the ESP32 USB device)
