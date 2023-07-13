@@ -1,4 +1,6 @@
+Accounting/
 pcb/Thermostat-backups
 backups
 pcb/production/.nfs*
-
+*backup
+*.DONOTCOMPILE
