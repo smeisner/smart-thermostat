@@ -3,11 +3,12 @@
 #include <ESPmDNS.h>
 #include <Update.h>
 #include "version.h"
+#include "web_ui.h"
 
 WebServer server(80);
 const char* serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 const char* serverRedirect = "<meta http-equiv=\"refresh\" content=\"0; url='/'\" />";
-static char html[1600];
+static char html[2200];
 
 void tempUp()
 {
@@ -38,48 +39,21 @@ void tempDown()
 
 void handleRoot()
 {
-    snprintf(html, sizeof(html), 
-"<html><head><meta http-equiv='refresh' content='5'/><title>Truly Smart Thermostat</title><style>\
-body { background-color: #cccccc; font-family: Arial, Helvetica, Sans-Serif; Color: #000088; }\
-</style></head><body><h1>Thermostat operating parameters:</h1>\
-<pre><p style=\"font-size:16px; \">\
-<br>HVAC Mode:   %s (Set: %s)\
-<br>Temperature: %0.1f%c\
-<br>Humidity:    %0.1f%%\
-<br>\
-<br>Wifi:        %d%%  [IP: %s]\
-<br>Units:       %c\
-<br>Swing:       %0.1f\
-<br>Set Temp:    %d.%d%c\
-<br>Correction:  %0.1f\
-<br>Light:       %d\
-<br>Motion:      %s</p></pre>\
-<form action='/upload'><input type='submit' value='FW Update' /></form>\
-<button onclick=\"window.location.href = '/clearFirmware';\">CLEAR Config</button>&nbsp\
-<p></p>Set Temp: <button onclick=\"window.location.href = '/tempDown';\">TEMP &laquo;</button>&nbsp\
-<button onclick=\"window.location.href = '/tempUp';\">TEMP &raquo;</button>\
-<p></p>\
-HVAC Mode: <button onclick=\"window.location.href = '/hvacModeOff';\">OFF</button>&nbsp\
-<button onclick=\"window.location.href = '/hvacModeAuto';\">AUTO</button>&nbsp\
-<button onclick=\"window.location.href = '/hvacModeHeat';\">HEAT</button>&nbsp\
-<button onclick=\"window.location.href = '/hvacModeCool';\">COOL</button>&nbsp\
-<button onclick=\"window.location.href = '/hvacModeFan';\">FAN</button>\
-<pre><p style=\"font-size:14px; \"><br>Firmware version: %s (%s)<br>%s</p></pre>\
-<p></p><a href=\"https://github.com/smeisner/smart-thermostat\" target=\"_blank\">Smart Thermostat Project on GitHub</a>\
-</body></html>",
-        hvacModeToString(OperatingParameters.hvacOpMode), hvacModeToString(OperatingParameters.hvacSetMode),
-        OperatingParameters.tempCurrent + OperatingParameters.tempCorrection, 
-        OperatingParameters.tempUnits, 
-        OperatingParameters.humidCurrent, wifiSignal(), wifiAddress(),
-        OperatingParameters.tempUnits, OperatingParameters.tempSwing,
-        (int)OperatingParameters.tempSet, 
-        (OperatingParameters.tempUnits == 'F') ? 0 : (int)getRoundedFrac(OperatingParameters.tempSet),
-        OperatingParameters.tempUnits, OperatingParameters.tempCorrection,
-        OperatingParameters.lightDetected, (OperatingParameters.motionDetected == true) ? "True" : "False",
-        VERSION_STRING, VERSION_BUILD_DATE_TIME, VERSION_COPYRIGHT
-    );
+  snprintf(html, sizeof(html), webUI,
+    (int)OperatingParameters.tempSet, OperatingParameters.tempUnits,
+    hvacModeToString(OperatingParameters.hvacSetMode),
+    hvacModeToString(OperatingParameters.hvacOpMode),
+    OperatingParameters.tempCurrent + OperatingParameters.tempCorrection,
+    OperatingParameters.tempUnits,
+    OperatingParameters.humidCurrent, OperatingParameters.lightDetected,
+    (OperatingParameters.motionDetected == true) ? "True" : "False",
+    OperatingParameters.tempUnits, OperatingParameters.tempSwing,
+    OperatingParameters.tempCorrection,
+    wifiSignal(), wifiAddress(), VERSION_STRING, VERSION_BUILD_DATE_TIME,
+    VERSION_COPYRIGHT
+  );
 
-    server.send(200, "text/html", html);
+  server.send(200, "text/html", html);
 }
 
 void webInit(void * parameter)
