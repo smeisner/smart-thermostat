@@ -1,6 +1,6 @@
 #include "thermostat.hpp"
 #include <Preferences.h>
-#include "wifi-credentials.h"
+//#include "wifi-credentials.h"
 #include <nvs_flash.h>
 
 Preferences prefs;
@@ -70,8 +70,7 @@ void getThermostatParams()
 }
 
 //
-// These default values are included with wifi-credentials.h
-// If the eeprom area is in tack (crc matches), then the value is not changed.
+// If the eeprom area is intact (crc matches), then the value is not changed.
 // (Change it via the touch screen)
 // If the crc is not correct, you can set the wifi info via the UART serial
 // console or the touch screen UI.
@@ -79,18 +78,27 @@ void getThermostatParams()
 void setDefaultWifiCreds()
 {
   prefs.begin("wificreds", false);
-  prefs.putString("hostname", hostname);
-  prefs.putString("ssid", wifiSsid);
-  prefs.putString("pass", wifiPass);
+  prefs.putString("hostname", "thermostat");
+  prefs.putString("ssid", "");
+  prefs.putString("pass", "");
+  prefs.end();
+}
+
+void setWifiCreds()
+{
+  prefs.begin("wificreds", false);
+  prefs.putString("hostname", WifiCreds.hostname);
+  prefs.putString("ssid", WifiCreds.ssid);
+  prefs.putString("pass", WifiCreds.password);
   prefs.end();
 }
 
 void getWifiCreds()
 {
   prefs.begin("wificreds", false);
-  strncpy (WifiCreds.hostname, prefs.getString("hostname", hostname).c_str(), sizeof(WifiCreds.hostname));
-  strncpy (WifiCreds.ssid, prefs.getString("ssid", wifiSsid).c_str(), sizeof(WifiCreds.ssid));
-  strncpy (WifiCreds.password, prefs.getString("pass", wifiPass).c_str(), sizeof(WifiCreds.password));
+  strncpy (WifiCreds.hostname, prefs.getString("hostname", "thermostat").c_str(), sizeof(WifiCreds.hostname));
+  strncpy (WifiCreds.ssid, prefs.getString("ssid", "").c_str(), sizeof(WifiCreds.ssid));
+  strncpy (WifiCreds.password, prefs.getString("pass", "").c_str(), sizeof(WifiCreds.password));
   prefs.end();
 }
 

@@ -202,6 +202,9 @@ void tftSetNewWifi(lv_event_t * e)
 {
   lv_dropdown_get_selected_str(ui_SsidDropdown, WifiCreds.ssid, sizeof(WifiCreds.ssid));
   strcpy (WifiCreds.password, lv_textarea_get_text(ui_PSK));
+  // Save the new wifi credentials to NVRAM
+  setWifiCreds();
+  // Initiate a disconnect so the new wifi info will be used when auto-reconnect happens
   WifiDisconnect();
 }
 

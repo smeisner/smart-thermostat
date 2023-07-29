@@ -92,6 +92,7 @@ void eepromInit();
 void clearNVS();
 bool eepromUpdateHvacSetTemp();
 bool eepromUpdateHvacSetMode();
+void setWifiCreds();
 
 // HTTP Server
 void webCreateTask();
