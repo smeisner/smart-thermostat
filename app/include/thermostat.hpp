@@ -145,6 +145,7 @@ void testToggleRelays();
 int getTemp();
 int getHumidity();
 void updateTimezone();
+void ld2410_loop();
 
 // Indicators
 void audioStartupBeep();

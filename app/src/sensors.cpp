@@ -2,10 +2,14 @@
 #include <Smoothed.h>
 #include <timezonedb_lookup.h>
 #include "DFRobot_AHT20.h"
+#include <ld2410.h>
 
 int32_t lastTimeUpdate = 0;
 
 DFRobot_AHT20 aht20;
+
+ld2410 radar;
+uint32_t last_ld2410_Reading = 0;
 
 Smoothed <float> sensorTemp;
 Smoothed <float> sensorHumidity;
@@ -45,47 +49,118 @@ float roundValue(float value, int places)
 }
 
 
+//////////////////////////////////////////////////////////////////////////////////////
+//
+//    LD2410 support code
+//
+//////////////////////////////////////////////////////////////////////////////////////
 
-// float degFtoC(float degF)
-// {
-//   return ((degF - 32.0) / (9.0/5.0));
-// }
+bool ld2410_init()
+{
+  bool rc;
 
-// // Return the fractional as 0 or 5 based on frac part of num
-// // .0 - .4 returns 0
-// // .5 to .9 returns 5
-// int degCfrac(float tempF)
-// {
-//   if (OperatingParameters.tempUnits == 'C')
-//   {
-//     int whole;
-//     float roundUp = degFtoC(tempF);
-//     whole = (int)(roundUp);
-//     float frac = roundUp - (float)(whole);
+  //Uncomment to show debug information from the library on the Serial Monitor. By default this does not show sensor reads as they are very frequent.
+  //radar.debug(Serial);
 
-//     if (frac < 0.5)
-//       return 0;
-//     else
-//       return 5;
-//   }
-//   return 0;
-// }
+  Serial2.begin (256000, SERIAL_8N1, LD_TX, LD_RX); //UART for monitoring the radar
+  delay(500);
 
-// int tempOut(float tempF)
-// {
-//   if (OperatingParameters.tempUnits == 'F')
-//     return (int)(tempF + 0.5);
-//   else
-//     return (int)(degFtoC(tempF));
-// }
+  if (radar.begin(Serial2))
+  {
+    Serial.printf("LD2410: Sensor started\n");
+    rc = true;
 
-// float tempIn(float tempC)
-// {
-//   if (OperatingParameters.tempUnits == 'C')
-//     return ((tempC * 9.0/5.0) + 32.0);
-//   else
-//     return tempC;
-// }
+    if (radar.requestFirmwareVersion())
+    {
+      Serial.printf ("LD2410: Firmware: v%u.%02u.%u%u%u%u\n",
+        radar.firmware_major_version,
+        radar.firmware_minor_version,
+        (radar.firmware_bugfix_version & 0xff000000) >> 24,
+        (radar.firmware_bugfix_version & 0x00ff0000) >> 16,
+        (radar.firmware_bugfix_version & 0x0000ff00) >> 8,
+        radar.firmware_bugfix_version & 0x000000ff
+        );
+    } else {
+      Serial.printf ("LD2410: Failed to read firmware version\n");
+    }
+
+    if (radar.requestCurrentConfiguration())
+    {
+      Serial.printf("LD2410: Maximum gate ID: %d\n", radar.max_gate);
+      Serial.printf("LD2410: Maximum gate for moving targets: %d\n", radar.max_moving_gate);
+      Serial.printf("LD2410: Maximum gate for stationary targets: %d\n", radar.max_stationary_gate);
+      Serial.printf("LD2410: Idle time for targets: %d\n", radar.sensor_idle_time);
+      Serial.printf("LD2410: Gate sensitivity\n");
+      for (uint8_t gate = 0; gate <= radar.max_gate; gate++)
+      {
+        Serial.printf("  Gate %d moving targets: %d stationary targets: %d\n",
+          gate, radar.motion_sensitivity[gate], radar.stationary_sensitivity[gate]);
+      }
+    }
+
+    //
+    // The LD2410 module has multiple gates, one per each 0.75m of distance. So gate 0 will specify the sensitivity
+    // for 0 - 0.75m, gate 1 will specify sensitivity for 0.75 - 1.5m, etc. Setting MaxValues (below) specifies
+    // max distance based on the number of gates enabled. For example, specifying 1 for max gates will allow 1.5m (0 & 1).
+    //
+    //bool setGateSensitivityThreshold(uint8_t gate, uint8_t moving, uint8_t stationary);
+    radar.setGateSensitivityThreshold(0, 50, 30); // Default values (50 & 30)
+    radar.setGateSensitivityThreshold(1, 50, 30);
+    //
+    // Each gate is ~0.75m, therefore moving gate should be limited to gate 1 (1.5m) and stationary gate should be
+    // limited to 0 (0.75m). Use this to also change the inactivity timer.
+    //
+    //bool setMaxValues(uint16_t moving, uint16_t stationary, uint16_t inactivityTimer);
+    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000))) Serial.printf ("LD2410: Max gate values set\n"); else Serial.printf ("LD2410: FAILED to set max gate values\n");
+    //
+    // Now request a restart to enable all the setting specified above
+    //
+    if (radar.requestRestart()) Serial.printf ("LD2410: Restart requested\n"); else Serial.printf ("LD2410: FAILED requesting restart\n");
+  }
+  else
+  {
+    Serial.printf ("LD2410: Sensor not connected\n");
+    rc = false;
+  }
+  return rc;
+}
+
+void ld2410_loop()
+{
+  if (!radar.isConnected())
+    return;
+
+  radar.read();
+  if (radar.isConnected() && millis() - last_ld2410_Reading > 1000)  //Report every 1000ms
+  {
+    last_ld2410_Reading = millis();
+    if (radar.presenceDetected())
+    {
+      if (radar.stationaryTargetDetected())
+        Serial.printf ("LD2410: Stationary target: %d in\n", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
+      // {
+      //   Serial.print(F("Stationary target: "));
+      //   Serial.print(radar.stationaryTargetDistance());
+      //   Serial.print(F("cm energy:"));
+      //   Serial.println(radar.stationaryTargetEnergy());
+      // }
+      if (radar.movingTargetDetected())
+        Serial.printf ("LD2410: Moving target: %d in\n", (int)((float)(radar.movingTargetDistance()) / 2.54));
+      // {
+      //   Serial.print(F("Moving target: "));
+      //   Serial.print(radar.movingTargetDistance());
+      //   Serial.print(F("cm energy:"));
+      //   Serial.println(radar.movingTargetEnergy());
+      // }
+    }
+    // else
+    // {
+    //   Serial.println(F("No target"));
+    // }
+  }
+}
+/////////////////////////////////////////////////////////////////////////////////////////
+
 
 bool initAht()
 {
@@ -151,7 +226,6 @@ void updateAht(void * parameter)
   }
 }
 
-//const char* ntpServer = "time.google.com";
 const char* ntpServer = "pool.ntp.org";
 //const char* timezone = "Africa/Luanda";
 //const char* timezone = "America/New York";
@@ -214,6 +288,8 @@ bool sensorsInit()
   sensorHumidity.clear();
 
   initTimeSntp();
+  
+  ld2410_init();
 
   pinMode(LIGHT_SENS_PIN, INPUT);
   pinMode(MOTION_PIN, INPUT);

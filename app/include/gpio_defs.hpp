@@ -47,6 +47,8 @@
 #define TFT_MOSI_PIN 12
 #define TFT_CLK_PIN 13
 #define TFT_LED_PIN 14
+#define LD_RX 15
+#define LD_TX 16
 #define TFT_MISO_PIN 21
 #define TOUCH_CS_PIN 47
 #define TOUCH_IRQ_PIN 48
