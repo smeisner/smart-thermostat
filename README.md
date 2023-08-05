@@ -167,7 +167,7 @@ V1 task list:
 V2 task list:
 
 * [x] Design device web page; crude but done
-* [ ] Design 3D printed case (Polycase may be good supplier or JLCPCB)
+* [x] Design 3D printed case (Polycase may be good supplier or JLCPCB)
 * [ ] Implement Matter
 * [ ] Develop Home Assistant integration (maybe via Matter?)
 * [ ] Add MQTT/HA communications (publish and subscriber support)
@@ -181,8 +181,8 @@ General to-do:
 * [ ] Measure current draw of entire thermostat, TFT LED backlight on & off
 * [ ] Measure current draw with no TFT display attached
 * [ ] Measure voltage ripple while under load
-* [ ] Redesign PCB to incoporate ESP chip and tighten up layout
-* [ ] Add serial output pins to connect serial terminal to catch print statements
+* [x] Redesign PCB to incoporate ESP chip and tighten up layout
+* [x] Add serial output pins to connect serial terminal to catch print statements
 
 ## Specs...
  
