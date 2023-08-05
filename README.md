@@ -134,7 +134,12 @@ To measure indoor temp & humidity, the [Aosong AHT20](http://www.aosong.com/user
 
 A light sensor (LDR) is currently incoporated into the PCB (as a voltage divider) and is being measured for ambient light. It will be used to determine brightness of the TFT display when it is woken.
 
-Motion sensing will be used to wake the TFT display. Currently there are 2 uWave devices being reviewed - RCWL-0516 and the LD2410. The RCWL does not appear to be consistent and premade board are too sensitive. More of these modules need to be tested. The LD2410 is much smaller and appears to be more reliable.
+Motion sensing is being done with the Hi-Link LD2410 uWave sensor. These are available on [Amazon](https://www.amazon.com/Microwave-Radar-Sensor-Module-LD2410-24GHz-ISM-Band-Human-Presence-Motion-Sensing-Module-Non-Contact-Monitoring-Detector-Support-GPIO/dp/B0BP67N9BB) and [AliExpress](https://m.aliexpress.com/item/1005004351593073.html).
+
+* LD2410 documentation: https://drive.google.com/drive/folders/1p4dhbEJA3YubyIjIIC7wwVsSo8x29Fq-?spm=a2g0o.detail.1000023.17.93465697yFwVxH
+* Example use in another poject: https://github.com/LoopOnCode/UnitySensor
+* You can purchase a Unity Sensor at: https://loopon.tech/products/unity-sensor
+
 
 ## Possibilities
 
