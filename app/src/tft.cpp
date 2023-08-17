@@ -123,10 +123,25 @@ void tftDimDisplay()
 void tftUpdateDisplay()
 {
   static char buffer[16];
-  static struct tm time;
+  static struct tm local_time;
+  static ulong last = 0;
 
-  getLocalTime(&time);
-  strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
+  // updateTime() will return false if wifi is not connected. 
+  // Otherwise pending on SNTP call will cause a stall.
+  if (!updateTime(&local_time))
+  {
+    if (millis() - last > 10000)
+    {
+      last = millis();
+      initTimeSntp();
+    }
+    // memset (&local_time, 0, sizeof(local_time));
+    strcpy (buffer, "--:--:--");
+  }
+  else
+  {
+    strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
+  }
   lv_label_set_text(ui_TimeLabel, buffer);
 
   lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());

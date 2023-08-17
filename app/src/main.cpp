@@ -26,6 +26,10 @@ void setup(void)
   // Show diagnostic info on the serial monitor
   showConfigurationData();
 
+  // Load configuration from EEPROM
+  Serial.printf ("Reading EEPROM\n");
+  eepromInit();
+
   // Initialize the TFT display
   Serial.printf ("Initializing TFT\n");
   tftInit();
@@ -33,17 +37,15 @@ void setup(void)
   Serial.printf ("Starting TFT task\n");
   tftCreateTask();
 
-  // Load configuration from EEPROM
-  Serial.printf ("Reading EEPROM\n");
-  eepromInit();
   // Start wifi
-  Serial.printf ("Connecting to wifi\n");
+  Serial.printf ("Starting wifi\n");
   OperatingParameters.wifiConnected = 
     wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
+
   // Initialize indicators (relays, LEDs, buzzer)
   Serial.printf ("Initializing indicators\n");
   indicatorsInit();
-  // Initialize sensors (temp, humidity, motion ... air quality)
+  // Initialize sensors (temp, humidity, motion, etc)
   Serial.printf ("Initializing sensors\n");
   sensorsInit();
 

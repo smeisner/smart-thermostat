@@ -44,9 +44,12 @@ void clearNVS()
   nvs_flash_init(); // initialize the NVS partition.
 }
 
+#define NVS_TAG "thermostat"
+#define NVS_WIFI_TAG "wificreds"
+
 void setDefaultThermostatParams()
 {
-  prefs.begin("thermostat", false);
+  prefs.begin(NVS_TAG, false);
   prefs.putInt("currMode", IDLE);
   prefs.putInt("setMode", OFF);
   prefs.putFloat("setTemp", 70.0);
@@ -64,9 +67,29 @@ void setDefaultThermostatParams()
   prefs.end();
 }
 
+void updateThermostatParams()
+{
+  prefs.begin(NVS_TAG, false);
+  prefs.putInt("currMode", OperatingParameters.hvacOpMode);
+  prefs.putInt("setMode", OperatingParameters.hvacSetMode);
+  prefs.putFloat("setTemp", OperatingParameters.tempSet);
+  prefs.putFloat("setTempAutoMin", OperatingParameters.tempSetAutoMin);
+  prefs.putFloat("setTempAutoMax", OperatingParameters.tempSetAutoMax);
+  prefs.putFloat("currTemp", OperatingParameters.tempCurrent);
+  prefs.putFloat("currHumid", OperatingParameters.humidCurrent);
+  prefs.putChar("setUnits", OperatingParameters.tempUnits);
+  prefs.putFloat("setSwing", OperatingParameters.tempSwing);
+  prefs.putFloat("setTempCorr", OperatingParameters.tempCorrection);
+  prefs.putFloat("setHumidityCorr", OperatingParameters.humidityCorrection);
+  prefs.putInt("sleepTime", OperatingParameters.thermostatSleepTime);
+  prefs.putInt("timezoneSel", OperatingParameters.timezone_sel);
+  prefs.putBool("Beep", OperatingParameters.thermostatBeepEnable);
+  prefs.end();
+}
+
 void getThermostatParams()
 {
-  prefs.begin("thermostat", false);
+  prefs.begin(NVS_TAG, false);
   OperatingParameters.hvacOpMode = (HVAC_MODE)prefs.getInt("currMode", (int)IDLE);
   OperatingParameters.hvacSetMode = (HVAC_MODE)prefs.getInt("setMode", (int)OFF);
   OperatingParameters.tempSet = prefs.getFloat("setTemp", 70.0);
@@ -95,16 +118,19 @@ void getThermostatParams()
 //
 void setDefaultWifiCreds()
 {
-  prefs.begin("wificreds", false);
+  prefs.begin(NVS_WIFI_TAG, false);
   prefs.putString("hostname", "thermostat");
   prefs.putString("ssid", "");
   prefs.putString("pass", "");
   prefs.end();
 }
 
+//
+// Only called from ui_events.cpp
+//
 void setWifiCreds()
 {
-  prefs.begin("wificreds", false);
+  prefs.begin(NVS_WIFI_TAG, false);
   prefs.putString("hostname", WifiCreds.hostname);
   prefs.putString("ssid", WifiCreds.ssid);
   prefs.putString("pass", WifiCreds.password);
@@ -113,7 +139,7 @@ void setWifiCreds()
 
 void getWifiCreds()
 {
-  prefs.begin("wificreds", false);
+  prefs.begin(NVS_WIFI_TAG, false);
   strncpy (WifiCreds.hostname, prefs.getString("hostname", "thermostat").c_str(), sizeof(WifiCreds.hostname));
   strncpy (WifiCreds.ssid, prefs.getString("ssid", "").c_str(), sizeof(WifiCreds.ssid));
   strncpy (WifiCreds.password, prefs.getString("pass", "").c_str(), sizeof(WifiCreds.password));
@@ -122,7 +148,7 @@ void getWifiCreds()
 
 bool eepromUpdateHvacSetTemp()
 {
-  prefs.begin("thermostat", false);
+  prefs.begin(NVS_TAG, false);
   prefs.putFloat("setTemp", OperatingParameters.tempSet);
   prefs.end();
   return true;
@@ -130,7 +156,7 @@ bool eepromUpdateHvacSetTemp()
 
 bool eepromUpdateHvacSetMode()
 {
-  prefs.begin("thermostat", false);
+  prefs.begin(NVS_TAG, false);
   prefs.putInt("currMode", OperatingParameters.hvacSetMode);
   prefs.end();
   return true;
@@ -138,7 +164,7 @@ bool eepromUpdateHvacSetMode()
 
 void eepromInit()
 {
-  prefs.begin("thermostat", false);
+  prefs.begin(NVS_TAG, false);
   if ((not prefs.isKey("setUnits")) ||
       (prefs.getChar("setUnits", 'X') == 'X'))
   {
@@ -149,7 +175,7 @@ void eepromInit()
   else
     prefs.end();
 
-  prefs.begin("wificreds", false);
+  prefs.begin(NVS_WIFI_TAG, false);
   if ((not prefs.isKey("ssid")) ||
       (prefs.getString("ssid", "X") == "X"))
   {

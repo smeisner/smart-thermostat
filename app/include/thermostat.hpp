@@ -37,7 +37,6 @@ typedef struct
     int lightDetected;
     bool motionDetected;
     bool wifiConnected;
-
     bool hvacCoolEnable;
     bool hvacFanEnable;
     bool hvac2StageHeatEnable;
@@ -61,6 +60,21 @@ typedef struct
     char password[16];
 
 } WIFI_CREDS;
+
+typedef struct
+{
+    /* Same as if_init?? */
+    bool driver_started;
+    /* Indicates esp_wifi_init() has been called */
+    bool if_init;
+    /* Indicates esp_wifi_start() has been called */
+    bool wifi_started;
+    /* Indicates active wifi connection to AP established */
+    bool Connected;
+    /* IP address fetched when AP connect happened */
+    esp_ip4_addr_t ip;  // uint32_t addr;  /*!< IPv4 address */
+
+} WIFI_STATUS;
 
 extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
@@ -93,11 +107,14 @@ void clearNVS();
 bool eepromUpdateHvacSetTemp();
 bool eepromUpdateHvacSetMode();
 void setWifiCreds();
+void updateThermostatParams();
 
 // HTTP Server
 void webCreateTask();
 
 // Routine to control wifi
+void wifiSetHostname(const char *hostname);
+void wifiSetCredentials(const char *ssid, const char *pass);
 bool wifiStart(const char *hostname, const char *ssid, const char *pass);
 bool wifiConnected();
 void WifiDisconnect();
@@ -146,6 +163,7 @@ void testToggleRelays();
 int getTemp();
 int getHumidity();
 void updateTimezone();
+bool updateTime(struct tm * info);
 void ld2410_loop();
 
 // Indicators

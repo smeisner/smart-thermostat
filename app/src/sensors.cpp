@@ -270,20 +270,32 @@ void updateTimezone()
   tzset();
 }
 
-void updateTimeSntp()
+bool updateTime(struct tm * info)
 {
-  struct tm time;
-  char buffer[16];
-   
-  if (!getLocalTime(&time))
+  if (OperatingParameters.wifiConnected)
   {
-    Serial.println("Could not obtain time info");
-    return;
+    if (!getLocalTime(info, 2000))
+    {
+      Serial.println("Could not obtain time info");
+      return false;
+    }
+    else
+      return true;
   }
 
-  strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
-  Serial.printf("Current time: %s\n", buffer);
+  return false;
+}
 
+void updateTimeSntp()
+{
+  struct tm local_time;
+  char buffer[16];
+
+  if (updateTime(&local_time))
+  {
+    strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
+    Serial.printf("Current time: %s\n", buffer);
+  }
 }
 
 void initTimeSntp()
@@ -322,7 +334,7 @@ bool sensorsInit()
       "Update AHT",   // Name of the task (for debugging)
       4096,           // Stack size (bytes)
       NULL,           // Parameter to pass
-      1,              // Task priority
+      tskIDLE_PRIORITY+1, // Task priority
       NULL            // Task handle
     );
 
