@@ -1,16 +1,40 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * wifi.cpp
+ *
+ * All functionality related to wireless interface are included here.
+ * An API is provided for the thermostat to connect and control the
+ * wifi interface using the Arduino framework. Details about the
+ * connection (such as signal strength, connection status, IP address)
+ * are supplied here.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ * 
+ * Eventually this module must be rewritten to use the ESP-IDF
+ * and not the Arduino library.
+ * 
+ * Some of the inspiration for code was gotten from:
+ * https://github.com/xpress-embedo/ESP32/blob/master/ConnectToWiFi/src/main.cpp
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"
 #include <WiFi.h>
-
-///////////////////////////////////////////////////////////////////////////////////////
-// Support for TFT UI
-//
-// From: https://github.com/xpress-embedo/ESP32/blob/master/ConnectToWiFi/src/main.cpp
-///////////////////////////////////////////////////////////////////////////////////////
 
 #define WIFI_MAX_SSID (6u)
 
 WiFiClient wclient;
 WIFI_CREDS WifiCreds;
+
+/////////////////////////////////////////////////////////////////
+// Support for TFT UI
+/////////////////////////////////////////////////////////////////
 
 static char wifi_dd_list[WIFI_MAX_SSID*20] = { 0 };
 

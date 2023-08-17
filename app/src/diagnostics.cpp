@@ -1,11 +1,24 @@
-/* I2C slave Address Scanner
-for 5V bus
- * Connect a 4.7k resistor between SDA and Vcc
- * Connect a 4.7k resistor between SCL and Vcc
-for 3.3V bus
- * Connect a 2.4k resistor between SDA and Vcc
- * Connect a 2.4k resistor between SCL and Vcc
-Kutscher07: Modified for TTGO TQ board with builtin OLED
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * diagnostics.c
+ *
+ * Provide diagnostic information about devices found on the I2C bus and limited info about memory.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ * I2C slave Address Scanner
+ * for 5V bus:
+ *  Connect a 4.7k resistor between SDA and Vcc
+ *  Connect a 4.7k resistor between SCL and Vcc
+ * for 3.3V bus
+ *  Connect a 2.4k resistor between SDA and Vcc
+ *  Connect a 2.4k resistor between SCL and Vcc
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
  */
 
 #include "thermostat.hpp"

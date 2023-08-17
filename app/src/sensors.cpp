@@ -1,3 +1,23 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * sensors.cpp
+ *
+ * This module supports all the sensor devices included with the thermostat. This includes
+ * includes the AHT20, the LDR light detector, LD2410 uWave human presence detector and
+ * the SNTP provided time.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ *  The DFRobot_AHT20 module was provided on Github and used here to
+ *  drive the AHT20 temp/humidity sensor. This module was supplied by DFRobot.
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"
 #include <Smoothed.h>
 #include <timezonedb_lookup.h>

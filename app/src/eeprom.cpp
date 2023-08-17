@@ -1,6 +1,24 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * eeprom.cpp
+ *
+ * Provide API to access data stored in, and write to, non-voltaile storage (NVS)
+ * also referred to as EEPROM.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ * clearNVS() will not only initialize the partition that holds the NVS data,
+ * but also wipe it clean ... including wifi credentials and Matter state. Use with caution!
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"
 #include <Preferences.h>
-//#include "wifi-credentials.h"
 #include <nvs_flash.h>
 
 Preferences prefs;

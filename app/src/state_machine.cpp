@@ -1,3 +1,21 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * state_machine.cpp
+ *
+ * Implements the state machine to control the HVAC actions and modes.
+ * As part of this responsibility, statuses of items such as wifi connection
+ * are also monitored and action taken if necessary.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"
 
 OPERATING_PARAMETERS OperatingParameters;
