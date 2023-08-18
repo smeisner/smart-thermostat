@@ -18,24 +18,43 @@
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
- *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrite to use ESP-IDF
+ *  18-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrite to use ESP-IDF
  * 
  */
 
 #include "thermostat.hpp"
 
+#if 0
+
+// This isn't working correctly yet. I believe due to relying on the 
+// Arduino framework. Once this is abandoned, the following must be 
+// revisited to fine tune the log level.
+//
+// Currently the log level can only be set in platformio.ini (see
+// the CORE_DEBUG_LEVEL definition). But changing this causes an entire rebuild.
+
+// Enable Arduino-ESP32 logging in Arduino IDE
+#ifdef CORE_DEBUG_LEVEL
+  #undef CORE_DEBUG_LEVEL
+#endif
+#ifdef LOG_LOCAL_LEVEL
+  #undef LOG_LOCAL_LEVEL
+#endif
+
+#define CORE_DEBUG_LEVEL ESP_LOG_WARN
+#define LOG_LOCAL_LEVEL CORE_DEBUG_LEVEL
+
+#endif
+
+static const char *TAG = "WIFI";
+
+#include "esp_wifi.h"
+#include "esp_log.h"
+#include "esp_event.h"
+
 #define WIFI_MAX_SSID (6u)
 #define WIFI_SSID_LEN (32u)
-
 #define DEFAULT_SCAN_LIST_SIZE WIFI_MAX_SSID
-
-#define CONFIG_LOG_DEFAULT_LEVEL_VERBOSE 1
-#define CONFIG_LOG_DEFAULT_LEVEL 5
-#define CONFIG_LOG_MAXIMUM_EQUALS_DEFAULT 1
-#define CONFIG_LOG_MAXIMUM_LEVEL 5
-#define CONFIG_LOG_TIMESTAMP_SOURCE_RTOS 1
-// #define LOG_LOCAL_LEVEL ESP_LOG_VERBOSE
-static const char *TAG = "WIFI";
 
 /* The event group allows multiple bits for each event, but we only care about two events:
  * - we are connected to the AP with an IP
@@ -44,29 +63,21 @@ static const char *TAG = "WIFI";
 #define WIFI_FAIL_BIT BIT1
 #define CONFIG_ESP_MAXIMUM_RETRY 3
 
-#include "esp_wifi.h"
-#include "esp_log.h"
-#include "esp_event.h"
-
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group = NULL;
 const TickType_t xTicksToWait = 20000 / portTICK_PERIOD_MS;
 esp_event_handler_instance_t instance_any_id;
 esp_event_handler_instance_t instance_got_ip;
 
-// void wifi_disconnect_sta(void);
 static esp_netif_t *esp_netif_interface_sta;
 int s_retry_num = 0;
 
 WIFI_CREDS WifiCreds;
 WIFI_STATUS WifiStatus = {0};
 
-void WifiDeinit();
-
 ///////////////////////////////////////////////////////////////////////////////////////
 //
-// Support for TFT UI
-//
+// Support for wifi scanning with TFT UI:
 // From: https://github.com/xpress-embedo/ESP32/blob/master/ConnectToWiFi/src/main.cpp
 //
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -86,11 +97,10 @@ char *Get_WiFiSSID_DD_List( void )
 
 /**
  * @brief Scans for the SSID and store the results in a WiFi drop down list
- * "wifi_dd_list", this list is suitable to be used with the LVGL Drop Down
+ * "wifi_dd_list", this list is suitable to be used with the LVGL Drop Down.
+ * Initialize Wi-Fi as sta and set scan method.
  * @param  none
  */
-/* Initialize Wi-Fi as sta and set scan method */
-
 void WiFi_ScanSSID(void)
 {
   String ssid_name;
@@ -109,10 +119,9 @@ void WiFi_ScanSSID(void)
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
   ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
-  Serial.printf("Total APs scanned = %u\n", ap_count);
   if (ap_count == 0)
   {
-    Serial.println("No Networks Found");
+    ESP_LOGW(TAG, "- No Networks Found");
     memset (wifi_dd_list, 0x00, sizeof(wifi_dd_list));
     strcpy (wifi_dd_list, "-- No SSIDs --");
   }
@@ -122,16 +131,12 @@ void WiFi_ScanSSID(void)
     for (int i = 0; (i < DEFAULT_SCAN_LIST_SIZE) && (i < ap_count); i++)
     {
       ESP_LOGI(TAG, "SSID \t\t%s", ap_info[i].ssid);
-      Serial.printf("SSID \t\t%s\n", ap_info[i].ssid);
-      ESP_LOGI(TAG, "RSSI \t\t%d", ap_info[i].rssi);
-      Serial.printf("RSSI \t\t%d\n", ap_info[i].rssi);
-      // print_auth_mode(ap_info[i].authmode);
+      ESP_LOGD(TAG, "RSSI \t\t%d", ap_info[i].rssi);
       if (ap_info[i].authmode != WIFI_AUTH_WEP)
       {
           // print_cipher_type(ap_info[i].pairwise_cipher, ap_info[i].group_cipher);
       }
-      ESP_LOGI(TAG, "Channel \t\t%d", ap_info[i].primary);
-      Serial.printf("Channel \t\t%d\n", ap_info[i].primary);
+      ESP_LOGD(TAG, "Channel \t\t%d", ap_info[i].primary);
 
       String ssid((const char *)(ap_info[i].ssid));
 
@@ -150,7 +155,6 @@ void WiFi_ScanSSID(void)
       // clear the array, it might be possible that we coming after rescanning
       memset (wifi_dd_list, 0x00, sizeof(wifi_dd_list));
       strncpy (wifi_dd_list, ssid_name.c_str(), WIFI_SSID_LEN);
-      // Serial.println(wifi_dd_list);
     }
   }
 }
@@ -162,50 +166,42 @@ void WiFi_ScanSSID(void)
 static void event_handler(void* arg, esp_event_base_t event_base,
 								int32_t event_id, void* event_data)
 {
-  Serial.printf ("event_handler()\n");
+  ESP_LOGI(TAG, "event_handler()");
 	if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
-    Serial.printf ("  event = STA_START\n");
+    ESP_LOGD(TAG, "  event = STA_START");
     esp_wifi_connect();
 	}
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
-    Serial.printf ("  event = STA_DISCONECTED (retry = %d (MAX %d)\n", s_retry_num, CONFIG_ESP_MAXIMUM_RETRY);
+    ESP_LOGI(TAG, "  event = STA_DISCONECTED - retry # %d (MAX %d)", s_retry_num, CONFIG_ESP_MAXIMUM_RETRY);
     WifiStatus.Connected = false;
 		if (s_retry_num < CONFIG_ESP_MAXIMUM_RETRY)
     {
+  		ESP_LOGW(TAG, "  connect to the AP failed - retrying");
       esp_wifi_connect();
       s_retry_num++;
-      ESP_LOGI(TAG, "retry to connect to the AP");
-      Serial.printf ("  retry to connect to AP\n");
-			//wifi_disconnect_sta();
 		}
     else
     {
-      Serial.printf ("  retry count exceeded\n");
+      ESP_LOGE(TAG, "  retry count exceeded");
 			xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
 		}
-    Serial.printf ("  connect to the AP fail\n");
-		ESP_LOGI(TAG,"connect to the AP fail");
 	}
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
   {
-    Serial.printf ("  event = STA_GOT_IP\n");
 		ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-		ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-		Serial.printf ("  got ip: " IPSTR "\n", IP2STR(&event->ip_info.ip));
+		ESP_LOGI(TAG, "  event = IP_EVENT_STA_GOT_IP - ip: " IPSTR, IP2STR(&event->ip_info.ip));
 		s_retry_num = 0;
 		xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     WifiStatus.Connected = true;
     WifiStatus.ip = event->ip_info.ip;
 	}
-  // return (wifiConnected() == ESP_OK);
 }
 
 void wifiSetHostname(const char *hostname)
 {
-  Serial.printf ("wifiSetHostname(\"%s\")\n", hostname);
-
+  ESP_LOGI(TAG, "wifiSetHostname(\"%s\")", hostname);
   // Set the hostname for the network interface
   ESP_ERROR_CHECK(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname));
 }
@@ -214,17 +210,12 @@ void wifiSetCredentials(const char *ssid, const char *pass)
 {
   bool wasInitialized = false;
 
-  Serial.printf ("wifiSetCredentials(\"%s\", ...)\n", ssid);
-
-  ////////////////////////////////////////////////////////////////////////////////////WifiStatus.driver_started = true;
-  // ESP_ERROR_CHECK(esp_netif_init()); // ADDED
-  // ESP_ERROR_CHECK(esp_event_loop_create_default()); // ADDED
-  // esp_netif_interface_sta = esp_netif_create_default_wifi_sta(); // ADDED
+  ESP_LOGI(TAG, "wifiSetCredentials(\"%s\", ...)", ssid);
 
   if (!WifiStatus.if_init)
   {
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    Serial.printf ("- Calling esp_wifi_init()\n");
+    ESP_LOGD(TAG, "- Calling esp_wifi_init()");
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     WifiStatus.if_init = true;
   }
@@ -245,18 +236,16 @@ void wifiSetCredentials(const char *ssid, const char *pass)
     wifi_config.sta.pmf_cfg.required = false;
   }
   /* Initialize STA */
-  // ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
-  Serial.printf ("- Calling esp_wifi_set_config()\n");
+  ESP_LOGD(TAG, "- Calling esp_wifi_set_config()");
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
 
   //
   // After creating the driver stack to save the wifi credentials, we
   // now need to tear it all down.
   //
-  // WifiDeinit();
   if (!wasInitialized)
   {
-    Serial.printf ("- Calling esp_wifi_deinit()\n");
+    ESP_LOGD(TAG, "- Calling esp_wifi_deinit()");
     esp_wifi_deinit();
     WifiStatus.driver_started = false;
     WifiStatus.if_init = false;
@@ -265,7 +254,7 @@ void wifiSetCredentials(const char *ssid, const char *pass)
 
 void wifiRegisterEventCallbacks()
 {
-  Serial.printf ("wifiRegisterEventCallbacks()\n");
+  ESP_LOGD(TAG, "wifiRegisterEventCallbacks()");
 
   /* Initialize event group */
   s_wifi_event_group = xEventGroupCreate();
@@ -287,11 +276,11 @@ void wifiRegisterEventCallbacks()
 
 void wifiDeregisterEventCallbacks()
 {
-  Serial.printf ("wifiDeregisterEventCallbacks()\n");
+  ESP_LOGD(TAG, "wifiDeregisterEventCallbacks()");
 
   if (s_wifi_event_group == NULL)
   {
-    Serial.printf ("- Callbacks already deregistered\n");
+    ESP_LOGW(TAG, "- Callbacks already deregistered");
     return;
   }
 
@@ -305,40 +294,42 @@ void wifiDeregisterEventCallbacks()
 
 bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 {
+  // This code needs to be revisited later after Arduino framework removed.
+  // See comments at top of module.
+  //
   // Enable debug logging
-  esp_log_level_set(TAG, ESP_LOG_DEBUG);
+  // esp_log_level_set("*", ESP_LOG_NONE);
+  esp_log_level_set(TAG, ESP_LOG_WARN);
   // esp_log_level_set("*", ESP_LOG_INFO); 
+  //
 
-	ESP_LOGI(TAG, "wifiStart()\n");
-  Serial.printf("wifiStart()\n");
+	ESP_LOGI(TAG, "wifiStart()");
 
   if (!WifiStatus.driver_started)
   {
-    Serial.printf("  Wifi driver not started; Calling init and create funcs\n");
+    ESP_LOGW(TAG, "  Wifi driver not started; Calling init and create funcs");
     WifiStatus.driver_started = true;
-    ESP_ERROR_CHECK(esp_netif_init()); // ADDED
-    ESP_ERROR_CHECK(esp_event_loop_create_default()); // ADDED
-    esp_netif_interface_sta = esp_netif_create_default_wifi_sta(); // ADDED
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_interface_sta = esp_netif_create_default_wifi_sta();
   }
 
   if (strlen(ssid))
   {
-    ESP_LOGI(TAG, "wifi_connect_sta");
-    Serial.printf("  Calling wifiRegisterEventCallbacks()\n");
+    ESP_LOGD(TAG, "  Calling wifiRegisterEventCallbacks()");
     wifiRegisterEventCallbacks();
   }
 
-  ESP_LOGI(TAG, "Initializing wifi\n");
-  Serial.printf("  Initializing wifi\n");
+  ESP_LOGI(TAG, "  Initializing wifi");
 
   // Set the hostname for the network interface
-  Serial.printf("  Setting wifi hostname\n");
+  ESP_LOGI(TAG, "  Setting wifi hostname");
   if (strlen(hostname))
     esp_netif_set_hostname(esp_netif_interface_sta, hostname);
   else
     esp_netif_set_hostname(esp_netif_interface_sta, "thermostat");
-  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT(); // ADDDED
-  ESP_ERROR_CHECK(esp_wifi_init(&cfg)); // ADDED
+  wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+  ESP_ERROR_CHECK(esp_wifi_init(&cfg));
   WifiStatus.if_init = true;
 
   if (strlen(ssid))
@@ -353,14 +344,13 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
     wifi_config.sta.pmf_cfg.required = false;
 
     /* Initialize STA */
-    Serial.printf("  Calling esp_wifi_set_mode()\n");
+    ESP_LOGD(TAG, "  Calling esp_wifi_set_mode()");
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
-    Serial.printf("  Calling esp_wifi_set_config()\n");
+    ESP_LOGD(TAG, "  Calling esp_wifi_set_config()");
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   }
 
-  Serial.printf("  Calling esp_wifi_start()\n");
-	ESP_LOGI(TAG, "wifi_start");
+  ESP_LOGI(TAG, "  Calling esp_wifi_start()");
 	ESP_ERROR_CHECK(esp_wifi_start());
   WifiStatus.wifi_started = true;
 
@@ -370,7 +360,7 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 	/* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
 	 * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
 	esp_err_t ret_value = ESP_OK;
-  Serial.printf("  Waiting for event callback...\n");
+  ESP_LOGI(TAG, "  Waiting for event callback...");
 	EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
 			WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
 			pdFALSE,
@@ -381,20 +371,16 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 	 * happened. */
 	if (bits & WIFI_CONNECTED_BIT)
   {
-		ESP_LOGI(TAG, "connected to ap SSID:%s password:%s", WifiCreds.ssid, WifiCreds.password);
-		Serial.printf("connected to ap SSID:%s password:%s\n", WifiCreds.ssid, WifiCreds.password);
+		ESP_LOGI(TAG, "connected to ap SSID:%s password:****", WifiCreds.ssid);
 	}
   else if (bits & WIFI_FAIL_BIT)
   {
-		ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s", WifiCreds.ssid, WifiCreds.password);
-    Serial.printf("Failed to connect to SSID:%s, password:%s\n", WifiCreds.ssid, WifiCreds.password);
+		ESP_LOGE(TAG, "Failed to connect to SSID:%s, password:****", WifiCreds.ssid);
 		ret_value = ESP_FAIL;
-		//wifi_disconnect_sta();
 	}
   else
   {
 		ESP_LOGE(TAG, "UNEXPECTED EVENT");
-		Serial.printf ("UNEXPECTED EVENT\n");
 		ret_value = ESP_FAIL;
 	}
 
@@ -403,7 +389,7 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   // statuses such as connection status and ip address.
   //
 
-	ESP_LOGI(TAG, "wifi_connect_sta finished.");
+	ESP_LOGD(TAG, "wifi_connect_sta finished.");
 	return (ret_value == ESP_OK);
 }
 
@@ -418,18 +404,19 @@ bool wifiConnected()
 
 void WifiDeinit()
 {
-  Serial.printf ("WifiDeinit()\n");
+  // Set log level to 'W' (warn) as this function is quite destructive
+  ESP_LOGW(TAG, "WifiDeinit()");
 
   if (WifiStatus.wifi_started)
   {
-    Serial.printf ("- Calling esp_wifi_stop()\n");
+    ESP_LOGD(TAG, "- Calling esp_wifi_stop()");
     esp_wifi_stop();
     WifiStatus.wifi_started = false;
   }
 
   if (WifiStatus.driver_started)
   {
-    Serial.printf ("- Taking down network stack\n");
+    ESP_LOGD(TAG, "- Taking down network stack");
     wifiDeregisterEventCallbacks();
     esp_netif_destroy_default_wifi(esp_netif_interface_sta);
     esp_event_loop_delete_default();
@@ -439,16 +426,16 @@ void WifiDeinit()
   }
   else
   {
-    Serial.printf ("- WifiDeinit() called, but state wrong:\n");
-    Serial.printf ("  WifiStatus.driver_started = %d (wanted: true)\n", WifiStatus.driver_started);
+    ESP_LOGE(TAG, "- WifiDeinit() called, but state wrong:");
+    ESP_LOGE(TAG, "  WifiStatus.driver_started = %d (wanted: true)", WifiStatus.driver_started);
   }
 }
 
 void WifiDisconnect()
 {
-  Serial.printf ("WifiDisconnect()\n");
+  ESP_LOGI(TAG, "WifiDisconnect()");
 
-  Serial.printf ("- Calling esp_wifi_disconnect()\n");
+  ESP_LOGD(TAG, "- Calling esp_wifi_disconnect()");
   esp_wifi_disconnect();
   OperatingParameters.wifiConnected = false;
 }
@@ -458,46 +445,45 @@ TaskHandle_t ntReconnectTaskHandler = NULL;
 
 bool wifiReconnect(const char *hostname, const char *ssid, const char *pass)
 {
-  Serial.printf ("wifiReconnect()\n");
+  ESP_LOGI(TAG, "wifiReconnect()");
   if (!WifiStatus.driver_started)
   {
-    Serial.printf ("- wifiReconnect() called, but state(s) wrong:\n");
-    Serial.printf ("  WifiStatus.driver_started = %d (wanted: true)\n", WifiStatus.driver_started);
+    ESP_LOGE(TAG, "- wifiReconnect() called, but state(s) wrong:");
+    ESP_LOGE(TAG, "  WifiStatus.driver_started = %d (wanted: true)", WifiStatus.driver_started);
     return false;
   }
 
   if (OperatingParameters.wifiConnected)
   {
-    Serial.printf ("- Disconnecting wifi - \n");
+    ESP_LOGD(TAG, "- Disconnecting wifi - ");
     WifiDisconnect();
-    // Serial.printf ("- Wifi stopped\n");
-    // vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 
   if (WifiStatus.wifi_started)
   {
-    Serial.printf ("- Calling esp_wifi_stop()\n");
+    ESP_LOGD(TAG, "- Calling esp_wifi_stop()");
     esp_wifi_stop();
     WifiStatus.wifi_started = false;
   }
 
   if (WifiStatus.driver_started)
   {
-    Serial.printf ("- Calling WifiDeinit()\n");
+    ESP_LOGD(TAG, "- Calling WifiDeinit()");
     WifiDeinit();
   }
 
-  Serial.printf ("- Restarting wifi\n");
+  ESP_LOGI(TAG, "- Restarting wifi");
   return (wifiStart(hostname, ssid, pass));
 }
 
 void networkReconnectTask(void *pvParameters)
 {
-  Serial.printf("Starting network reconnect task\n");
+  // Level set to 'W' (warn) since this is kind of significant
+  ESP_LOGW(TAG, "Starting network reconnect task");
 
   if (millis() - lastWifiMillis < WIFI_CONNECT_INTERVAL)
   {
-    Serial.printf ("- Wifi reconnect retry too soon ... delaying\n");
+    ESP_LOGW(TAG, "- Wifi reconnect retry too soon ... delaying");
     ntReconnectTaskHandler = NULL;
     vTaskDelete(NULL);
     return; // Will never get here, but wanted to give the compiler an exit path
@@ -522,7 +508,7 @@ void startReconnectTask()
 {
   if (ntReconnectTaskHandler)
   {
-    Serial.printf ("Network reconnect task already running ... Exiting\n");
+    ESP_LOGE(TAG, "Network reconnect task already running ... Exiting");
     return;
   }
 
@@ -552,7 +538,6 @@ uint16_t wifiSignal()
   {
     esp_wifi_sta_get_ap_info(&ap);
     rssi = ap.rssi;
-    // Serial.printf("rssi: %d\n", rssi);
 
     // Convert the rssi into a signal quality in percent
     return rssiToPercent(rssi);
@@ -568,9 +553,7 @@ char *wifiAddress()
   static char ipAddress[24];
   if (WifiStatus.wifi_started)
   {
-#if 1
     tcpip_adapter_ip_info_t ipInfo; 
-    // IP address.
     tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo);
     snprintf(ipAddress, sizeof(ipAddress), "%d.%d.%d.%d", 
       (ipInfo.ip.addr & 0x000000ff),
@@ -578,14 +561,10 @@ char *wifiAddress()
       ((ipInfo.ip.addr & 0x00ff0000) >> 16),
       ((ipInfo.ip.addr & 0xff000000) >> 24)
     );
-#else
-    snprintf(ipAddress, sizeof(ipAddress), "%d.%d.%d.%d", IP2STR(&WifiStatus.ip));
-#endif
   }
   else
   {
     strcpy (ipAddress, "0.0.0.0");
   }
-  // Serial.printf ("Current IP: %s\n", ipAddress);
   return ipAddress;
 }

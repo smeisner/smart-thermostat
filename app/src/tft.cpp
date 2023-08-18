@@ -133,7 +133,7 @@ void tftUpdateDisplay()
     if (millis() - last > 10000)
     {
       last = millis();
-      initTimeSntp();
+      initTimeSntp(false);
     }
     // memset (&local_time, 0, sizeof(local_time));
     strcpy (buffer, "--:--:--");

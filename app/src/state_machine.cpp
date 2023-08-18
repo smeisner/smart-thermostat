@@ -192,7 +192,7 @@ void stateMachine(void * parameter)
     // Check wifi
     if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)))
     {
-      if (millis() > lastWifiReconnect + 30000)
+      if (millis() > lastWifiReconnect + 60000)
       {
         lastWifiReconnect = millis();
         startReconnectTask();

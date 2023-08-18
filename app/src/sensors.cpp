@@ -250,15 +250,16 @@ const char* ntpServer = "pool.ntp.org";
 //const char* timezone = "Africa/Luanda";
 //const char* timezone = "America/New York";
 
-void updateTimezone()
+void updateTimezone(bool logInfo)
 {
   // To save on program space, let's just 
   // use GMT+/- timezones. Otherwise, there
   // are too many timezones.
-  // For ex, Boston would be Etc/GMT+5
+  // For ex, Boston would be Etc/GMT+4
   char tz_lookup[16] = "Etc/";
   strcat (tz_lookup, OperatingParameters.timezone);
-  Serial.printf ("Timezone: %s\n", tz_lookup);
+  if (logInfo)
+    Serial.printf ("Timezone: %s\n", tz_lookup);
   auto tz = lookup_posix_timezone_tz(tz_lookup);
   if (!tz)
   {
@@ -298,12 +299,13 @@ void updateTimeSntp()
   }
 }
 
-void initTimeSntp()
+void initTimeSntp(bool logInfo)
 {
-  Serial.printf ("Time server: %s\n", ntpServer);
+  if (logInfo)
+    Serial.printf ("Time server: %s\n", ntpServer);
 
   configTime(0, 0, ntpServer);
-  updateTimezone();
+  updateTimezone(logInfo);
   updateTimeSntp();
 }
 
@@ -319,7 +321,7 @@ bool sensorsInit()
   sensorTemp.clear();
   sensorHumidity.clear();
 
-  initTimeSntp();
+  initTimeSntp(true);
   
   ld2410_init();
 

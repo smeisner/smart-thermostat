@@ -315,7 +315,7 @@ void SaveUncommonConfigSettings(lv_event_t * e)
   OperatingParameters.thermostatBeepEnable = lv_obj_has_state(ui_AudibleBeepCheckbox, LV_STATE_CHECKED);
 
   setHvacModesDropdown();
-  updateTimezone();
+  updateTimezone(true);
 }
 
 void tftCalibrate(lv_event_t * e)

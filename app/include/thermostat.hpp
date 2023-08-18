@@ -162,8 +162,6 @@ bool sensorsInit();
 void testToggleRelays();
 int getTemp();
 int getHumidity();
-void updateTimezone();
-bool updateTime(struct tm * info);
 void ld2410_loop();
 
 // Indicators
@@ -172,7 +170,9 @@ void indicatorsInit();
 void audioBeep();
 
 // SNTP Time Sync
-void initTimeSntp();
+void updateTimezone(bool logInfo);
+bool updateTime(struct tm * info);
+void initTimeSntp(bool logInfo);
 void updateTimeSntp();
 
 // ui_events.cpp
