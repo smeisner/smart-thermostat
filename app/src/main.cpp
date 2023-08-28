@@ -1,3 +1,21 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * main.cpp
+ *
+ * Primary entry point for starting the thermostat firmware. This module
+ * calls all of the start/initialization functions of the thermostat. 
+ * A side effect of initialiing the module is all RTOS tasks are started.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"  // For function definitions
 
 void setup(void)
@@ -8,6 +26,10 @@ void setup(void)
   // Show diagnostic info on the serial monitor
   showConfigurationData();
 
+  // Load configuration from EEPROM
+  Serial.printf ("Reading EEPROM\n");
+  eepromInit();
+
   // Initialize the TFT display
   Serial.printf ("Initializing TFT\n");
   tftInit();
@@ -15,17 +37,15 @@ void setup(void)
   Serial.printf ("Starting TFT task\n");
   tftCreateTask();
 
-  // Load configuration from EEPROM
-  Serial.printf ("Reading EEPROM\n");
-  eepromInit();
   // Start wifi
-  Serial.printf ("Connecting to wifi\n");
+  Serial.printf ("Starting wifi\n");
   OperatingParameters.wifiConnected = 
     wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
+
   // Initialize indicators (relays, LEDs, buzzer)
   Serial.printf ("Initializing indicators\n");
   indicatorsInit();
-  // Initialize sensors (temp, humidity, motion ... air quality)
+  // Initialize sensors (temp, humidity, motion, etc)
   Serial.printf ("Initializing sensors\n");
   sensorsInit();
 

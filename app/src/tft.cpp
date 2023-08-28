@@ -1,3 +1,28 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * tft.cpp
+ *
+ * This module implements the driver for the TFT touch screen. Functions
+ * to calibrate the tocuhscreen, provide an interface between the thermostat
+ * and TFT specific functionality and control the TFT backlight are included.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ * 
+ * The graphics tool used to generate the menus and screen is SquareLine Studio.
+ * This product is subscrition based. More info can be found here:
+ * https://squareline.io/
+ * 
+ * All data files exported from SquareLine Studio are included in the folder
+ * ./ui. The project files are located in this folder with the extensions .sli and .spj.
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"
 #include "tft.hpp"
 
@@ -98,10 +123,25 @@ void tftDimDisplay()
 void tftUpdateDisplay()
 {
   static char buffer[16];
-  static struct tm time;
+  static struct tm local_time;
+  static ulong last = 0;
 
-  getLocalTime(&time);
-  strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
+  // updateTime() will return false if wifi is not connected. 
+  // Otherwise pending on SNTP call will cause a stall.
+  if (!updateTime(&local_time))
+  {
+    if (millis() - last > 10000)
+    {
+      last = millis();
+      initTimeSntp(false);
+    }
+    // memset (&local_time, 0, sizeof(local_time));
+    strcpy (buffer, "--:--:--");
+  }
+  else
+  {
+    strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
+  }
   lv_label_set_text(ui_TimeLabel, buffer);
 
   lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());

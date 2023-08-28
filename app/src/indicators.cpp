@@ -1,3 +1,20 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * indicators.cpp
+ *
+ * Code to support all thermostat indicators, including: piezo buzzer,
+ * RGB LED. The GPIO pins that drive the HVAC relays are also initiazlied here.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"
 
 int freq = 4000;

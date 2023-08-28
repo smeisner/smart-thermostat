@@ -1,3 +1,21 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * state_machine.cpp
+ *
+ * Implements the state machine to control the HVAC actions and modes.
+ * As part of this responsibility, statuses of items such as wifi connection
+ * are also monitored and action taken if necessary.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"
 
 OPERATING_PARAMETERS OperatingParameters;
@@ -169,10 +187,12 @@ void stateMachine(void * parameter)
       updateTimeSntp();
     }
 
+    OperatingParameters.wifiConnected = wifiConnected();
+
     // Check wifi
-    if (!wifiConnected()) 
+    if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)))
     {
-      if (millis() > lastWifiReconnect + 15000)
+      if (millis() > lastWifiReconnect + 60000)
       {
         lastWifiReconnect = millis();
         startReconnectTask();
@@ -192,31 +212,6 @@ void stateMachine(void * parameter)
         Serial.printf ("Current Set Temp: %.1f\n", OperatingParameters.tempSet);
       }
     }
-
-/*
- * Test code
- */
-  static int loop = 0;
-  if (loop++ >= 40) 
-  {
-//    Serial.printf ("Value of Motion GPIO %d: %d\n", MOTION_PIN, analogRead(MOTION_PIN));
-//    Serial.printf ("Value of Motion GPIO %d: %d\n", MOTION_PIN, digitalRead(MOTION_PIN));
-    digitalWrite (LED_FAN_PIN, digitalRead(MOTION_PIN));
-
-    if (digitalRead(MOTION_PIN))
-      tftMotionTrigger = true;
-
-    // digitalWrite (GPIO_NUM_35, HIGH);
-    // digitalWrite (GPIO_NUM_36, HIGH);
-    // delay(50);
-    // digitalWrite (GPIO_NUM_35, LOW);
-    // digitalWrite (GPIO_NUM_36, LOW);
-
-    loop = 0;
-  }
-/*
- * Test code
- */
 
     // Pause the task again for 40ms
     vTaskDelay(40 / portTICK_PERIOD_MS);

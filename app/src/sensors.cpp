@@ -1,3 +1,23 @@
+/*!
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * sensors.cpp
+ *
+ * This module supports all the sensor devices included with the thermostat. This includes
+ * includes the AHT20, the LDR light detector, LD2410 uWave human presence detector and
+ * the SNTP provided time.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ *  The DFRobot_AHT20 module was provided on Github and used here to
+ *  drive the AHT20 temp/humidity sensor. This module was supplied by DFRobot.
+ *
+ * History
+ *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ * 
+ */
+
 #include "thermostat.hpp"
 #include <Smoothed.h>
 #include <timezonedb_lookup.h>
@@ -230,15 +250,16 @@ const char* ntpServer = "pool.ntp.org";
 //const char* timezone = "Africa/Luanda";
 //const char* timezone = "America/New York";
 
-void updateTimezone()
+void updateTimezone(bool logInfo)
 {
   // To save on program space, let's just 
   // use GMT+/- timezones. Otherwise, there
   // are too many timezones.
-  // For ex, Boston would be Etc/GMT+5
+  // For ex, Boston would be Etc/GMT+4
   char tz_lookup[16] = "Etc/";
   strcat (tz_lookup, OperatingParameters.timezone);
-  Serial.printf ("Timezone: %s\n", tz_lookup);
+  if (logInfo)
+    Serial.printf ("Timezone: %s\n", tz_lookup);
   auto tz = lookup_posix_timezone_tz(tz_lookup);
   if (!tz)
   {
@@ -250,28 +271,41 @@ void updateTimezone()
   tzset();
 }
 
-void updateTimeSntp()
+bool updateTime(struct tm * info)
 {
-  struct tm time;
-  char buffer[16];
-   
-  if (!getLocalTime(&time))
+  if (OperatingParameters.wifiConnected)
   {
-    Serial.println("Could not obtain time info");
-    return;
+    if (!getLocalTime(info, 2000))
+    {
+      Serial.println("Could not obtain time info");
+      return false;
+    }
+    else
+      return true;
   }
 
-  strftime(buffer, sizeof(buffer), "%H:%M:%S", &time);
-  Serial.printf("Current time: %s\n", buffer);
-
+  return false;
 }
 
-void initTimeSntp()
+void updateTimeSntp()
 {
-  Serial.printf ("Time server: %s\n", ntpServer);
+  struct tm local_time;
+  char buffer[16];
+
+  if (updateTime(&local_time))
+  {
+    strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
+    Serial.printf("Current time: %s\n", buffer);
+  }
+}
+
+void initTimeSntp(bool logInfo)
+{
+  if (logInfo)
+    Serial.printf ("Time server: %s\n", ntpServer);
 
   configTime(0, 0, ntpServer);
-  updateTimezone();
+  updateTimezone(logInfo);
   updateTimeSntp();
 }
 
@@ -287,7 +321,7 @@ bool sensorsInit()
   sensorTemp.clear();
   sensorHumidity.clear();
 
-  initTimeSntp();
+  initTimeSntp(true);
   
   ld2410_init();
 
@@ -302,7 +336,7 @@ bool sensorsInit()
       "Update AHT",   // Name of the task (for debugging)
       4096,           // Stack size (bytes)
       NULL,           // Parameter to pass
-      1,              // Task priority
+      tskIDLE_PRIORITY+1, // Task priority
       NULL            // Task handle
     );
 
