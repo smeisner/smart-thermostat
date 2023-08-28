@@ -8,16 +8,10 @@
  * knowing the IP address.
  *
  * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
- * 
- * Notes:
- * 
- *  <@michael - include a comment here about where the XML code was fetched from and
- *    how it was adapted for use here. check sensors.cpp and tft.cpp for ideas>
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
- *  18-Aug-2023: Michael Burke (michaelburke2000@gmail.com) - Added updating fields  <-- modify this to be correct! ...also, leave out the email if you don't want to share that
- * 
+ *  18-Aug-2023: Michael Burke (michaelburke2000@gmail.com) - WebUI refresh + reorganization
  */
 
 #include "thermostat.hpp"
