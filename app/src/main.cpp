@@ -1,4 +1,3 @@
-/*!
 // SPDX-License-Identifier: GPL-3.0-only
 /*
  * main.cpp
@@ -13,57 +12,49 @@
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
  * 
  */
 
-#include "thermostat.hpp"  // For function definitions
+#include "thermostat.hpp"
 
-void setup(void)
+#include "esp_timer.h"
+int32_t millis() { return esp_timer_get_time() / 1000;}
+
+void app_main()
 {
-  // Start serial debugger
-  serialStart();
-
-  // Show diagnostic info on the serial monitor
-  showConfigurationData();
-
   // Load configuration from EEPROM
-  Serial.printf ("Reading EEPROM\n");
+  printf ("Reading EEPROM\n");
   eepromInit();
 
   // Initialize the TFT display
-  Serial.printf ("Initializing TFT\n");
+  printf ("Initializing TFT\n");
   tftInit();
   // Create the RTOS task to drive the touchscreen
-  Serial.printf ("Starting TFT task\n");
+  printf ("Starting TFT task\n");
   tftCreateTask();
 
   // Start wifi
-  Serial.printf ("Starting wifi\n");
+  printf ("Starting wifi (\"%s\", \"%s\")\n", WifiCreds.ssid, WifiCreds.password);
   OperatingParameters.wifiConnected = 
     wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
 
   // Initialize indicators (relays, LEDs, buzzer)
-  Serial.printf ("Initializing indicators\n");
+  printf ("Initializing indicators\n");
   indicatorsInit();
   // Initialize sensors (temp, humidity, motion, etc)
-  Serial.printf ("Initializing sensors\n");
+  printf ("Initializing sensors\n");
   sensorsInit();
 
   // Create the RTOS task to drive the state machine
-  Serial.printf ("Starting state machine task\n");
+  printf ("Starting state machine task\n");
   stateCreateTask();
+
   // Start web server
-  Serial.printf ("Starting web server\n");
-  webCreateTask();
+  // printf ("Starting web server\n");
+  webStart();
+
   // Play the startup sound
   audioStartupBeep();
-  // Do a quick test of the relays
-  testToggleRelays();
-
-  Serial.printf ("Startup done\n");
-}
-
-void loop(void)
-{
-  // Nothing to do here since everything is done via RTOS tasks & interrupts
+  printf ("Startup done\n");
 }

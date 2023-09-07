@@ -1,5 +1,6 @@
 /*!
 // SPDX-License-Identifier: GPL-3.0-only
+*/
 /*
  * wifi.cpp
  *
@@ -18,10 +19,11 @@
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
- *  18-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrite to use ESP-IDF
+ *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrite to use ESP-IDF
  * 
  */
 
+#include <string> // for string class
 #include "thermostat.hpp"
 
 #if 0
@@ -50,7 +52,23 @@ static const char *TAG = "WIFI";
 
 #include "esp_wifi.h"
 #include "esp_log.h"
+#include "esp_wps.h"
 #include "esp_event.h"
+#include "nvs_flash.h"
+
+//////////////////////////////////////////////////////////////////////
+typedef enum {
+    TCPIP_ADAPTER_IF_STA = 0,     /**< Wi-Fi STA (station) interface */
+    TCPIP_ADAPTER_IF_AP,          /**< Wi-Fi soft-AP interface */
+    TCPIP_ADAPTER_IF_ETH,         /**< Ethernet interface */
+    TCPIP_ADAPTER_IF_TEST,        /**< tcpip stack test interface */
+    TCPIP_ADAPTER_IF_MAX
+} tcpip_adapter_if_t;
+
+#define isnan(n) ((n != n) ? 1 : 0)
+
+/////////////////////////////////////////////////////////////////////
+
 
 #define WIFI_MAX_SSID (6u)
 #define WIFI_SSID_LEN (32u)
@@ -61,11 +79,15 @@ static const char *TAG = "WIFI";
  * - we failed to connect after the maximum amount of retries */
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
-#define CONFIG_ESP_MAXIMUM_RETRY 3
+#define WIFI_FAIL_ABORTED BIT2
+#define CONFIG_ESP_MAXIMUM_RETRY 5
+
+static bool wifiScanActive = false;
+static bool wifiConnecting = false;
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group = NULL;
-const TickType_t xTicksToWait = 20000 / portTICK_PERIOD_MS;
+const TickType_t xTicksToWait = 10000 / portTICK_PERIOD_MS;
 esp_event_handler_instance_t instance_any_id;
 esp_event_handler_instance_t instance_got_ip;
 
@@ -73,7 +95,7 @@ static esp_netif_t *esp_netif_interface_sta;
 int s_retry_num = 0;
 
 WIFI_CREDS WifiCreds;
-WIFI_STATUS WifiStatus = {0};
+WIFI_STATUS WifiStatus = {};
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //
@@ -95,6 +117,8 @@ char *Get_WiFiSSID_DD_List( void )
   return wifi_dd_list;
 }
 
+// using namespace std;
+
 /**
  * @brief Scans for the SSID and store the results in a WiFi drop down list
  * "wifi_dd_list", this list is suitable to be used with the LVGL Drop Down.
@@ -103,10 +127,35 @@ char *Get_WiFiSSID_DD_List( void )
  */
 void WiFi_ScanSSID(void)
 {
-  String ssid_name;
+  std::string ssid_name;
   uint16_t number = DEFAULT_SCAN_LIST_SIZE;
   wifi_ap_record_t ap_info[DEFAULT_SCAN_LIST_SIZE];
   uint16_t ap_count = 0;
+  wifi_active_scan_time_t active {
+    .min = 0,
+    .max = 0
+  };
+  wifi_scan_time_t scan_time = {
+    .active = active,
+    .passive = 0
+  };
+  wifi_scan_config_t scan_config = {
+    .ssid = 0,
+    .bssid = 0,
+    .channel = 0,
+    .show_hidden = false,
+    .scan_type = WIFI_SCAN_TYPE_ACTIVE,
+    .scan_time = scan_time
+  };
+
+  wifiScanActive = true;
+  if (wifiConnecting)
+  {
+    ESP_LOGW(TAG, "** DELAYING SCAN UNTIL WIFI CONNECT COMPLETE **");
+    while (wifiConnecting)
+      vTaskDelay(pdMS_TO_TICKS(200));
+    ESP_LOGW(TAG, "** Resuming wifi scan **");
+  }
 
   memset(ap_info, 0, sizeof(ap_info));
 
@@ -115,9 +164,10 @@ void WiFi_ScanSSID(void)
     wifiStart("", "", "");
   }
 
-  esp_wifi_scan_start(NULL, true);
+  esp_wifi_scan_start(&scan_config, true);
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+  wifiScanActive = false;
   ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
   if (ap_count == 0)
   {
@@ -127,7 +177,7 @@ void WiFi_ScanSSID(void)
   }
   else
   {
-    String ssid;
+    std::string ssid;
     for (int i = 0; (i < DEFAULT_SCAN_LIST_SIZE) && (i < ap_count); i++)
     {
       ESP_LOGI(TAG, "SSID \t\t%s", ap_info[i].ssid);
@@ -138,9 +188,8 @@ void WiFi_ScanSSID(void)
       }
       ESP_LOGD(TAG, "Channel \t\t%d", ap_info[i].primary);
 
-      String ssid((const char *)(ap_info[i].ssid));
-
-      if (ssid_name.indexOf(ssid) == -1)
+      ssid = (const char *)(ap_info[i].ssid);
+      if (ssid_name.find(ssid) == -1) //std::string::npos)
       {
         if( i == 0 )
         {
@@ -152,10 +201,10 @@ void WiFi_ScanSSID(void)
           ssid_name = ssid_name + ssid;
         }
       }
-      // clear the array, it might be possible that we coming after rescanning
-      memset (wifi_dd_list, 0x00, sizeof(wifi_dd_list));
-      strncpy (wifi_dd_list, ssid_name.c_str(), WIFI_SSID_LEN);
     }
+    // clear the array, it might be possible that we coming after rescanning
+    memset (wifi_dd_list, 0x00, sizeof(wifi_dd_list));
+    strncpy (wifi_dd_list, ssid_name.c_str(), sizeof(wifi_dd_list));
   }
 }
 
@@ -167,6 +216,17 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 								int32_t event_id, void* event_data)
 {
   ESP_LOGI(TAG, "event_handler()");
+
+  if (wifiScanActive)
+  {
+    ESP_LOGE(TAG, "  SSID scan active - aborting wifi connect");
+    xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_ABORTED);
+    // WifiStatus.Connected = false;
+    // OperatingParameters.wifiConnected = false;
+    wifiConnecting = false;
+    return;
+  }
+
 	if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
     ESP_LOGD(TAG, "  event = STA_START");
@@ -176,6 +236,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
   {
     ESP_LOGI(TAG, "  event = STA_DISCONECTED - retry # %d (MAX %d)", s_retry_num, CONFIG_ESP_MAXIMUM_RETRY);
     WifiStatus.Connected = false;
+    OperatingParameters.wifiConnected = false;
 		if (s_retry_num < CONFIG_ESP_MAXIMUM_RETRY)
     {
   		ESP_LOGW(TAG, "  connect to the AP failed - retrying");
@@ -195,7 +256,9 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 		s_retry_num = 0;
 		xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     WifiStatus.Connected = true;
+    OperatingParameters.wifiConnected = true;
     WifiStatus.ip = event->ip_info.ip;
+    wifiConnecting = false;
 	}
 }
 
@@ -203,7 +266,8 @@ void wifiSetHostname(const char *hostname)
 {
   ESP_LOGI(TAG, "wifiSetHostname(\"%s\")", hostname);
   // Set the hostname for the network interface
-  ESP_ERROR_CHECK(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname));
+  // ESP_ERROR_CHECK(tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname));
+  ESP_ERROR_CHECK(esp_netif_set_hostname(esp_netif_interface_sta, hostname));
 }
 
 void wifiSetCredentials(const char *ssid, const char *pass)
@@ -236,6 +300,7 @@ void wifiSetCredentials(const char *ssid, const char *pass)
     wifi_config.sta.pmf_cfg.required = false;
   }
   /* Initialize STA */
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_LOGD(TAG, "- Calling esp_wifi_set_config()");
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
 
@@ -299,12 +364,16 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   //
   // Enable debug logging
   // esp_log_level_set("*", ESP_LOG_NONE);
-  esp_log_level_set(TAG, ESP_LOG_WARN);
-  // esp_log_level_set("*", ESP_LOG_INFO); 
+  // esp_log_level_set(TAG, ESP_LOG_WARN);
+  esp_log_level_set("*", ESP_LOG_INFO); 
   //
 
 	ESP_LOGI(TAG, "wifiStart()");
 
+  nvs_flash_init();
+
+  wifiConnecting = true;
+ 
   if (!WifiStatus.driver_started)
   {
     ESP_LOGW(TAG, "  Wifi driver not started; Calling init and create funcs");
@@ -332,6 +401,9 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   ESP_ERROR_CHECK(esp_wifi_init(&cfg));
   WifiStatus.if_init = true;
 
+  ESP_LOGD(TAG, "  Calling esp_wifi_set_mode()");
+  ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+
   if (strlen(ssid))
   {
     // Set the wifi parameters
@@ -344,8 +416,6 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
     wifi_config.sta.pmf_cfg.required = false;
 
     /* Initialize STA */
-    ESP_LOGD(TAG, "  Calling esp_wifi_set_mode()");
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
     ESP_LOGD(TAG, "  Calling esp_wifi_set_config()");
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   }
@@ -355,14 +425,17 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   WifiStatus.wifi_started = true;
 
   if (strlen(ssid) == 0)
+  {
+    wifiConnecting = false;
     return true;
+  }
 
 	/* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
 	 * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
 	esp_err_t ret_value = ESP_OK;
   ESP_LOGI(TAG, "  Waiting for event callback...");
 	EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-			WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+			WIFI_CONNECTED_BIT | WIFI_FAIL_BIT | WIFI_FAIL_ABORTED,
 			pdFALSE,
 			pdFALSE,
 			xTicksToWait);
@@ -378,6 +451,11 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 		ESP_LOGE(TAG, "Failed to connect to SSID:%s, password:****", WifiCreds.ssid);
 		ret_value = ESP_FAIL;
 	}
+  else if (bits & WIFI_FAIL_ABORTED)
+  {
+    ESP_LOGE(TAG, "Aborted connect to SSID:%s, password:****", WifiCreds.ssid);
+		ret_value = ESP_FAIL;
+  }
   else
   {
 		ESP_LOGE(TAG, "UNEXPECTED EVENT");
@@ -481,6 +559,14 @@ void networkReconnectTask(void *pvParameters)
   // Level set to 'W' (warn) since this is kind of significant
   ESP_LOGW(TAG, "Starting network reconnect task");
 
+  if (wifiScanActive)
+  {
+    ESP_LOGE(TAG, "** ABORTING -- WIFI SSID SCAN ACTIVE **");
+    ntReconnectTaskHandler = NULL;
+    vTaskDelete(NULL);
+    return;
+  }
+
   if (millis() - lastWifiMillis < WIFI_CONNECT_INTERVAL)
   {
     ESP_LOGW(TAG, "- Wifi reconnect retry too soon ... delaying");
@@ -526,7 +612,7 @@ uint16_t rssiToPercent(int rssi_i)
 {
   float rssi = (float)rssi_i;
   rssi = isnan(rssi) ? -100.0 : rssi;
-  rssi = min(max(2 * (rssi + 100.0), 0.0), 100.0);
+  rssi = std::min(std::max(2 * (rssi + 100.0), 0.0), 100.0);
   return (uint16_t)rssi;
 }
 
@@ -553,13 +639,15 @@ char *wifiAddress()
   static char ipAddress[24];
   if (WifiStatus.wifi_started)
   {
-    tcpip_adapter_ip_info_t ipInfo; 
-    tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo);
+    // tcpip_adapter_ip_info_t ipInfo; 
+    // tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo);
+    esp_netif_ip_info_t ipInfo;
+    esp_netif_get_ip_info(esp_netif_interface_sta, &ipInfo);
     snprintf(ipAddress, sizeof(ipAddress), "%d.%d.%d.%d", 
-      (ipInfo.ip.addr & 0x000000ff),
-      ((ipInfo.ip.addr & 0x0000ff00) >> 8),
-      ((ipInfo.ip.addr & 0x00ff0000) >> 16),
-      ((ipInfo.ip.addr & 0xff000000) >> 24)
+      (int)(ipInfo.ip.addr & 0x000000ff),
+      (int)((ipInfo.ip.addr & 0x0000ff00) >> 8),
+      (int)((ipInfo.ip.addr & 0x00ff0000) >> 16),
+      (int)((ipInfo.ip.addr & 0xff000000) >> 24)
     );
   }
   else

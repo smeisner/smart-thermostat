@@ -1,8 +1,22 @@
 #pragma once
 
-#include <Arduino.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+#include "freertos/task.h"
+#include "esp_system.h"
+#include "esp_log.h"
+#include "esp_netif.h"
 #include <driver/rtc_io.h>
+
 #include "gpio_defs.hpp"
+
+#define HIGH 1
+#define LOW 0
+
+
 
 /////////////////////////////////////////////////////////////////////
 //     Shared data structures
@@ -85,14 +99,24 @@ extern int32_t ui_WifiStatusLabel_timestamp;
 #define UPDATE_TIME_INTERVAL 60000
 #define UI_TEXT_DELAY 3000
 
-static const char *gmt_timezones[] = 
-  {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
-   "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
+extern const char *gmt_timezones[];
 
 
 /////////////////////////////////////////////////////////////////////
 //          Forward Declarations
 /////////////////////////////////////////////////////////////////////
+
+#ifdef __cplusplus  //@@@ Needed?
+extern "C" {
+#endif
+
+extern void app_main();
+
+#ifdef __cplusplus
+} /*extern "C"*/
+#endif
+
+int32_t millis();   // Defined in main.cpp
 
 void showConfigurationData();
 void scanI2cBus();
@@ -100,6 +124,7 @@ void scanI2cBus();
 // State Machine
 void stateCreateTask();
 void serialStart();
+extern int32_t lastWifiReconnect;
 
 // EEPROM
 void eepromInit();
@@ -110,7 +135,7 @@ void setWifiCreds();
 void updateThermostatParams();
 
 // HTTP Server
-void webCreateTask();
+void webStart();
 
 // Routine to control wifi
 void wifiSetHostname(const char *hostname);
@@ -151,7 +176,8 @@ void tftDimDisplay();
 #endif
 
 // Sensors
-float roundValue(float value, int places = 0);
+// float roundValue(float value, int places = 0);
+float roundValue(float value, int places);
 float getRoundedFrac(float value);
 // int degCfrac(float tempF);
 // int tempOut(float tempF);
@@ -163,6 +189,7 @@ void testToggleRelays();
 int getTemp();
 int getHumidity();
 void ld2410_loop();
+int readLightSensor();
 
 // Indicators
 void audioStartupBeep();
@@ -170,9 +197,8 @@ void indicatorsInit();
 void audioBeep();
 
 // SNTP Time Sync
-void updateTimezone(bool logInfo);
-bool updateTime(struct tm * info);
-void initTimeSntp(bool logInfo);
+void updateTimezone();
+bool getLocalTime(struct tm *, uint32_t);
 void updateTimeSntp();
 
 // ui_events.cpp
