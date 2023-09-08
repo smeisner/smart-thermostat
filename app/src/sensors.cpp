@@ -60,6 +60,7 @@ void initLightSensor()
 
   adc_oneshot_unit_init_cfg_t init_config = {
     .unit_id = adcUnit,
+    .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
     .ulp_mode = ADC_ULP_MODE_DISABLE
   };
   ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config, &adcHandle));
@@ -243,7 +244,7 @@ void updateAht(void *parameter)
   dev.mode = AHT_MODE_NORMAL;
   dev.type = AHT_TYPE_AHT20;
 
-  ESP_ERROR_CHECK(aht_init_desc(&dev, AHT_I2C_ADDRESS_GND, 0, (gpio_num_t)SDA_PIN, (gpio_num_t)SCL_PIN));
+  ESP_ERROR_CHECK(aht_init_desc(&dev, AHT_I2C_ADDRESS_GND, (i2c_port_t)0, (gpio_num_t)SDA_PIN, (gpio_num_t)SCL_PIN));
   ESP_ERROR_CHECK(aht_init(&dev));
 
   bool calibrated;
