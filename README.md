@@ -24,6 +24,14 @@ Basic layout of thermostat:
 
 <img src="./assets/Block%20Diagram.drawio.png">
 
+# September 8, 2023 update - V0.6
+
+The thermostat app code is now 100% ESP-IDF based. All dependencies on the Arduino framework have been removed. This provides for much better control of the code and better integration with the upcoming Matter implementation.
+
+FYI: There are some libraries being used that have soem compile-time errors. These are currently being worked with the maintainers. See PR comments.
+
+FYI #2: Many details have changed with today's commit (such as the partition scheme). It is best to clear out old builds and be sure everything (ESP-IDF and libraries) are up-to-date. Details in the platformio.ini file.
+
 # May 2023 update - V0.2
 
 Great progress! The processor has been selected, the ESP-32 and the user interface is (albeit crude) created! To generate the user interface elements and menuing system, [SquareLine Studio](https://squareline.io/) was used. This integrates with the graphics library used; [LVGL](https://lvgl.io/).
@@ -235,9 +243,9 @@ General to-do:
 
 * [x] Wifi
 * [x] Web server
-* [ ] Telnet / ssh server
+* [ ] Matter over wifi
+* [ ] Telnet
 * [ ] Bluetooth
-* [ ] Zigbee / Thread (update for ESP32-C6)
 * [ ] Add air quality monitoring device
 * [x] OTA updates
 
