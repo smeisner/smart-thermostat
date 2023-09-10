@@ -1,4 +1,3 @@
-/*!
 // SPDX-License-Identifier: GPL-3.0-only
 /*
  * indicators.cpp
@@ -7,34 +6,73 @@
  * RGB LED. The GPIO pins that drive the HVAC relays are also initiazlied here.
  *
  * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
- * 
+ *
  * Notes:
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
- * 
+ *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *
  */
 
 #include "thermostat.hpp"
+#include "driver/ledc.h"
+#include "driver/gpio.h"
+#include "esp_err.h"
 
-int freq = 4000;
-int channel = 0;
-int resolution = 8;
+#define LEDC_TIMER LEDC_TIMER_0
+#define LEDC_MODE LEDC_LOW_SPEED_MODE
+#define LEDC_OUTPUT_IO (BUZZER_PIN) // Define the output GPIO
+#define LEDC_CHANNEL LEDC_CHANNEL_0
+#define LEDC_DUTY_RES LEDC_TIMER_13_BIT // Set duty resolution to 8 bits
+#define LEDC_DUTY (4095)                // Set duty to 50%. ((2 ** 13) - 1) * 50% = 4095
+#define LEDC_FREQUENCY (5000)           // Frequency in Hertz. Set frequency at 5 kHz
+
+static bool audioChanInitialized = false;
 
 void audioBuzzerInit()
 {
-  ledcSetup(channel, freq, resolution);
-  ledcAttachPin(BUZZER_PIN, channel);
-}  
+  if (audioChanInitialized)
+    return;
+
+  // Prepare and then apply the LEDC PWM timer configuration
+  ledc_timer_config_t ledc_timer = {
+      .speed_mode = LEDC_MODE,
+      .duty_resolution = LEDC_DUTY_RES,
+      .timer_num = LEDC_TIMER,
+      .freq_hz = LEDC_FREQUENCY, // Set output frequency at 5 kHz
+      .clk_cfg = LEDC_AUTO_CLK};
+  ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+  // Prepare and then apply the LEDC PWM channel configuration
+  ledc_channel_config_t ledc_channel = {
+      .gpio_num = LEDC_OUTPUT_IO,
+      .speed_mode = LEDC_MODE,
+      .channel = LEDC_CHANNEL,
+      .intr_type = LEDC_INTR_DISABLE,
+      .timer_sel = LEDC_TIMER,
+      .duty = 0, // Set duty to 0%
+      .hpoint = 0,
+      .flags = 0};
+  ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+
+  audioChanInitialized = true;
+}
 
 void audioStartupBeep()
 {
-  ledcWriteTone(channel, 4000);
-  ledcWrite(channel, 125);
-  delay(125);
-  ledcWriteTone(channel, 3000);
-  delay(150);
-  ledcWriteTone(channel, 0);
+  audioBuzzerInit();
+
+  ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, 5000));
+  ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+
+  ESP_ERROR_CHECK(ledc_set_freq(LEDC_MODE, LEDC_TIMER, 4000));
+  vTaskDelay(pdMS_TO_TICKS(125));
+  ESP_ERROR_CHECK(ledc_set_freq(LEDC_MODE, LEDC_TIMER, 2500));
+  vTaskDelay(pdMS_TO_TICKS(150));
+
+  ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, 0));
+  ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
 }
 
 // Use lastBeep to rate limit the beeping
@@ -44,39 +82,57 @@ void audioBeep()
 {
   if (OperatingParameters.thermostatBeepEnable)
   {
-    if (millis() - lastBeep > 125)  // 1/8 of a sec
+    if (millis() - lastBeep > 125) // 1/8 of a sec
     {
-      ledcWriteTone(channel, 4000);
-      ledcWrite(channel, 125);
-      delay(125);
-      ledcWriteTone(channel, 0);
+      audioBuzzerInit();
+
+      ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, 5000));
+      ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+
+      ESP_ERROR_CHECK(ledc_set_freq(LEDC_MODE, LEDC_TIMER, 4000));
+      vTaskDelay(pdMS_TO_TICKS(125));
+
+      ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, 0));
+      ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+
       lastBeep = millis();
     }
   }
 }
 
+// void pinMode(int _pin, gpio_mode_t mode)
+// {
+//   // gpio_config_t pin = (gpio_config_t)_pin;
+
+//   //zero-initialize the config structure.
+//   gpio_config_t io_conf = {};
+//   //disable interrupt
+//   io_conf.intr_type = GPIO_INTR_DISABLE;
+//   //set as output mode
+//   io_conf.mode = mode;
+//   //bit mask of the pins that you want to set,e.g.GPIO18/19
+//   io_conf.pin_bit_mask = (1ULL<<_pin);
+//   //configure GPIO with the given settings
+//   gpio_config(&io_conf);
+// }
+
 void indicatorsInit()
 {
-//@@@  pinMode(LED_BUILTIN, OUTPUT);
+  gpio_reset_pin((gpio_num_t)LED_HEAT_PIN);
+  gpio_reset_pin((gpio_num_t)LED_COOL_PIN);
+  gpio_reset_pin((gpio_num_t)LED_FAN_PIN);
 
-  pinMode(LED_HEAT_PIN, OUTPUT);
-  pinMode(LED_COOL_PIN, OUTPUT);
-  pinMode(LED_FAN_PIN, OUTPUT);
+  gpio_set_direction((gpio_num_t)LED_HEAT_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_direction((gpio_num_t)LED_COOL_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_direction((gpio_num_t)LED_FAN_PIN, GPIO_MODE_OUTPUT);
 
-  // digitalWrite(LED_HEAT_PIN, LOW);
-  // digitalWrite(LED_COOL_PIN, LOW);
-  // digitalWrite(LED_FAN_PIN, LOW);
-  // delay(1000);
-
-  digitalWrite(LED_HEAT_PIN, HIGH);
-  delay(750);
-  digitalWrite(LED_HEAT_PIN, LOW);
-  digitalWrite(LED_COOL_PIN, HIGH);
-  delay(750);
-  digitalWrite(LED_COOL_PIN, LOW);
-  digitalWrite(LED_FAN_PIN, HIGH);
-  delay(750);
-  digitalWrite(LED_FAN_PIN, LOW);
-
-  audioBuzzerInit();
+  gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
+  vTaskDelay(pdMS_TO_TICKS(750));
+  gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+  gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
+  vTaskDelay(pdMS_TO_TICKS(750));
+  gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
+  gpio_set_level((gpio_num_t)LED_FAN_PIN, HIGH);
+  vTaskDelay(pdMS_TO_TICKS(750));
+  gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
 }

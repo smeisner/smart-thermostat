@@ -6,6 +6,7 @@
 #include "thermostat.hpp"
 #include "ui.h"
 #include "version.h"
+// #include <nvs_flash.h>    // For nvs_flash_init()
 
 #define screenWidth 320
 TaskHandle_t ntScanTaskHandler = NULL;
@@ -16,7 +17,7 @@ void tftUpdateTempSet(lv_event_t * e)
 //  strncpy(tmp, lv_label_get_text(ui_SetTemp), sizeof(tmp));
 
   OperatingParameters.tempSet = (float)(lv_arc_get_value(ui_TempArc)) / 10.0;
-  Serial.printf ("Current temp set to: %.1f\n", OperatingParameters.tempSet);
+  printf ("Current temp set to: %.1f\n", OperatingParameters.tempSet);
 
 //  OperatingParameters.tempSet = tmp)/10);
   tftWakeDisplay(false);
@@ -35,9 +36,9 @@ void tftDecreaseSetTemp(lv_event_t * e)
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
   if (OperatingParameters.tempUnits == 'C')
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", getRoundedFrac(OperatingParameters.tempSet));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
 
-  Serial.printf ("Temp decreased to: %.1f\n", OperatingParameters.tempSet);
+  //@@@ printf ("Temp decreased to: %.1f\n", OperatingParameters.tempSet);
 }
 
 void tftIncreaseSetTemp(lv_event_t * e)
@@ -53,10 +54,10 @@ void tftIncreaseSetTemp(lv_event_t * e)
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
   if (OperatingParameters.tempUnits == 'C')
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", getRoundedFrac(OperatingParameters.tempSet));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
 
 
-  Serial.printf ("Temp increased to: %.1f\n", OperatingParameters.tempSet);
+  //@@@ printf ("Temp increased to: %.1f\n", OperatingParameters.tempSet);
 }
 
 void tftHvacModeChange(lv_event_t * e)
@@ -114,7 +115,7 @@ static void networkScanner() {
               "ScanWifiTask",
               4096,
               NULL,
-              1,
+              tskIDLE_PRIORITY+2,
               &ntScanTaskHandler);
 }
 
@@ -144,6 +145,19 @@ void stopWifiScan(lv_event_t * e)
 
 void LoadInfoStrings(lv_event_t * e)
 {
+#ifdef MATTER_ENABLED
+  if (OperatingParameters.MatterEnabled)
+  {
+    lv_obj_clear_flag(ui_ShowQR, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(ui_ShowQRLabel, LV_OBJ_FLAG_HIDDEN);
+  }
+  else
+#endif
+  {
+    lv_obj_add_flag(ui_ShowQR, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_ShowQRLabel, LV_OBJ_FLAG_HIDDEN);
+  }
+
   if (wifiConnected())
     lv_obj_add_state(ui_WifiConnCheckBox, LV_STATE_CHECKED);
 	else
@@ -193,7 +207,7 @@ void tftUpdateUiSleepValue(lv_event_t * e)
 {
   lv_obj_t * slider = lv_event_get_target(e);
   char buf[8];
-  lv_snprintf(buf, sizeof(buf), "%d s", lv_slider_get_value(slider));
+  lv_snprintf(buf, sizeof(buf), "%d s", (int)lv_slider_get_value(slider));
   lv_label_set_text(ui_UiSleepLabel, buf);
   OperatingParameters.thermostatSleepTime = lv_slider_get_value(slider);
 }
@@ -201,11 +215,20 @@ void tftUpdateUiSleepValue(lv_event_t * e)
 void tftSetNewWifi(lv_event_t * e)
 {
   lv_dropdown_get_selected_str(ui_SsidDropdown, WifiCreds.ssid, sizeof(WifiCreds.ssid));
-  strcpy (WifiCreds.password, lv_textarea_get_text(ui_PSK));
-  // Save the new wifi credentials to NVRAM
-  setWifiCreds();
-  // Initiate a disconnect so the new wifi info will be used when auto-reconnect happens
-  WifiDisconnect();
+  if (strlen(WifiCreds.ssid) > 0)
+  {
+    strcpy (WifiCreds.password, lv_textarea_get_text(ui_PSK));
+    printf ("*** [tftSetNewWifi] WifiCreds.password = %s\n", WifiCreds.password);
+    // Save the new wifi credentials to NVRAM
+    setWifiCreds(); //Store locally (in Thermostat NVS)
+    wifiSetCredentials(WifiCreds.ssid, WifiCreds.password);
+    // Initiate a disconnect so the new wifi info will be used when auto-reconnect happens
+    WifiDisconnect();
+
+    // Immediately start a new wifi connection
+    lastWifiReconnect = 0;
+//    startReconnectTask();
+  }
 }
 
 void tftClearPsk(lv_event_t * e)
@@ -254,13 +277,29 @@ void SaveConfigSettings(lv_event_t * e)
   if (OperatingParameters.tempUnits == 'C')
   {
     // Set smaller fractional part of temp rounded to nearest .5
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", getRoundedFrac(OperatingParameters.tempSet));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
   }
 
   OperatingParameters.hvacCoolEnable = lv_obj_has_state(ui_HvacCoolCheckbox, LV_STATE_CHECKED);
   OperatingParameters.hvacFanEnable = lv_obj_has_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
 
   setHvacModesDropdown();
+
+#ifdef MATTER_ENABLED
+  bool prevMatter = OperatingParameters.MatterEnabled;
+  OperatingParameters.MatterEnabled = lv_obj_has_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+  if (OperatingParameters.MatterEnabled != prevMatter)
+  {
+    //@@@ Disable all HVAC activity before restarting
+    printf ("Matter enablement changed!\n");
+    wifiSwitchMatterMode();
+    if (!OperatingParameters.MatterEnabled)
+    {
+      // MatterFactoryReset() will be called from tftCountDown() func
+      _ui_screen_change(&ui_ThermostatRestart, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0, &ui_ThermostatRestart_screen_init);
+    }
+  }
+#endif
 }
 
 void LoadConfigSettings(lv_event_t * e)
@@ -281,6 +320,12 @@ void LoadConfigSettings(lv_event_t * e)
     lv_obj_add_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
   else
     lv_obj_clear_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
+#ifdef MATTER_ENABLED
+  if (OperatingParameters.MatterEnabled)
+    lv_obj_add_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+  else
+    lv_obj_clear_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+#endif
 }
 
 void LoadUncommonSettings(lv_event_t * e)
@@ -315,13 +360,13 @@ void SaveUncommonConfigSettings(lv_event_t * e)
   OperatingParameters.thermostatBeepEnable = lv_obj_has_state(ui_AudibleBeepCheckbox, LV_STATE_CHECKED);
 
   setHvacModesDropdown();
-  updateTimezone(true);
+  updateTimezone();
 }
 
 void tftCalibrate(lv_event_t * e)
 {
   tftCalibrateTouch();
-  _ui_screen_change(ui_MainScreen, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0);
+  _ui_screen_change(&ui_MainScreen, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0, &ui_MainScreen_screen_init);
   tftAwaken(e);
 }
 
@@ -331,4 +376,74 @@ bool isCurrentScreenMain()
     return true;
   else
     return false;
+}
+
+#ifdef MATTER_ENABLED
+
+/**
+ * Create a QR Code
+ */
+void lv_example_qrcode_1()
+{
+    lv_color_t bg_color = lv_palette_lighten(LV_PALETTE_LIGHT_BLUE, 5);
+    lv_color_t fg_color = lv_palette_darken(LV_PALETTE_BLUE, 4);
+
+    lv_obj_t * qr = lv_qrcode_create(lv_scr_act(), 150, fg_color, bg_color);
+    // lv_obj_t * qr = lv_qrcode_create(ui_QRImage, 150, fg_color, bg_color);
+
+    /*Set data*/
+    // const char * data = "MT%3AY.K90AFN00KA0648G00";
+    const char * data = "MATTER NOT YET ENABLED";
+    if (strlen(OperatingParameters.MatterQR) > 0)
+      lv_qrcode_update(qr, OperatingParameters.MatterQR, strlen(OperatingParameters.MatterQR));
+    else
+      lv_qrcode_update(qr, data, strlen(data));
+    // lv_obj_center(qr);
+    lv_obj_align(qr, LV_ALIGN_CENTER, 0, -20);
+
+    /*Add a border with bg_color*/
+    lv_obj_set_style_border_color(qr, bg_color, 0);
+    lv_obj_set_style_border_width(qr, 5, 0);
+}
+
+void ShowQrOnScreen(lv_event_t * e)
+{
+  printf ("Loading QR and manual pairing codes\n");
+  lv_example_qrcode_1();
+  lv_label_set_text(ui_ManualPairingCode, OperatingParameters.MatterPairingCode);
+}
+
+#endif
+
+void tftCountdown(lv_event_t * e)
+{
+  int n = 5;  // Countdown limit
+  char buf[8];
+
+#ifdef MATTER_ENABLED
+  OperatingParameters.MatterEnabled = false;
+#endif
+
+  printf ("Initiating ESP restart\n");
+  while (n >= 0)
+  {
+    lv_snprintf(buf, sizeof(buf), "%d", n);
+    lv_label_set_text(ui_RestartCountdown, buf);
+    // Force refresh the screen
+    lv_refr_now(NULL);
+    printf ("  Restarting in %d seconds\n", n);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    n--;
+  }
+  /* Initialize the ESP NVS layer */
+  printf ("Initializing NVS\n");
+  // nvs_flash_init();
+  clearNVS();
+  /* Rewrite the wifi credentials after resetting NVS storage */
+  printf ("Rewriting wifi credentials\n");
+  setWifiCreds();
+  printf ("Saving thermostat config\n");
+  updateThermostatParams();
+  // printf ("Resetting Matter config and restarting ESP\n");
+  // MatterFactoryReset(); // Will also restart the ESP
 }

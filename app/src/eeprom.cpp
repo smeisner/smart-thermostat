@@ -1,4 +1,3 @@
-/*!
 // SPDX-License-Identifier: GPL-3.0-only
 /*
  * eeprom.cpp
@@ -14,14 +13,34 @@
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
  * 
  */
 
 #include "thermostat.hpp"
-#include <Preferences.h>
-#include <nvs_flash.h>
+#include "esp_log.h"
+#include "nvs_flash.h"
+#include "nvs.h"
 
-Preferences prefs;
+#define TAG "NVS"
+#define NVS_TAG "thermostat"
+#define NVS_WIFI_TAG "wificreds"
+
+#define DEF_CURR_MODE IDLE
+#define DEF_SET_MODE OFF
+#define DEF_SET_TEMP 70.0
+#define DEF_SET_TEMP_AUTO_MIN 68.0
+#define DEF_SET_TEMP_AUTO_MAX 74.0
+#define DEF_CURR_TEMP 0.0
+#define DEF_CURR_HUMIDITY 50.0
+#define DEF_SET_UNITS 'F'
+#define DEF_SET_SWING 3.0
+#define DEF_TEMP_CORR -4.8
+#define DEF_HUMIDITY_CORR 10
+#define DEF_SLEEP_TIME 30
+#define DEF_TZ_SEL 15
+#define DEF_BEEP_ENABLE true
+#define DEF_MATTER_ENABLE false
 
 //@@@
 //Timezone info, such as "America/New York"
@@ -38,77 +57,346 @@ Preferences prefs;
 //@@@ Enable/disable beep
 // time to sleep display
 
+
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+//                                                                        //
+//          Utility functions to read/write NVS storage                   //
+//                                                                        //
+//          Note: All data is stored in the "nvs" partition               //
+//                                                                        //
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////
+//                                                                        //
+//          NVS write functions                                           //
+//                                                                        //
+////////////////////////////////////////////////////////////////////////////
+
+bool writeNVS(nvs_handle_t handle, nvs_type_t type, const char *key, void *_value, int _len = 0)
+{
+  switch (type)
+  {
+    case NVS_TYPE_I32:
+      if ((nvs_set_i32(handle, key, *(int32_t *)_value)) != ESP_OK)
+        return false;
+      break;
+    case NVS_TYPE_U8:
+      if (nvs_set_u8(handle, key, *((uint8_t *)_value)) != ESP_OK)
+        return false;
+      break;
+    case NVS_TYPE_U16:
+      if (nvs_set_u16(handle, key, *((u_int16_t *)_value)) != ESP_OK)
+        return false;
+      break;
+    case NVS_TYPE_STR:
+      if (nvs_set_str(handle, key, (const char *)_value) != ESP_OK)
+        return false;
+      break;
+    case NVS_TYPE_BLOB:
+      if ((nvs_set_blob(handle, key, _value, (size_t)_len)) != ESP_OK)
+        return false;
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
+void nvs_writeMode(nvs_handle_t handle, const char *key, HVAC_MODE _value)
+{
+  HVAC_MODE mode = _value;
+  writeNVS(handle, NVS_TYPE_I32, key, &mode);
+}
+
+void nvs_writeFloat(nvs_handle_t handle, const char *key, float _value)
+{
+  float value = _value;
+  writeNVS(handle, NVS_TYPE_BLOB, key, &value, sizeof(float));
+}
+
+void nvs_writeChar(nvs_handle_t handle, const char *key, char _value)
+{
+  char value = _value;
+  writeNVS(handle, NVS_TYPE_U8, key, &value);
+}
+
+void nvs_writeInt16(nvs_handle_t handle, const char *key, u_int16_t _value)
+{
+  uint16_t value = _value;
+  writeNVS(handle, NVS_TYPE_U16, key, &value);
+}
+
+void nvs_writeBool(nvs_handle_t handle, const char *key, bool _value)
+{
+  bool value = _value;
+  writeNVS(handle, NVS_TYPE_U8, key, &value);
+}
+
+void nvs_writeString(nvs_handle_t handle, const char *key, const char *value)
+{
+  writeNVS(handle, NVS_TYPE_STR, key, (void *)value);
+}
+
+
+////////////////////////////////////////////////////////////////////////////
+//                                                                        //
+//          NVS read functions                                            //
+//                                                                        //
+////////////////////////////////////////////////////////////////////////////
+
+bool readNVS(nvs_handle_t handle, nvs_type_t type, const char *key, void *out_value, int _len = 0)
+{
+  int len = _len;
+
+  switch (type)
+  {
+    case NVS_TYPE_I32:
+      len = sizeof(int32_t);
+      if ((nvs_get_i32(handle, key, (int32_t *)out_value)) != ESP_OK)
+        return false;
+      break;
+    case NVS_TYPE_U8:
+      len = sizeof(uint8_t);
+      if ((nvs_get_u8(handle, key, (uint8_t *)out_value)) != ESP_OK)
+        return false;
+      break;
+    case NVS_TYPE_U16:
+      len = sizeof(u_int16_t);
+      if ((nvs_get_u16(handle, key, (u_int16_t *)out_value)) != ESP_OK)
+        return false;
+      break;
+    case NVS_TYPE_STR:
+      if (nvs_get_str(handle, key, (char *)out_value, (size_t *)&len) != ESP_OK)
+        return false;
+      break;
+    case NVS_TYPE_BLOB:
+      len = _len;
+      if ((nvs_get_blob(handle, key, (float *)out_value, (size_t *)&len)) != ESP_OK)
+        return false;
+      break;
+    default:
+      return false;
+  }
+  return true;
+}
+
+void nvs_readMode(nvs_handle_t handle, const char *key, HVAC_MODE *out_value, HVAC_MODE def)
+{
+  if (!readNVS(handle, NVS_TYPE_I32, key, out_value))
+    *out_value = def;
+}
+
+void nvs_readFloat(nvs_handle_t handle, const char *key, float *out_value, float def)
+{
+  if (!readNVS(handle, NVS_TYPE_BLOB, key, out_value, sizeof(float)))
+    *out_value = def;
+}
+
+void nvs_readChar(nvs_handle_t handle, const char *key, char *out_value, char def)
+{
+  if (!readNVS(handle, NVS_TYPE_U8, key, out_value, sizeof(char)))
+    *out_value = def;
+}
+
+void nvs_readInt16(nvs_handle_t handle, const char *key, u_int16_t *out_value, u_int16_t def)
+{
+  if (!readNVS(handle, NVS_TYPE_U16, key, out_value, sizeof(u_int16_t)))
+    *out_value = def;
+}
+
+void nvs_readBool(nvs_handle_t handle, const char *key, bool *out_value, bool def)
+{
+  if (!readNVS(handle, NVS_TYPE_U8, key, out_value, sizeof(bool)))
+    *out_value = def;
+}
+
+void nvs_readStr(nvs_handle_t handle, const char *key, const char *def, char *out_value, int len)
+{
+  if (!readNVS(handle, NVS_TYPE_STR, key, out_value, len))
+    strncpy (out_value, def, len);
+}
+
+
+
 void clearNVS()
 {
   nvs_flash_erase(); // erase the NVS partition and...
   nvs_flash_init(); // initialize the NVS partition.
 }
 
-#define NVS_TAG "thermostat"
-#define NVS_WIFI_TAG "wificreds"
+bool openNVS(nvs_handle_t *handle, const char *nvsNameSpace)
+{
+  esp_err_t err;
+
+  // Initialize NVS
+  err = nvs_flash_init();
+  // if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+  if (err != ESP_OK)
+  {
+      // NVS partition was truncated and needs to be erased
+      // Retry nvs_flash_init
+      ESP_LOGW(TAG, "Erasing & initing 'nvs' partition");
+      ESP_ERROR_CHECK(nvs_flash_erase());
+      err = nvs_flash_init();
+  }
+  ESP_ERROR_CHECK(err);
+
+  // Open the pre-filled NVS partition called "nvs"
+  ESP_LOGD(TAG, "Opening Non-Volatile Storage (NVS) handle");
+  err = nvs_open(nvsNameSpace, NVS_READWRITE, handle);
+  if (err != ESP_OK)
+  {
+      ESP_LOGE(TAG, "Error (%s) opening NVS handle!", esp_err_to_name(err));
+      return false;
+  }
+  return true;
+}
+
+void closeNVS(nvs_handle_t handle)
+{
+  esp_err_t err;
+  err = nvs_commit(handle);
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Error (%s) commiting NVS!", esp_err_to_name(err));
+  }
+  nvs_close(handle);
+}
+
+
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+//                                                                        //
+//          NVS storage for thermostat operating parameters               //
+//                                                                        //
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+
 
 void setDefaultThermostatParams()
 {
-  prefs.begin(NVS_TAG, false);
-  prefs.putInt("currMode", IDLE);
-  prefs.putInt("setMode", OFF);
-  prefs.putFloat("setTemp", 70.0);
-  prefs.putFloat("setTempAutoMin",68.0);
-  prefs.putFloat("setTempAutoMax",74.0);
-  prefs.putFloat("currTemp", 0.0);
-  prefs.putFloat("currHumid", 50.0);
-  prefs.putChar("setUnits", 'F');
-  prefs.putFloat("setSwing", 3.0);
-  prefs.putFloat("setTempCorr", -4.8);
-  prefs.putFloat("setHumidityCorr", 10);
-  prefs.putInt("sleepTime", 30);
-  prefs.putInt("timezoneSel", 15);
-  prefs.putBool("Beep", true);
-  prefs.end();
+  nvs_handle_t my_handle;
+  ESP_LOGW(TAG, "Writing default Thermostat perameters to NVS");
+  if (!openNVS(&my_handle, NVS_TAG))
+  {
+    ESP_LOGE(TAG, "Failed to open handle to NVS partition");
+    return;
+  }
+  nvs_writeMode(my_handle, "currMode", DEF_CURR_MODE);
+  nvs_writeMode(my_handle, "setMode", DEF_SET_MODE);
+  nvs_writeFloat(my_handle, "setTemp", DEF_SET_TEMP);
+  nvs_writeFloat(my_handle, "setTempAutoMin", DEF_SET_TEMP_AUTO_MIN);
+  nvs_writeFloat(my_handle, "setTempAutoMax", DEF_SET_TEMP_AUTO_MAX);
+  nvs_writeFloat(my_handle, "currTemp", DEF_CURR_TEMP);
+  nvs_writeFloat(my_handle, "currHumid", DEF_CURR_HUMIDITY);
+  nvs_writeChar(my_handle, "setUnits", DEF_SET_UNITS);
+  nvs_writeFloat(my_handle, "setSwing", DEF_SET_SWING);
+  nvs_writeFloat(my_handle, "setTempCorr", DEF_TEMP_CORR);
+  nvs_writeFloat(my_handle, "setHumidityCorr", DEF_HUMIDITY_CORR);
+  nvs_writeInt16(my_handle, "sleepTime", DEF_SLEEP_TIME);
+  nvs_writeInt16(my_handle, "timezoneSel", DEF_TZ_SEL);
+  nvs_writeBool(my_handle, "Beep", DEF_BEEP_ENABLE);
+#ifdef MATTER_ENABLED
+  nvs_writeBool(my_handle, "MatterEn", DEF_MATTER_ENABLE);
+#endif
+  closeNVS(my_handle);
+
+  // Set default parameters in local struct
+  OperatingParameters.hvacOpMode = DEF_CURR_MODE;
+  OperatingParameters.hvacSetMode = DEF_SET_MODE;
+  OperatingParameters.tempSet = DEF_SET_TEMP;
+  OperatingParameters.tempSetAutoMin = DEF_SET_TEMP_AUTO_MIN;
+  OperatingParameters.tempSetAutoMax = DEF_SET_TEMP_AUTO_MAX;
+  OperatingParameters.tempCurrent = DEF_CURR_TEMP;
+  OperatingParameters.humidCurrent = DEF_CURR_HUMIDITY;
+  OperatingParameters.tempUnits = DEF_SET_UNITS;
+  OperatingParameters.tempSwing = DEF_SET_SWING;
+  OperatingParameters.tempCorrection = DEF_TEMP_CORR;
+  OperatingParameters.humidityCorrection = DEF_HUMIDITY_CORR;
+  OperatingParameters.thermostatSleepTime = DEF_SLEEP_TIME;
+  OperatingParameters.timezone_sel = DEF_TZ_SEL;
+  OperatingParameters.thermostatBeepEnable = DEF_BEEP_ENABLE;
+#ifdef MATTER_ENABLED
+  OperatingParameters.MatterEnabled = DEF_MATTER_ENABLE;
+#endif
 }
 
 void updateThermostatParams()
 {
-  prefs.begin(NVS_TAG, false);
-  prefs.putInt("currMode", OperatingParameters.hvacOpMode);
-  prefs.putInt("setMode", OperatingParameters.hvacSetMode);
-  prefs.putFloat("setTemp", OperatingParameters.tempSet);
-  prefs.putFloat("setTempAutoMin", OperatingParameters.tempSetAutoMin);
-  prefs.putFloat("setTempAutoMax", OperatingParameters.tempSetAutoMax);
-  prefs.putFloat("currTemp", OperatingParameters.tempCurrent);
-  prefs.putFloat("currHumid", OperatingParameters.humidCurrent);
-  prefs.putChar("setUnits", OperatingParameters.tempUnits);
-  prefs.putFloat("setSwing", OperatingParameters.tempSwing);
-  prefs.putFloat("setTempCorr", OperatingParameters.tempCorrection);
-  prefs.putFloat("setHumidityCorr", OperatingParameters.humidityCorrection);
-  prefs.putInt("sleepTime", OperatingParameters.thermostatSleepTime);
-  prefs.putInt("timezoneSel", OperatingParameters.timezone_sel);
-  prefs.putBool("Beep", OperatingParameters.thermostatBeepEnable);
-  prefs.end();
+  nvs_handle_t my_handle;
+  ESP_LOGI(TAG, "Updating Thermostat parameters in NVS");
+  openNVS(&my_handle, NVS_TAG);
+  nvs_writeMode(my_handle, "currMode", OperatingParameters.hvacOpMode);
+  nvs_writeMode(my_handle, "setMode", OperatingParameters.hvacSetMode);
+  nvs_writeFloat(my_handle, "setTemp", OperatingParameters.tempSet);
+  nvs_writeFloat(my_handle, "setTempAutoMin", OperatingParameters.tempSetAutoMin);
+  nvs_writeFloat(my_handle, "setTempAutoMax", OperatingParameters.tempSetAutoMax);
+  nvs_writeFloat(my_handle, "currTemp", OperatingParameters.tempCurrent);
+  nvs_writeFloat(my_handle, "currHumid", OperatingParameters.humidCurrent);
+  nvs_writeChar(my_handle, "setUnits", OperatingParameters.tempUnits);
+  nvs_writeFloat(my_handle, "setSwing", OperatingParameters.tempSwing);
+  nvs_writeFloat(my_handle, "setTempCorr", OperatingParameters.tempCorrection);
+  nvs_writeFloat(my_handle, "setHumidityCorr", OperatingParameters.humidityCorrection);
+  nvs_writeInt16(my_handle, "sleepTime", OperatingParameters.thermostatSleepTime);
+  nvs_writeInt16(my_handle, "timezoneSel", OperatingParameters.timezone_sel);
+  nvs_writeBool(my_handle, "Beep", OperatingParameters.thermostatBeepEnable);
+#ifdef MATTER_ENABLED
+  nvs_writeBool(my_handle, "MatterEn", &OperatingParameters.MatterEnabled);
+#endif
+  closeNVS(my_handle);
 }
 
 void getThermostatParams()
 {
-  prefs.begin(NVS_TAG, false);
-  OperatingParameters.hvacOpMode = (HVAC_MODE)prefs.getInt("currMode", (int)IDLE);
-  OperatingParameters.hvacSetMode = (HVAC_MODE)prefs.getInt("setMode", (int)OFF);
-  OperatingParameters.tempSet = prefs.getFloat("setTemp", 70.0);
-  OperatingParameters.tempSetAutoMin = prefs.getFloat("setTempAutoMin", 68.0);
-  OperatingParameters.tempSetAutoMax = prefs.getFloat("setTempAutoMax", 74.0);
-  OperatingParameters.tempCurrent = prefs.getFloat("currTemp", 0.0);
-  OperatingParameters.humidCurrent = prefs.getFloat("currHumid", 50.0);
-  OperatingParameters.tempUnits = prefs.getChar("setUnits", 'F');
-  OperatingParameters.tempSwing = prefs.getFloat("setSwing", 3.0);
-  OperatingParameters.tempCorrection = prefs.getFloat("setTempCorr", -4.8);
-  OperatingParameters.humidityCorrection = prefs.getFloat("setHumidityCorr", 10);
-  OperatingParameters.thermostatSleepTime = prefs.getInt("sleepTime", 30);
-  OperatingParameters.timezone_sel = prefs.getInt("timezoneSel", 15);
+  nvs_handle_t my_handle;
+
+  if (!openNVS(&my_handle, NVS_TAG))
+  {
+    setDefaultThermostatParams();
+    if (!openNVS(&my_handle, NVS_TAG))
+      return;
+  }
+
+  nvs_readMode(my_handle, "currMode", &OperatingParameters.hvacOpMode, DEF_CURR_MODE);
+  nvs_readMode(my_handle, "setMode", &OperatingParameters.hvacSetMode, DEF_SET_MODE);
+  nvs_readFloat(my_handle, "setTemp", &OperatingParameters.tempSet, DEF_SET_TEMP);
+  nvs_readFloat(my_handle, "setTempAutoMin", &OperatingParameters.tempSetAutoMin, DEF_SET_TEMP_AUTO_MIN);
+  nvs_readFloat(my_handle, "setTempAutoMax", &OperatingParameters.tempSetAutoMax, DEF_SET_TEMP_AUTO_MAX);
+  nvs_readFloat(my_handle, "currTemp", &OperatingParameters.tempCurrent, DEF_CURR_TEMP);
+  nvs_readFloat(my_handle, "currHumid", &OperatingParameters.humidCurrent, DEF_CURR_HUMIDITY);
+  nvs_readFloat(my_handle, "setSwing", &OperatingParameters.tempSwing, DEF_SET_SWING);
+  nvs_readFloat(my_handle, "setHumidityCorr", &OperatingParameters.humidityCorrection, DEF_HUMIDITY_CORR);
+  nvs_readFloat(my_handle, "setTempCorr", &OperatingParameters.tempCorrection, DEF_TEMP_CORR);
+  nvs_readChar(my_handle, "setUnits", &OperatingParameters.tempUnits, DEF_SET_UNITS);
+  nvs_readInt16(my_handle, "sleepTime", &OperatingParameters.thermostatSleepTime, DEF_SLEEP_TIME);
+  nvs_readInt16(my_handle, "timezoneSel", &OperatingParameters.timezone_sel, DEF_TZ_SEL);
   OperatingParameters.timezone = (char *)gmt_timezones[OperatingParameters.timezone_sel];
-  OperatingParameters.thermostatBeepEnable = prefs.getBool("Beep", true);
+  nvs_readBool(my_handle, "Beep", &OperatingParameters.thermostatBeepEnable, DEF_BEEP_ENABLE);
+#ifdef MATTER_ENABLED
+  nvs_readBool(my_handle, "MatterEn", &OperatingParameters.MatterEnabled, DEF_MATTER_ENABLE);
+#endif
+
   OperatingParameters.lightDetected = 1024;
   OperatingParameters.motionDetected = false;
-  prefs.end();
+
+  closeNVS(my_handle);
 }
+
+
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+//                                                                        //
+//          NVS storage for wifi credentials                              //
+//                                                                        //
+//          Note: These credentials are separate from the ones            //
+//          managed by the ESP32 wifi subsystem.                          //
+//                                                                        //
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+
 
 //
 // If the eeprom area is intact (crc matches), then the value is not changed.
@@ -118,11 +406,17 @@ void getThermostatParams()
 //
 void setDefaultWifiCreds()
 {
-  prefs.begin(NVS_WIFI_TAG, false);
-  prefs.putString("hostname", "thermostat");
-  prefs.putString("ssid", "");
-  prefs.putString("pass", "");
-  prefs.end();
+  ESP_LOGW(TAG, "Writing default WIFI credentials to NVS");
+  nvs_handle_t my_handle;
+  openNVS(&my_handle, NVS_WIFI_TAG);
+  nvs_writeString(my_handle, "hostname", "thermostat");
+  nvs_writeString(my_handle, "ssid", "");
+  nvs_writeString(my_handle, "pass", "");
+  closeNVS(my_handle);
+
+  strncpy (WifiCreds.hostname, "thermostat", sizeof(WifiCreds.hostname));
+  strncpy (WifiCreds.ssid, "", sizeof(WifiCreds.ssid));
+  strncpy (WifiCreds.password, "", sizeof(WifiCreds.password));
 }
 
 //
@@ -130,62 +424,71 @@ void setDefaultWifiCreds()
 //
 void setWifiCreds()
 {
-  prefs.begin(NVS_WIFI_TAG, false);
-  prefs.putString("hostname", WifiCreds.hostname);
-  prefs.putString("ssid", WifiCreds.ssid);
-  prefs.putString("pass", WifiCreds.password);
-  prefs.end();
+  ESP_LOGW(TAG, "Saving latest WIFI credentials to NVS");
+  // printf ("*** [setWifiCreds] WifiCreds.password = %s\n", WifiCreds.password);
+  nvs_handle_t my_handle;
+  openNVS(&my_handle, NVS_WIFI_TAG);
+  nvs_writeString(my_handle, "hostname", WifiCreds.hostname);
+  nvs_writeString(my_handle, "ssid", WifiCreds.ssid);
+  nvs_writeString(my_handle, "pass", WifiCreds.password);
+  closeNVS(my_handle);
 }
 
 void getWifiCreds()
 {
-  prefs.begin(NVS_WIFI_TAG, false);
-  strncpy (WifiCreds.hostname, prefs.getString("hostname", "thermostat").c_str(), sizeof(WifiCreds.hostname));
-  strncpy (WifiCreds.ssid, prefs.getString("ssid", "").c_str(), sizeof(WifiCreds.ssid));
-  strncpy (WifiCreds.password, prefs.getString("pass", "").c_str(), sizeof(WifiCreds.password));
-  prefs.end();
+  nvs_handle_t my_handle;
+  if (!openNVS(&my_handle, NVS_WIFI_TAG))
+  {
+    ESP_LOGE(TAG, "Failed to open NVS wifi partition");
+    setDefaultWifiCreds();
+    if (!openNVS(&my_handle, NVS_WIFI_TAG))
+      return;
+  }
+  nvs_readStr(my_handle, "hostname", "thermostat", WifiCreds.hostname, sizeof(WifiCreds.hostname));
+  nvs_readStr(my_handle, "ssid", "", WifiCreds.ssid, sizeof(WifiCreds.ssid));
+  nvs_readStr(my_handle, "pass", "", WifiCreds.password, sizeof(WifiCreds.password));
+  // printf ("*** [getWifiCreds] WifiCreds.password = %s\n", WifiCreds.password);
+  closeNVS(my_handle);
 }
+
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+//                                                                        //
+//          NVS functions to write specific values                        //
+//                                                                        //
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
 
 bool eepromUpdateHvacSetTemp()
 {
-  prefs.begin(NVS_TAG, false);
-  prefs.putFloat("setTemp", OperatingParameters.tempSet);
-  prefs.end();
+  nvs_handle_t my_handle;
+  openNVS(&my_handle, NVS_TAG);
+  nvs_writeFloat(my_handle, "setTemp", OperatingParameters.tempSet);
+  closeNVS(my_handle);
   return true;
 }
 
 bool eepromUpdateHvacSetMode()
 {
-  prefs.begin(NVS_TAG, false);
-  prefs.putInt("currMode", OperatingParameters.hvacSetMode);
-  prefs.end();
+  nvs_handle_t my_handle;
+  openNVS(&my_handle, NVS_TAG);
+  nvs_writeMode(my_handle, "currMode", OperatingParameters.hvacOpMode);
+  closeNVS(my_handle);
   return true;
 }
 
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+//                                                                        //
+//          NVS functions init entry point                                //
+//                                                                        //
+////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+
 void eepromInit()
 {
-  prefs.begin(NVS_TAG, false);
-  if ((not prefs.isKey("setUnits")) ||
-      (prefs.getChar("setUnits", 'X') == 'X'))
-  {
-    Serial.printf("Initializing EEPROM...\n");
-    prefs.end();
-    setDefaultThermostatParams();
-  }
-  else
-    prefs.end();
-
-  prefs.begin(NVS_WIFI_TAG, false);
-  if ((not prefs.isKey("ssid")) ||
-      (prefs.getString("ssid", "X") == "X"))
-  {
-    Serial.printf("Initializing stored wifi credentials...\n");
-    prefs.end();
-    setDefaultWifiCreds();
-  }
-  else
-    prefs.end();
-
+  ESP_LOGI(TAG, "Loading Thermostat operating parameters from NVS");
   getThermostatParams();
+  ESP_LOGI(TAG, "Loading wifi credentials from NVS");
   getWifiCreds();
 }

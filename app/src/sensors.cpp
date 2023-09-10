@@ -1,4 +1,3 @@
-/*!
 // SPDX-License-Identifier: GPL-3.0-only
 /*
  * sensors.cpp
@@ -15,28 +14,78 @@
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
  * 
  */
 
 #include "thermostat.hpp"
-#include <Smoothed.h>
+#include "esp_intr_alloc.h"
+#include "esp_adc/adc_continuous.h"
+#include "soc/adc_channel.h"
+#include "esp_sntp.h"
+#include <aht.h>
 #include <timezonedb_lookup.h>
-#include "DFRobot_AHT20.h"
 #include <ld2410.h>
+#include <Smoothed.h>
+#include "esp_adc/adc_oneshot.h"
+#include "esp_adc/adc_cali.h"
+#include "esp_adc/adc_cali_scheme.h"
+
+static const char *TAG = "SENSORS";
+
+const char *gmt_timezones[] = 
+  {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
+   "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
 
 int32_t lastTimeUpdate = 0;
 
-DFRobot_AHT20 aht20;
-
+Stream RadarPort;
 ld2410 radar;
 uint32_t last_ld2410_Reading = 0;
 
-Smoothed <float> sensorTemp;
-Smoothed <float> sensorHumidity;
+Smoothed<float> sensorTemp;
+Smoothed<float> sensorHumidity;
 
+adc_unit_t adcUnit;
+adc_channel_t adcChannel;
+adc_oneshot_unit_handle_t adcHandle;
+#define EXAMPLE_ADC_ATTEN           ADC_ATTEN_DB_11
 
+/*---------------------------------------------------------------
+        ADC Code (for light sensor)
+---------------------------------------------------------------*/
+void initLightSensor()
+{
+  adc_oneshot_io_to_channel(LIGHT_SENS_PIN, &adcUnit, &adcChannel);
 
+  adc_oneshot_unit_init_cfg_t init_config = {
+    .unit_id = adcUnit,
+    .clk_src = ADC_RTC_CLK_SRC_DEFAULT,
+    .ulp_mode = ADC_ULP_MODE_DISABLE
+  };
+  ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config, &adcHandle));
 
+  adc_oneshot_chan_cfg_t config = {
+    .atten = EXAMPLE_ADC_ATTEN,
+    .bitwidth = ADC_BITWIDTH_DEFAULT,
+  };
+  ESP_ERROR_CHECK(adc_oneshot_config_channel(adcHandle, adcChannel, &config));
+}
+
+int readLightSensor(void)
+{
+  static int voltage;
+
+  ESP_ERROR_CHECK(adc_oneshot_read(adcHandle, adcChannel, &voltage));
+  ESP_LOGV(TAG, "ADC%d Channel[%d] Raw Data: %d", adcUnit + 1, adcChannel, voltage);
+  ESP_LOGV(TAG, "Light Sensor: %d mV", (int)voltage);
+
+  return (int)voltage;
+}
+
+/*---------------------------------------------------------------
+        Functions to convert temp values
+---------------------------------------------------------------*/
 float getRoundedFrac(float value)
 {
   int whole;
@@ -46,28 +95,21 @@ float getRoundedFrac(float value)
 
   if (frac < 0.5)
     return 0;
-  else
-    return 5;
+  // else
+  return 5;
 }
 
 float roundValue(float value, int places)
 {
-  Serial.printf ("Convert: %.1f ---> ", value);
   float r = 0.0;
 
   if (places == 0)
     r = (float)((int)(value + 0.5));
   if (places == 1)
     r = (float)((int)(value + 0.25) + (getRoundedFrac(value + 0.25) / 10.0));
-  Serial.printf ("%.1f\n", r);
+  ESP_LOGI(TAG, "%.1f", r);
   return r;
-
-  // 12.2 -> 12.0
-  // 12.3 -> 12.5
-  // 12.7 -> 12.5
-  // 12.8 -> 13.0
 }
-
 
 //////////////////////////////////////////////////////////////////////////////////////
 //
@@ -75,45 +117,61 @@ float roundValue(float value, int places)
 //
 //////////////////////////////////////////////////////////////////////////////////////
 
+static void IRAM_ATTR MotionDetect_ISR(void *arg)
+{
+  tftMotionTrigger = true;
+}
+
+
 bool ld2410_init()
 {
   bool rc;
 
-  //Uncomment to show debug information from the library on the Serial Monitor. By default this does not show sensor reads as they are very frequent.
-  //radar.debug(Serial);
+  gpio_install_isr_service(0);
 
-  Serial2.begin (256000, SERIAL_8N1, LD_TX, LD_RX); //UART for monitoring the radar
-  delay(500);
+  gpio_config_t io_conf;
+  io_conf.intr_type = GPIO_INTR_POSEDGE;
+  io_conf.mode = GPIO_MODE_INPUT;
+  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+  io_conf.pin_bit_mask = (1ULL<<MOTION_PIN);
+  gpio_config(&io_conf);
 
-  if (radar.begin(Serial2))
+  //attach isr handler
+  gpio_isr_handler_add((gpio_num_t)MOTION_PIN, MotionDetect_ISR, nullptr);
+
+  RadarPort.begin(UART_NUM_2, 256000, LD_RX, LD_TX); //UART for monitoring the radar
+  vTaskDelay(pdMS_TO_TICKS(500));
+
+  if (radar.begin(RadarPort))
   {
-    Serial.printf("LD2410: Sensor started\n");
+    printf("LD2410: Sensor started\n");
     rc = true;
 
     if (radar.requestFirmwareVersion())
     {
-      Serial.printf ("LD2410: Firmware: v%u.%02u.%u%u%u%u\n",
+      printf ("LD2410: Firmware: v%u.%02u.%u%u%u%u\n",
         radar.firmware_major_version,
         radar.firmware_minor_version,
-        (radar.firmware_bugfix_version & 0xff000000) >> 24,
-        (radar.firmware_bugfix_version & 0x00ff0000) >> 16,
-        (radar.firmware_bugfix_version & 0x0000ff00) >> 8,
-        radar.firmware_bugfix_version & 0x000000ff
+        (uint8_t)(radar.firmware_bugfix_version & 0xff000000) >> 24,
+        (uint8_t)(radar.firmware_bugfix_version & 0x00ff0000) >> 16,
+        (uint8_t)(radar.firmware_bugfix_version & 0x0000ff00) >> 8,
+        (uint8_t)radar.firmware_bugfix_version & 0x000000ff
         );
     } else {
-      Serial.printf ("LD2410: Failed to read firmware version\n");
+      printf ("LD2410: Failed to read firmware version\n");
     }
 
     if (radar.requestCurrentConfiguration())
     {
-      Serial.printf("LD2410: Maximum gate ID: %d\n", radar.max_gate);
-      Serial.printf("LD2410: Maximum gate for moving targets: %d\n", radar.max_moving_gate);
-      Serial.printf("LD2410: Maximum gate for stationary targets: %d\n", radar.max_stationary_gate);
-      Serial.printf("LD2410: Idle time for targets: %d\n", radar.sensor_idle_time);
-      Serial.printf("LD2410: Gate sensitivity\n");
+      printf("LD2410: Maximum gate ID: %d\n", radar.max_gate);
+      printf("LD2410: Maximum gate for moving targets: %d\n", radar.max_moving_gate);
+      printf("LD2410: Maximum gate for stationary targets: %d\n", radar.max_stationary_gate);
+      printf("LD2410: Idle time for targets: %d\n", radar.sensor_idle_time);
+      printf("LD2410: Gate sensitivity\n");
       for (uint8_t gate = 0; gate <= radar.max_gate; gate++)
       {
-        Serial.printf("  Gate %d moving targets: %d stationary targets: %d\n",
+        printf("  Gate %d moving targets: %d stationary targets: %d\n",
           gate, radar.motion_sensitivity[gate], radar.stationary_sensitivity[gate]);
       }
     }
@@ -131,15 +189,15 @@ bool ld2410_init()
     // limited to 0 (0.75m). Use this to also change the inactivity timer.
     //
     //bool setMaxValues(uint16_t moving, uint16_t stationary, uint16_t inactivityTimer);
-    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000))) Serial.printf ("LD2410: Max gate values set\n"); else Serial.printf ("LD2410: FAILED to set max gate values\n");
+    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000))) printf ("LD2410: Max gate values set\n"); else printf ("LD2410: FAILED to set max gate values\n");
     //
     // Now request a restart to enable all the setting specified above
     //
-    if (radar.requestRestart()) Serial.printf ("LD2410: Restart requested\n"); else Serial.printf ("LD2410: FAILED requesting restart\n");
+    if (radar.requestRestart()) printf ("LD2410: Restart requested\n"); else printf ("LD2410: FAILED requesting restart\n");
   }
   else
   {
-    Serial.printf ("LD2410: Sensor not connected\n");
+    printf ("LD2410: Sensor not connected\n");
     rc = false;
   }
   return rc;
@@ -156,70 +214,69 @@ void ld2410_loop()
     last_ld2410_Reading = millis();
     if (radar.presenceDetected())
     {
+      ESP_LOGD (TAG, "LD2410: Motion detected");
       if (radar.stationaryTargetDetected())
-        Serial.printf ("LD2410: Stationary target: %d in\n", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
-      // {
-      //   Serial.print(F("Stationary target: "));
-      //   Serial.print(radar.stationaryTargetDistance());
-      //   Serial.print(F("cm energy:"));
-      //   Serial.println(radar.stationaryTargetEnergy());
-      // }
+        ESP_LOGI (TAG, "LD2410: Stationary target: %d in", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
       if (radar.movingTargetDetected())
-        Serial.printf ("LD2410: Moving target: %d in\n", (int)((float)(radar.movingTargetDistance()) / 2.54));
-      // {
-      //   Serial.print(F("Moving target: "));
-      //   Serial.print(radar.movingTargetDistance());
-      //   Serial.print(F("cm energy:"));
-      //   Serial.println(radar.movingTargetEnergy());
-      // }
+        ESP_LOGI (TAG, "LD2410: Moving target: %d in", (int)((float)(radar.movingTargetDistance()) / 2.54));
     }
-    // else
-    // {
-    //   Serial.println(F("No target"));
-    // }
   }
 }
-/////////////////////////////////////////////////////////////////////////////////////////
 
-
-bool initAht()
-{
-  Serial.println("Calling aht20.begin()");
-
-  uint8_t status;
-  status = aht20.begin();
-  while (status != 0)
-  {
-    Serial.printf("AHT20 sensor initialization failed. error status : %d\n", status);
-    delay(1000);
-    status = aht20.begin();
-  }
-  return true;
-}
-
+/*---------------------------------------------------------------
+  Function to reset variable controlled by call Smoothed library
+---------------------------------------------------------------*/
 void resetTempSmooth() { sensorTemp.clear(); }
 
-void readAht()
+/*---------------------------------------------------------------
+        AHT20 sensor (temp & humidity sensor)
+---------------------------------------------------------------*/
+bool initAht()
+{
+  return i2cdev_init() == ESP_OK;
+}
+
+void updateAht(void *parameter)
 {
   float humidity, temperature;
-  float temp_f;
-  
-  if (aht20.startMeasurementReady(/* crcEn = */true))
+
+  aht_t dev = {};
+  dev.mode = AHT_MODE_NORMAL;
+  dev.type = AHT_TYPE_AHT20;
+
+  ESP_ERROR_CHECK(aht_init_desc(&dev, AHT_I2C_ADDRESS_GND, (i2c_port_t)0, (gpio_num_t)SDA_PIN, (gpio_num_t)SCL_PIN));
+  ESP_ERROR_CHECK(aht_init(&dev));
+
+  bool calibrated;
+  ESP_ERROR_CHECK(aht_get_status(&dev, NULL, &calibrated));
+  if (calibrated)
+    ESP_LOGI(TAG, "AHT Sensor calibrated");
+  else
+    ESP_LOGW(TAG, "AHT Sensor not calibrated!");
+
+  while (1)
   {
-    if (OperatingParameters.tempUnits == 'C')
-      temperature = aht20.getTemperature_C();
+    esp_err_t res = aht_get_data(&dev, &temperature, &humidity);
+    if (res == ESP_OK)
+    {
+      if (OperatingParameters.tempUnits == 'F')
+        temperature = (temperature * 9.0 / 5.0) + 32;
+
+      ESP_LOGD(TAG, "Temperature: %.1f°C, Humidity: %.2f%%", temperature, humidity);
+
+      sensorTemp.add(temperature);
+      sensorHumidity.add(humidity);
+
+      OperatingParameters.tempCurrent = sensorTemp.get();
+      OperatingParameters.humidCurrent = sensorHumidity.get();
+
+      ESP_LOGI(TAG, "Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)",
+             sensorTemp.get(), temperature, OperatingParameters.tempUnits, sensorHumidity.get(), humidity);
+    }
     else
-      temperature = aht20.getTemperature_F();
-    humidity = aht20.getHumidity_RH();
+      ESP_LOGE(TAG, "Error reading data: %d (%s)", res, esp_err_to_name(res));
 
-    sensorTemp.add(temperature);
-    sensorHumidity.add(humidity);
-
-    OperatingParameters.tempCurrent = sensorTemp.get();
-    OperatingParameters.humidCurrent = sensorHumidity.get();
-
-    Serial.printf ("Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)\n", 
-      sensorTemp.get(), temperature, OperatingParameters.tempUnits, sensorHumidity.get(), humidity);
+    vTaskDelay(pdMS_TO_TICKS(10000));
   }
 }
 
@@ -234,56 +291,51 @@ int getHumidity()
   return (int)((sensorHumidity.get() + 0.5) + OperatingParameters.humidityCorrection);
 }
 
-void updateAht(void * parameter)
+/*---------------------------------------------------------------
+        Time & NTP client code
+---------------------------------------------------------------*/
+const char *ntpServer = "pool.ntp.org";
+// const char* timezone = "Africa/Luanda";
+// const char* timezone = "America/New York";
+
+void updateTimezone()
 {
-  for(;;) // infinite loop
-  {
-    // Read latest temp & humidity values
-    readAht();
-
-    // Pause the task again for 10000ms
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
-  }
-}
-
-const char* ntpServer = "pool.ntp.org";
-//const char* timezone = "Africa/Luanda";
-//const char* timezone = "America/New York";
-
-void updateTimezone(bool logInfo)
-{
-  // To save on program space, let's just 
+  // To save on program space, let's just
   // use GMT+/- timezones. Otherwise, there
   // are too many timezones.
-  // For ex, Boston would be Etc/GMT+4
+  // For ex, Boston would be Etc/GMT+5
   char tz_lookup[16] = "Etc/";
-  strcat (tz_lookup, OperatingParameters.timezone);
-  if (logInfo)
-    Serial.printf ("Timezone: %s\n", tz_lookup);
+  strcat(tz_lookup, OperatingParameters.timezone);
+  ESP_LOGI(TAG, "Timezone: %s", tz_lookup);
   auto tz = lookup_posix_timezone_tz(tz_lookup);
   if (!tz)
   {
-    Serial.printf ("Invalid Timezone: %s\n", OperatingParameters.timezone);
+    ESP_LOGE(TAG, "Invalid Timezone: %s", OperatingParameters.timezone);
     return;
   }
-
   setenv("TZ", tz, 1);
   tzset();
 }
 
-bool updateTime(struct tm * info)
+bool getLocalTime(struct tm * info, uint32_t ms)
 {
-  if (OperatingParameters.wifiConnected)
-  {
-    if (!getLocalTime(info, 2000))
-    {
-      Serial.println("Could not obtain time info");
-      return false;
-    }
-    else
-      return true;
-  }
+  uint32_t start = millis();
+  uint32_t tmo = ms;
+  time_t now;
 
+  if (!wifiConnected())
+    tmo = 20;
+
+  while ((millis() - start) <= tmo)
+  {
+    time(&now);
+    localtime_r(&now, info);
+    if (info->tm_year > (2016 - 1900))
+    {
+      return true;
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
   return false;
 }
 
@@ -292,28 +344,38 @@ void updateTimeSntp()
   struct tm local_time;
   char buffer[16];
 
-  if (updateTime(&local_time))
+  if (OperatingParameters.wifiConnected)
   {
-    strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
-    Serial.printf("Current time: %s\n", buffer);
+    if (getLocalTime(&local_time, 1000))
+    // if (updateTime(&local_time))
+    {
+      strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
+      ESP_LOGI(TAG, "Current time: %s", buffer);
+    }
   }
 }
 
-void initTimeSntp(bool logInfo)
+void configTime(const char* server)
 {
-  if (logInfo)
-    Serial.printf ("Time server: %s\n", ntpServer);
+  ESP_LOGI(TAG, "Initializing SNTP");
+  esp_sntp_stop();
+  esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+  esp_sntp_setservername(0, server);
+  esp_sntp_init();
+}
 
-  configTime(0, 0, ntpServer);
-  updateTimezone(logInfo);
+void initTimeSntp()
+{
+  ESP_LOGI(TAG, "Time server: %s", ntpServer);
+
+  updateTimezone();
+  configTime(ntpServer);
   updateTimeSntp();
 }
 
-void IRAM_ATTR MotionDetect_ISR()
-{
-  tftMotionTrigger = true;
-}
-
+/*---------------------------------------------------------------
+        Init code for sensors entry point
+---------------------------------------------------------------*/
 bool sensorsInit()
 {
   sensorTemp.begin(SMOOTHED_EXPONENTIAL, 10);
@@ -321,30 +383,27 @@ bool sensorsInit()
   sensorTemp.clear();
   sensorHumidity.clear();
 
-  initTimeSntp(true);
-  
+  initTimeSntp();
+
   ld2410_init();
 
-  pinMode(LIGHT_SENS_PIN, INPUT);
-  pinMode(MOTION_PIN, INPUT);
-  attachInterrupt(MOTION_PIN, MotionDetect_ISR, RISING);
+  initLightSensor();
 
   if (initAht())
   {
     xTaskCreate(
-      updateAht,      // Function that should be called
-      "Update AHT",   // Name of the task (for debugging)
-      4096,           // Stack size (bytes)
-      NULL,           // Parameter to pass
-      tskIDLE_PRIORITY+1, // Task priority
-      NULL            // Task handle
+        updateAht,            // Function that should be called
+        "Update AHT",         // Name of the task (for debugging)
+        4096,                 // Stack size (bytes)
+        NULL,                 // Parameter to pass
+        tskIDLE_PRIORITY + 1, // Task priority
+        NULL                  // Task handle
     );
 
     return true;
-
-  } else {
-
+  }
+  else
+  {
     return false;
-
   }
 }

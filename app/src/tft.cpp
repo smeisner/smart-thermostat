@@ -1,4 +1,3 @@
-/*!
 // SPDX-License-Identifier: GPL-3.0-only
 /*
  * tft.cpp
@@ -20,6 +19,7 @@
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
+ *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
  * 
  */
 
@@ -47,12 +47,12 @@ extern "C" {
 
 void tftDisableTouchTimer()
 {
-  Serial.printf ("Disabling touch timer\n");
+  printf ("Disabling touch timer\n");
   tftTouchTimerEnabled = false;
 }
 void tftEnableTouchTimer()
 {
-  Serial.printf ("Enabling touch timer\n");
+  printf ("Enabling touch timer\n");
   tftTouchTimerEnabled = true;
 }
 
@@ -96,9 +96,10 @@ void tftWakeDisplayMotion()
   if (!tftTouchTimerEnabled)
   {
     float ratio = (float)(OperatingParameters.lightDetected) / 4095.0;
+    // float ratio = (float)(OperatingParameters.lightDetected) / 3150.0;  // Measured in mV (max = 3.15 V)
     int brightness = (int)(ratio * (float)(FULL_BRIGHTNESS));
     tftShowDisplayItems();
-    Serial.printf ("Setting display to partial brightness: %d (%d%%)\n",
+    printf ("Setting display to partial brightness: %d (%d%%)\n",
       brightness, (int)(ratio*100.0));
     tft.setBrightness(brightness);
     tftEnableTouchTimer();
@@ -124,25 +125,24 @@ void tftUpdateDisplay()
 {
   static char buffer[16];
   static struct tm local_time;
-  static ulong last = 0;
+  // static ulong last = 0;
 
   // updateTime() will return false if wifi is not connected. 
   // Otherwise pending on SNTP call will cause a stall.
-  if (!updateTime(&local_time))
-  {
-    if (millis() - last > 10000)
+  // if (!updateTime(&local_time))
+  // if (millis() - last >  5000)
+  // {
+    // last = millis();
+    if (getLocalTime(&local_time, 80))
     {
-      last = millis();
-      initTimeSntp(false);
+      strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
     }
-    // memset (&local_time, 0, sizeof(local_time));
-    strcpy (buffer, "--:--:--");
-  }
-  else
-  {
-    strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
-  }
-  lv_label_set_text(ui_TimeLabel, buffer);
+    else
+    {
+      strcpy (buffer, "--:--:--");
+    }
+    lv_label_set_text(ui_TimeLabel, buffer);
+  // }
 
   lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());
   lv_label_set_text_fmt(ui_HumidityLabel, "%d%%", getHumidity());
@@ -306,8 +306,8 @@ Cal data:
   // Use calData to set up touch dimensions
   tft.setTouchCalibrate(calData);
   // Dump data to debug logger
-  Serial.printf ("Touch Screen calibration data:\n");
-  for (int n=0; n < 8; n++) Serial.printf("%d : %d\n", n, calData[n]);
+  printf ("Touch Screen calibration data:\n");
+  for (int n=0; n < 8; n++) printf("%d : %d\n", n, calData[n]);
 }
 
 void tftInit()
@@ -342,7 +342,7 @@ void tftInit()
 
   setHvacModesDropdown();
 
-  Serial.printf("Current temp set to %.1f°\n", OperatingParameters.tempSet);
+  printf("Current temp set to %.1f°\n", OperatingParameters.tempSet);
 
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
@@ -372,7 +372,7 @@ void tftPump(void * parameter)
       // was detected again. This causes the display to shut off and turn
       // back on quickly. Annoying...
       //
-      if ((!tftMotionTrigger) && (digitalRead(MOTION_PIN) == LOW))
+      if ((!tftMotionTrigger) && (gpio_get_level((gpio_num_t)MOTION_PIN) == LOW))
       {
         lastTouchDetected = 0;
         tftDimDisplay();
@@ -396,7 +396,7 @@ void tftPump(void * parameter)
     //
     if (/*(lastMotionDetected == 0) &&*/ (!tftTouchTimerEnabled) && isCurrentScreenMain())
     {
-      Serial.printf("Motion wake triggered\n");
+      printf("Motion wake triggered\n");
       lastMotionDetected = millis();
       OperatingParameters.motionDetected = true;
       tftWakeDisplayMotion();
@@ -407,17 +407,17 @@ void tftPump(void * parameter)
   // If we did detect motion and now the MOTION pin is low, 
   // reset the status ...if the MOTION_TIMEOUT period has passed.
   //
-  if ((OperatingParameters.motionDetected) && (digitalRead(MOTION_PIN) == LOW))
+  if ((OperatingParameters.motionDetected) && (gpio_get_level((gpio_num_t)MOTION_PIN) == LOW))
   {
     if (millis() - lastMotionDetected > MOTION_TIMEOUT)
     {
-      Serial.printf ("Motion detection timeout\n");
+      printf ("Motion detection timeout\n");
       OperatingParameters.motionDetected = false;
     }
   }
 
     // Pause the task again for 10ms
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
