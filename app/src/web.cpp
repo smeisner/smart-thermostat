@@ -25,6 +25,7 @@ static const char *TAG = "WEB";
 const char* serverIndex = "<form method='POST' action='/update' enctype='multipart/form-data'><input type='file' name='update'><input type='submit' value='Update'></form>";
 const char* serverRedirect = "<meta http-equiv=\"refresh\" content=\"0; url='/'\" />";
 static char html[2200];
+static char xml[600];
 
 esp_err_t tempUp(httpd_req_t *req)
 {
@@ -54,24 +55,50 @@ esp_err_t tempDown(httpd_req_t *req)
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 
+esp_err_t handleXML(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "text/xml");
+  char buf[128];
+  strcpy(xml, "<?xml version = '1.0'?><Data>\n");
+  snprintf(buf, sizeof(buf), "<curTemp>%.1f</curTemp>\n", OperatingParameters.tempCurrent + OperatingParameters.tempCorrection);
+  strcat(xml, buf);
+  if (OperatingParameters.tempUnits == 'F')
+    snprintf(buf, sizeof(buf), "<setTemp>%.0f</setTemp>\n", OperatingParameters.tempSet);
+  else
+    snprintf(buf, sizeof(buf), "<setTemp>%.1f</setTemp>\n", OperatingParameters.tempSet);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<curMode>%s</curMode>\n", hvacModeToString(OperatingParameters.hvacOpMode));
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<setMode>%s</setMode>\n", hvacModeToString(OperatingParameters.hvacSetMode));
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<humidity>%.1f</humidity>\n", OperatingParameters.humidCurrent);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<light>%d</light>\n", OperatingParameters.lightDetected);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<motion>%s</motion>\n", OperatingParameters.motionDetected ? "True" : "False");
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<units>%c</units>\n", OperatingParameters.tempUnits);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<swing>%.1f</swing>\n", OperatingParameters.tempSwing);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<correction>%.1f</correction>\n", OperatingParameters.tempCorrection);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<wifiStrength>%d</wifiStrength>\n", wifiSignal());
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<address>%s</address>\n", wifiAddress());
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<firmwareVer>%s</firmwareVer>\n", VERSION_STRING);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<firmwareDt>%s</firmwareDt>\n", VERSION_BUILD_DATE_TIME);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<copyright>%s</copyright>\n", VERSION_COPYRIGHT);
+  strcat(xml, buf);
+  strcat(xml, "</Data>");;
+  return httpd_resp_send(req, xml, strlen(xml));
+}
 esp_err_t handleRoot(httpd_req_t *req)
 {
-  snprintf(html, sizeof(html), webUI,
-    (int)OperatingParameters.tempSet, OperatingParameters.tempUnits,
-    hvacModeToString(OperatingParameters.hvacSetMode),
-    hvacModeToString(OperatingParameters.hvacOpMode),
-    OperatingParameters.tempCurrent + OperatingParameters.tempCorrection,
-    OperatingParameters.tempUnits,
-    OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection,
-    OperatingParameters.lightDetected,
-    (OperatingParameters.motionDetected == true) ? "True" : "False",
-    OperatingParameters.tempUnits, OperatingParameters.tempSwing,
-    OperatingParameters.tempCorrection,
-    wifiSignal(), wifiAddress(), VERSION_STRING, VERSION_BUILD_DATE_TIME,
-    VERSION_COPYRIGHT
-  );
-
-  return httpd_resp_send(req, html, strlen(html));
+  return httpd_resp_send(req, webUI, sizeof(webUI));
 }
 
 esp_err_t clearFirmware(httpd_req_t *req)
@@ -114,6 +141,7 @@ esp_err_t hvacModeFan(httpd_req_t *req)
   eepromUpdateHvacSetMode();
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
+
 
 //   server.on("/upload", HTTP_GET, []() {
 //     server.sendHeader("Connection", "close");
@@ -280,63 +308,68 @@ httpd_uri_t uri_get = {
     .method = HTTP_GET,
     .handler = handleRoot,
     .user_ctx = NULL};
-
-httpd_uri_t uri_tempUp = {
-    .uri = "/tempUp",
-    .method = HTTP_GET,
-    .handler = tempUp,
+httpd_uri_t uri_xml = {
+    .uri = "/xml",
+    .method = HTTP_PUT,
+    .handler = handleXML,
     .user_ctx = NULL};
 
-httpd_uri_t uri_tempDown = {
-    .uri = "/tempDown",
-    .method = HTTP_GET,
-    .handler = tempDown,
-    .user_ctx = NULL};
-
-httpd_uri_t uri_clearFirmware = {
-    .uri = "/clearFirmware",
-    .method = HTTP_GET,
-    .handler = clearFirmware,
-    .user_ctx = NULL};
-
-httpd_uri_t uri_hvacModeOff = {
-    .uri = "/hvacModeOff",
-    .method = HTTP_GET,
-    .handler = hvacModeOff,
-    .user_ctx = NULL};
-httpd_uri_t uri_hvacModeAuto = {
-    .uri = "/hvacModeAuto",
-    .method = HTTP_GET,
-    .handler = hvacModeAuto,
-    .user_ctx = NULL};
-httpd_uri_t uri_hvacModeHeat = {
-    .uri = "/hvacModeHeat",
-    .method = HTTP_GET,
-    .handler = hvacModeHeat,
-    .user_ctx = NULL};
-httpd_uri_t uri_hvacModeCool = {
-    .uri = "/hvacModeCool",
-    .method = HTTP_GET,
-    .handler = hvacModeCool,
-    .user_ctx = NULL};
-httpd_uri_t uri_hvacModeFan = {
-    .uri = "/hvacModeFan",
-    .method = HTTP_GET,
-    .handler = hvacModeFan,
-    .user_ctx = NULL};
-
-httpd_uri_t uri_firmwareLoad = {
-	.uri	  = "/upload",
-	.method   = HTTP_GET,
-	.handler  = fwUpload,
-	.user_ctx = NULL
-};
-httpd_uri_t uri_firmwareUpdate = {
-	.uri	  = "/update",
-	.method   = HTTP_POST,
-	.handler  = fwUpdate,
-	.user_ctx = NULL
-};
+//httpd_uri_t uri_tempUp = {
+//    .uri = "/tempUp",
+//    .method = HTTP_GET,
+//    .handler = tempUp,
+//    .user_ctx = NULL};
+//
+//httpd_uri_t uri_tempDown = {
+//    .uri = "/tempDown",
+//    .method = HTTP_GET,
+//    .handler = tempDown,
+//    .user_ctx = NULL};
+//
+//httpd_uri_t uri_clearFirmware = {
+//    .uri = "/clearFirmware",
+//    .method = HTTP_GET,
+//    .handler = clearFirmware,
+//    .user_ctx = NULL};
+//
+//httpd_uri_t uri_hvacModeOff = {
+//    .uri = "/hvacModeOff",
+//    .method = HTTP_GET,
+//    .handler = hvacModeOff,
+//    .user_ctx = NULL};
+//httpd_uri_t uri_hvacModeAuto = {
+//    .uri = "/hvacModeAuto",
+//    .method = HTTP_GET,
+//    .handler = hvacModeAuto,
+//    .user_ctx = NULL};
+//httpd_uri_t uri_hvacModeHeat = {
+//    .uri = "/hvacModeHeat",
+//    .method = HTTP_GET,
+//    .handler = hvacModeHeat,
+//    .user_ctx = NULL};
+//httpd_uri_t uri_hvacModeCool = {
+//    .uri = "/hvacModeCool",
+//    .method = HTTP_GET,
+//    .handler = hvacModeCool,
+//    .user_ctx = NULL};
+//httpd_uri_t uri_hvacModeFan = {
+//    .uri = "/hvacModeFan",
+//    .method = HTTP_GET,
+//    .handler = hvacModeFan,
+//    .user_ctx = NULL};
+//
+//httpd_uri_t uri_firmwareLoad = {
+//	.uri	  = "/upload",
+//	.method   = HTTP_GET,
+//	.handler  = fwUpload,
+//	.user_ctx = NULL
+//};
+//httpd_uri_t uri_firmwareUpdate = {
+//	.uri	  = "/update",
+//	.method   = HTTP_POST,
+//	.handler  = fwUpdate,
+//	.user_ctx = NULL
+//};
 
 void webStart()
 {
@@ -351,16 +384,17 @@ void webStart()
   if (httpd_start(&server, &config) == ESP_OK)
   {
     httpd_register_uri_handler(server, &uri_get);
-    httpd_register_uri_handler(server, &uri_firmwareLoad);
-    httpd_register_uri_handler(server, &uri_firmwareUpdate);
-    httpd_register_uri_handler(server, &uri_tempUp);
-    httpd_register_uri_handler(server, &uri_tempDown);
-    httpd_register_uri_handler(server, &uri_clearFirmware);
-    httpd_register_uri_handler(server, &uri_hvacModeOff);
-    httpd_register_uri_handler(server, &uri_hvacModeAuto);
-    httpd_register_uri_handler(server, &uri_hvacModeHeat);
-    httpd_register_uri_handler(server, &uri_hvacModeCool);
-    httpd_register_uri_handler(server, &uri_hvacModeFan);
+    httpd_register_uri_handler(server, &uri_xml);
+    // httpd_register_uri_handler(server, &uri_firmwareLoad);
+    // httpd_register_uri_handler(server, &uri_firmwareUpdate);
+    // httpd_register_uri_handler(server, &uri_tempUp);
+    // httpd_register_uri_handler(server, &uri_tempDown);
+    // httpd_register_uri_handler(server, &uri_clearFirmware);
+    // httpd_register_uri_handler(server, &uri_hvacModeOff);
+    // httpd_register_uri_handler(server, &uri_hvacModeAuto);
+    // httpd_register_uri_handler(server, &uri_hvacModeHeat);
+    // httpd_register_uri_handler(server, &uri_hvacModeCool);
+    // httpd_register_uri_handler(server, &uri_hvacModeFan);
   }
 
   if (server == NULL)
