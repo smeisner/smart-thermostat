@@ -47,7 +47,7 @@ p{margin:0px;padding:0px}
 <br>
 <div id="firmwareVer"></div>
 <div id="firmwareDt"></div>
-<button onclick=pressButton('update')>Update Firmware</button>
+<button onclick='window.location.href="/upload"'>Update Firmware</button>
 <br><button onclick=pressButton('clearFirmware')>Clear Config</button><br>
 </div>
 </div><br><br><br>
@@ -69,8 +69,8 @@ function createXmlHttpObject() {
 let xmlHttp = createXmlHttpObject();
 function pressButton(buttonID) {
     let xhttp = new XMLHttpRequest();
-    xhttp.open('PUT', buttonID, false);
-    xhttp.send();
+    xhttp.open('PUT', "/button", false);
+    xhttp.send(buttonID);
 }
 
 function fetchMessage(xmlResponse, tag) {
@@ -120,56 +120,56 @@ function process() {
 </html>
 )=====";
 
-const char *web_fw_upload = "\
-<!DOCTYPE html>\
-<html>\
-	<head>\
-		<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\" />\
-		<title>ESP32 OTA Update</title>\
-		<script>\
-			function startUpload() {\
-				var otafile = document.getElementById(\"otafile\").files;\
-				if (otafile.length == 0) {\
-					alert(\"No file selected!\");\
-				} else {\
-					document.getElementById(\"otafile\").disabled = true;\
-					document.getElementById(\"upload\").disabled = true;\
-					var file = otafile[0];\
-					var xhr = new XMLHttpRequest();\
-					xhr.onreadystatechange = function() {\
-						if (xhr.readyState == 4) {\
-							if (xhr.status == 200) {\
-								document.open();\
-								document.write(xhr.responseText);\
-								document.close();\
-							} else if (xhr.status == 0) {\
-								alert(\"Server closed the connection abruptly!\");\
-								location.reload()\
-							} else {\
-								alert(xhr.status + \" Error!\\n\" + xhr.responseText);\
-								location.reload()\
-							}\
-						}\
-					};\
-					xhr.upload.onprogress = function (e) {\
-						var progress = document.getElementById(\"progress\");\
-						progress.textContent = \"Progress: \" + (e.loaded / e.total * 100).toFixed(0) + \"%\";\
-					};\
-					xhr.open(\"POST\", \"/update\", true);\
-					xhr.send(file);\
-				}\
-			}\
-		</script>\
-	</head>\
-	<body>\
-		<h1>ESP32 OTA Firmware Update</h1>\
-		<div>\
-			<label for=\"otafile\">Firmware file:</label>\
-			<input type=\"file\" id=\"otafile\" name=\"otafile\" />\
-		</div>\
-		<div>\
-			<button id=\"upload\" type=\"button\" onclick=\"startUpload()\">Upload</button>\
-		</div>\
-		<div id=\"progress\"></div>\
-	</body>\
-</html>";
+const char *web_fw_upload = R"=====(
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+		<title>ESP32 OTA Update</title>
+		<script>
+			function startUpload() {
+				var otafile = document.getElementById("otafile").files;
+				if (otafile.length == 0) {
+					alert("No file selected!");
+				} else {
+					document.getElementById("otafile").disabled = true;
+					document.getElementById("upload").disabled = true;
+					var file = otafile[0];
+					var xhr = new XMLHttpRequest();
+					xhr.onreadystatechange = function() {
+						if (xhr.readyState == 4) {
+							if (xhr.status == 200) {
+								document.open();
+								document.write(xhr.responseText);
+								document.close();
+							} else if (xhr.status == 0) {
+								alert("Server closed the connection abruptly!");
+								location.reload()
+							} else {
+								alert(xhr.status + " Error!\n" + xhr.responseText);
+								location.reload()
+							}
+						}
+					};
+					xhr.upload.onprogress = function (e) {
+						var progress = document.getElementById("progress");
+						progress.textContent = "Progress: " + (e.loaded / e.total * 100).toFixed(0) + "%";
+					};
+					xhr.open("POST", "/update", true);
+					xhr.send(file);
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<h1>ESP32 OTA Firmware Update</h1>
+		<div>
+			<label for="otafile">Firmware file:</label>
+			<input type="file" id="otafile" name="otafile" />
+		</div>
+		<div>
+			<button id="upload" type="button" onclick="startUpload()">Upload</button>
+		</div>
+		<div id="progress"></div>
+	</body>
+</html>)=====";
