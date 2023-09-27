@@ -12,109 +12,109 @@ p{margin:0px;padding:0px}
 <body onload="process()">
 <h1 class="pd border center">Smart Thermostat Control Panel</h1>
 <div class="center flx">
-    <div class="pd mr border content-box">
-        <div class=center>Thermostat Controls</div>
-        <div class=flx>
-            <div class="temp ctrl" id="setTemp"></div>
-            <div class="pd mr">
-                <button onclick=pressButton('tempUp')>&uarr;</button><br>
-                <button onclick=pressButton('tempDown')>&darr;</button>
-            </div>
-        </div>
-    <p id="hvacMode"></p>
-    <button onclick=pressButton('hvacModeOff')>OFF</button>
-    <button onclick=pressButton('hvacModeAuto')>AUTO</button>
-    <button onclick=pressButton('hvacModeHeat')>HEAT</button>
-    <button onclick=pressButton('hvacModeCool')>COOL</button>
-    <button onclick=pressButton('hvacModeFan')>FAN</button>
+	<div class="pd mr border content-box">
+		<div class=center>Thermostat Controls</div>
+		<div class=flx>
+			<div class="temp ctrl" id="setTemp"></div>
+			<div class="pd mr">
+				<button onclick=pressButton('tempUp')>&uarr;</button><br>
+				<button onclick=pressButton('tempDown')>&darr;</button>
+			</div>
+		</div>
+	<p id="hvacMode"></p>
+	<button onclick=pressButton('hvacModeOff')>OFF</button>
+	<button onclick=pressButton('hvacModeAuto')>AUTO</button>
+	<button onclick=pressButton('hvacModeHeat')>HEAT</button>
+	<button onclick=pressButton('hvacModeCool')>COOL</button>
+	<button onclick=pressButton('hvacModeFan')>FAN</button>
 </div>
 <div class="pd mr border content-box">
-    Current Readings
-    <div class="pd mr temp" id="curTemp"></div>
-    <div id="humidity"></div>
-    <div id="light"></div>
-    <div id="motion"></div>
+	Current Readings
+	<div class="pd mr temp" id="curTemp"></div>
+	<div id="humidity"></div>
+	<div id="light"></div>
+	<div id="motion"></div>
 </div>
 <div class="pd mr border content-box">Thermostat Settings
 <br><br><br><br>
-<div id="units"></div>
-<div id="swing"></div>
-<div id="correction"></div>
+	<div id="units"></div>
+	<div id="swing"></div>
+	<div id="correction"></div>
 </div>
 <div class="pd mr border content-box">System Settings<br><br>
-<div id="wifiStrength"></div>
-<div id="address"></div>
-<br>
-<div id="firmwareVer"></div>
-<div id="firmwareDt"></div>
-<button onclick='window.location.href="/upload"'>Update Firmware</button>
-<br><button onclick=pressButton('clearFirmware')>Clear Config</button><br>
+	<div id="wifiStrength"></div>
+	<div id="address"></div>
+	<br>
+	<div id="firmwareVer"></div>
+	<div id="firmwareDt"></div>
+	<button onclick='window.location.href="/upload"'>Update Firmware</button>
+	<br><button onclick=pressButton('clearFirmware')>Clear Config</button><br>
 </div>
 </div><br><br><br>
 <footer>
-<div id="copyright"></div>
-<a href=https://github.com/smeisner/smart-thermostat target=_blank>Smart Thermostat Project on GitHub</a>
+	<div id="copyright"></div>
+	<a href=https://github.com/smeisner/smart-thermostat target=_blank>Smart Thermostat Project on GitHub</a>
 </footer>
 </body>
 
 <script>
 function createXmlHttpObject() {
-    if (window.XMLHttpRequest) {
-        return new XMLHttpRequest();
-    }
-    else {
-        return new ActiveXObject("Microsoft.XMLHTTP");
-    }
+	if (window.XMLHttpRequest) {
+		return new XMLHttpRequest();
+	}
+	else {
+		return new ActiveXObject("Microsoft.XMLHTTP");
+	}
 }
 let xmlHttp = createXmlHttpObject();
 function pressButton(buttonID) {
-    let xhttp = new XMLHttpRequest();
-    xhttp.open('PUT', "/button", false);
-    xhttp.send(buttonID);
+	let xhttp = new XMLHttpRequest();
+	xhttp.open('PUT', "/button", false);
+	xhttp.send(buttonID);
 }
 
 function fetchMessage(xmlResponse, tag) {
-    let xmlDoc = xmlResponse.getElementsByTagName(tag);
-    return xmlDoc[0].firstChild.nodeValue;
+	let xmlDoc = xmlResponse.getElementsByTagName(tag);
+	return xmlDoc[0].firstChild.nodeValue;
 }
 
 function response() {
-    let xmlResponse = xmlHttp.responseXML;
-    if (xmlResponse == null) //sometimes the xml response is null?
-        return;
+	let xmlResponse = xmlHttp.responseXML;
+	if (xmlResponse == null) //sometimes the xml response is null?
+		return;
 
-    let xmlDoc;
-    let message;
+	let xmlDoc;
+	let message;
 
-    document.getElementById("setTemp").innerHTML = fetchMessage(xmlResponse, "setTemp") + "&deg;" + fetchMessage(xmlResponse, "units");
+	document.getElementById("setTemp").innerHTML = fetchMessage(xmlResponse, "setTemp") + "&deg;" + fetchMessage(xmlResponse, "units");
 
-    document.getElementById("hvacMode").innerHTML = "Set to " + fetchMessage(xmlResponse, "setMode");
-    document.getElementById("hvacMode").innerHTML += " [Current action: " + fetchMessage(xmlResponse, "curMode") + "]";
+	document.getElementById("hvacMode").innerHTML = "Set to " + fetchMessage(xmlResponse, "setMode");
+	document.getElementById("hvacMode").innerHTML += " [Current action: " + fetchMessage(xmlResponse, "curMode") + "]";
 
-    document.getElementById("curTemp").innerHTML = fetchMessage(xmlResponse, "curTemp") + "&deg;" + fetchMessage(xmlResponse, "units");
-    document.getElementById("humidity").innerHTML="Humidity: " + fetchMessage(xmlResponse, "humidity") + "%";
-    document.getElementById("light").innerHTML="Light level: " + fetchMessage(xmlResponse, "light");
-    document.getElementById("motion").innerHTML="Motion detected?: " + fetchMessage(xmlResponse, "motion");
+	document.getElementById("curTemp").innerHTML = fetchMessage(xmlResponse, "curTemp") + "&deg;" + fetchMessage(xmlResponse, "units");
+	document.getElementById("humidity").innerHTML="Humidity: " + fetchMessage(xmlResponse, "humidity") + "%";
+	document.getElementById("light").innerHTML="Light level: " + fetchMessage(xmlResponse, "light");
+	document.getElementById("motion").innerHTML="Motion detected?: " + fetchMessage(xmlResponse, "motion");
 
-    document.getElementById("units").innerHTML="Temp Units: " + fetchMessage(xmlResponse, "units");
-    document.getElementById("swing").innerHTML="Temp Swing: " + fetchMessage(xmlResponse, "swing");
-    document.getElementById("correction").innerHTML="Temp Correction: " + fetchMessage(xmlResponse, "correction");
+	document.getElementById("units").innerHTML="Temp Units: " + fetchMessage(xmlResponse, "units");
+	document.getElementById("swing").innerHTML="Temp Swing: " + fetchMessage(xmlResponse, "swing");
+	document.getElementById("correction").innerHTML="Temp Correction: " + fetchMessage(xmlResponse, "correction");
 
-    document.getElementById("wifiStrength").innerHTML="Wifi Signal Strength: " + fetchMessage(xmlResponse, "wifiStrength");
-    document.getElementById("address").innerHTML="IP: " + fetchMessage(xmlResponse, "address");
+	document.getElementById("wifiStrength").innerHTML="Wifi Signal Strength: " + fetchMessage(xmlResponse, "wifiStrength");
+	document.getElementById("address").innerHTML="IP: " + fetchMessage(xmlResponse, "address");
 
-    document.getElementById("firmwareVer").innerHTML= "Firmware: " + fetchMessage(xmlResponse, "firmwareVer");
-    document.getElementById("firmwareDt").innerHTML= "Built: " + fetchMessage(xmlResponse, "firmwareDt");
+	document.getElementById("firmwareVer").innerHTML= "Firmware: " + fetchMessage(xmlResponse, "firmwareVer");
+	document.getElementById("firmwareDt").innerHTML= "Built: " + fetchMessage(xmlResponse, "firmwareDt");
 
-    document.getElementById("copyright").innerHTML=fetchMessage(xmlResponse, "copyright");
+	document.getElementById("copyright").innerHTML=fetchMessage(xmlResponse, "copyright");
 }
 function process() {
-    if (xmlHttp.readyState==0 || xmlHttp.readyState==4) {
-        xmlHttp.open("PUT", "xml", true);
-        xmlHttp.onreadystatechange=response;
-        xmlHttp.send(null);
-    }
-    setTimeout("process()",200);
+	if (xmlHttp.readyState==0 || xmlHttp.readyState==4) {
+		xmlHttp.open("PUT", "xml", true);
+		xmlHttp.onreadystatechange=response;
+		xmlHttp.send(null);
+	}
+	setTimeout("process()",200);
 }
 </script>
 </html>
