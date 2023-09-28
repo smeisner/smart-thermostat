@@ -23,7 +23,7 @@
 static const char *TAG = "WEB";
 
 static char html[2200];
-static char xml[600];
+static char xml[1000];
 
 void doTempUp(void)
 {
@@ -90,6 +90,10 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -6.5, 1.0);
   else if (!strncmp(content, "correctionDown", BUTTON_CONTENT_SIZE))
     OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -6.5, 1.0);
+  else if (!strncmp(content, "twoStageEnable", BUTTON_CONTENT_SIZE))
+    OperatingParameters.hvac2StageHeatEnable = !OperatingParameters.hvac2StageHeatEnable;
+  else if (!strncmp(content, "reverseEnable", BUTTON_CONTENT_SIZE))
+    OperatingParameters.hvacReverseValveEnable = !OperatingParameters.hvacReverseValveEnable;
   else
     ESP_LOGI(TAG, "Could not dispatch request \"%s\"", content);
 }
@@ -149,6 +153,10 @@ esp_err_t handleXML(httpd_req_t *req)
   snprintf(buf, sizeof(buf), "<hvacCoolEnable>%d</hvacCoolEnable>\n", OperatingParameters.hvacCoolEnable);
   strcat(xml, buf);
   snprintf(buf, sizeof(buf), "<hvacFanEnable>%d</hvacFanEnable>\n", OperatingParameters.hvacFanEnable);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<twoStageEnable>%d</twoStageEnable>\n", OperatingParameters.hvac2StageHeatEnable);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<reverseEnable>%d</reverseEnable>\n", OperatingParameters.hvacReverseValveEnable);
   strcat(xml, buf);
   strcat(xml, "</Data>");;
   return httpd_resp_send(req, xml, strlen(xml));

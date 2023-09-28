@@ -33,7 +33,7 @@ p{margin:0px;padding:0px}
 		<div id="motion"></div>
 	</div>
 	<div class="pd mr border content-box">Thermostat Settings
-	<br><br><br><br>
+	<br><br><br>
 		<div id="units"></div>
 		<span id="swing"></span>
 		<button onclick=pressButton('swingUp')>&uarr;</button>
@@ -43,12 +43,18 @@ p{margin:0px;padding:0px}
 		<button onclick=pressButton('correctionDown')>&darr;</button>
 	</div>
 	<div class="pd mr border content-box">HVAC system settings
-	<br><br><br><br>
+	<br><br><br>
 		<label for="coolCheckBox">Enable HVAC Cooling</label>
 		<span id="coolCheckBox"></span>
 		<br>
 		<label for="fanCheckBox">Enable HVAC Fan</label>
 		<span id="fanCheckBox"></span>
+		<br>
+		<label for="twoStageCheckBox">Enable 2 Stage Heat</label>
+		<span id="twoStageCheckBox"></span>
+		<br>
+		<label for="reverseCheckBox">Enable Reverse Valve</label>
+		<span id="reverseCheckBox"></span>
 	</div>
 	<div class="pd mr border content-box">System Info<br><br>
 		<div id="wifiStrength"></div>
@@ -87,7 +93,7 @@ function fetchMessage(xmlResponse, tag) {
 	return xmlDoc[0].firstChild.nodeValue;
 }
 
-function populateOptionalHvacSettings(hvacCoolEnable, hvacFanEnable) {
+function populateOptionalHvacSettings(hvacCoolEnable, hvacFanEnable, twoStageEnable, reverseEnable) {
 	let hvacButtons = "";
 	hvacButtons += "<button onclick=pressButton('hvacModeOff')>OFF</button>";
 	if (hvacCoolEnable == "1") {
@@ -105,6 +111,14 @@ function populateOptionalHvacSettings(hvacCoolEnable, hvacFanEnable) {
 	} else {
 		document.getElementById("fanCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacFanEnable')>";
 	}
+
+	let twoStageHTML = "<input type='checkbox' onclick=pressButton('twoStageEnable')";
+	twoStageHTML += twoStageEnable == "1" ? " checked>" : ">";
+	let reverseHTML = "<input type='checkbox' onclick=pressButton('reverseEnable')";
+	reverseHTML += reverseEnable == "1" ? " checked>" : ">";
+	document.getElementById("twoStageCheckBox").innerHTML = twoStageHTML;
+	document.getElementById("reverseCheckBox").innerHTML = reverseHTML;
+
 	document.getElementById("hvacButtons").innerHTML = hvacButtons;
 }
 
@@ -134,7 +148,8 @@ function response() {
 	document.getElementById("units").innerHTML="Temp Units: " + fetchMessage(xmlResponse, "units");
 	populateHvacSliders(fetchMessage(xmlResponse, "correction"), fetchMessage(xmlResponse, "swing"));
 
-	populateOptionalHvacSettings(fetchMessage(xmlResponse, 'hvacCoolEnable'), fetchMessage(xmlResponse, 'hvacFanEnable'));
+	populateOptionalHvacSettings(fetchMessage(xmlResponse, 'hvacCoolEnable'), fetchMessage(xmlResponse, 'hvacFanEnable'),
+			fetchMessage(xmlResponse, 'twoStageEnable'), fetchMessage(xmlResponse, 'reverseEnable'));
 
 	document.getElementById("wifiStrength").innerHTML="Wifi Signal Strength: " + fetchMessage(xmlResponse, "wifiStrength");
 	document.getElementById("address").innerHTML="IP: " + fetchMessage(xmlResponse, "address");
