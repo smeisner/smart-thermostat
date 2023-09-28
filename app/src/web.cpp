@@ -70,6 +70,11 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     OperatingParameters.hvacSetMode = FAN;
   else if (!strncmp(content, "clear", BUTTON_CONTENT_SIZE))
     clearNVS();
+  else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
+    OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable;  
+  else if (!strncmp(content, "hvacFanEnable", BUTTON_CONTENT_SIZE)) {
+    OperatingParameters.hvacFanEnable = !OperatingParameters.hvacFanEnable;  
+  }
   else
     ESP_LOGI(TAG, "Could not dispatch request \"%s\"", content);
 }
@@ -79,7 +84,6 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
 esp_err_t handleButton(httpd_req_t *req)
 {
   char content[BUTTON_CONTENT_SIZE];
-  // size_t recv_size = req->content_len < sizeof(content) ? req->content_len : sizeof(content);
   size_t recv_size = min(req->content_len, sizeof(content));
   httpd_resp_set_type(req, "text/xml");
   int ret = httpd_req_recv(req, content, recv_size);
@@ -126,6 +130,10 @@ esp_err_t handleXML(httpd_req_t *req)
   snprintf(buf, sizeof(buf), "<firmwareDt>%s</firmwareDt>\n", VERSION_BUILD_DATE_TIME);
   strcat(xml, buf);
   snprintf(buf, sizeof(buf), "<copyright>%s</copyright>\n", VERSION_COPYRIGHT);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<hvacCoolEnable>%d</hvacCoolEnable>\n", OperatingParameters.hvacCoolEnable);
+  strcat(xml, buf);
+  snprintf(buf, sizeof(buf), "<hvacFanEnable>%d</hvacFanEnable>\n", OperatingParameters.hvacFanEnable);
   strcat(xml, buf);
   strcat(xml, "</Data>");;
   return httpd_resp_send(req, xml, strlen(xml));

@@ -13,43 +13,48 @@ p{margin:0px;padding:0px}
 <h1 class="pd border center">Smart Thermostat Control Panel</h1>
 <div class="center flx">
 	<div class="pd mr border content-box">
-		<div class=center>Thermostat Controls</div>
-		<div class=flx>
-			<div class="temp ctrl" id="setTemp"></div>
-			<div class="pd mr">
-				<button onclick=pressButton('tempUp')>&uarr;</button><br>
-				<button onclick=pressButton('tempDown')>&darr;</button>
+		<div class=center id="thermoControlBox">Thermostat Controls</div>
+			<div class=flx>
+				<div class="temp ctrl" id="setTemp"></div>
+				<div class="pd mr">
+					<button onclick=pressButton('tempUp')>&uarr;</button><br>
+					<button onclick=pressButton('tempDown')>&darr;</button>
+				</div>
 			</div>
-		</div>
-	<p id="hvacMode"></p>
-	<button onclick=pressButton('hvacModeOff')>OFF</button>
-	<button onclick=pressButton('hvacModeAuto')>AUTO</button>
-	<button onclick=pressButton('hvacModeHeat')>HEAT</button>
-	<button onclick=pressButton('hvacModeCool')>COOL</button>
-	<button onclick=pressButton('hvacModeFan')>FAN</button>
-</div>
-<div class="pd mr border content-box">
-	Current Readings
-	<div class="pd mr temp" id="curTemp"></div>
-	<div id="humidity"></div>
-	<div id="light"></div>
-	<div id="motion"></div>
-</div>
-<div class="pd mr border content-box">Thermostat Settings
-<br><br><br><br>
-	<div id="units"></div>
-	<div id="swing"></div>
-	<div id="correction"></div>
-</div>
-<div class="pd mr border content-box">System Settings<br><br>
-	<div id="wifiStrength"></div>
-	<div id="address"></div>
-	<br>
-	<div id="firmwareVer"></div>
-	<div id="firmwareDt"></div>
-	<button onclick='window.location.href="/upload"'>Update Firmware</button>
-	<br><button onclick=pressButton('clearFirmware')>Clear Config</button><br>
-</div>
+		<br>
+		<p id="hvacMode"></p>
+		<span id="hvacButtons"></span>
+	</div>
+	<div class="pd mr border content-box">
+		Current Readings
+		<div class="pd mr temp" id="curTemp"></div>
+		<div id="humidity"></div>
+		<div id="light"></div>
+		<div id="motion"></div>
+	</div>
+	<div class="pd mr border content-box">Thermostat Settings
+	<br><br><br><br>
+		<div id="units"></div>
+		<div id="swing"></div>
+		<div id="correction"></div>
+	</div>
+	<div class="pd mr border content-box">HVAC system settings
+	<br><br><br><br>
+		<label for="coolCheckBox">Enable HVAC Cooling</label>
+		<span id="coolCheckBox"></span>
+		<br>
+		<label for="fanCheckBox">Enable HVAC Fan</label>
+		<span id="fanCheckBox"></span>
+	</div>
+	<div class="pd mr border content-box">System Info<br><br>
+		<div id="wifiStrength"></div>
+		<div id="address"></div>
+		<br>
+		<div id="firmwareVer"></div>
+		<div id="firmwareDt"></div>
+		<button onclick='window.location.href="/upload"'>Update Firmware</button>
+		<br><button onclick=pressButton('clearFirmware')>Clear Config</button><br>
+	</div>
 </div><br><br><br>
 <footer>
 	<div id="copyright"></div>
@@ -78,6 +83,27 @@ function fetchMessage(xmlResponse, tag) {
 	return xmlDoc[0].firstChild.nodeValue;
 }
 
+function populateOptionalHvacSettings(hvacCoolEnable, hvacFanEnable) {
+	let hvacButtons = "";
+	hvacButtons += "<button onclick=pressButton('hvacModeOff')>OFF</button>";
+	if (hvacCoolEnable == "1") {
+		hvacButtons += "<button onclick=pressButton('hvacModeAuto')>AUTO</button>";
+		hvacButtons += "<button onclick=pressButton('hvacModeHeat')>HEAT</button>";
+		hvacButtons += "<button onclick=pressButton('hvacModeCool')>COOL</button>";
+		document.getElementById("coolCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacCoolEnable') checked>";
+	} else {
+		hvacButtons += "<button onclick=pressButton('hvacModeHeat')>HEAT</button>";
+		document.getElementById("coolCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacCoolEnable')>";
+	}
+	if (hvacFanEnable == "1") {
+		hvacButtons += "<button onclick=pressButton('hvacModeFan')>FAN</button>";
+		document.getElementById("fanCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacFanEnable') checked>";
+	} else {
+		document.getElementById("fanCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacFanEnable')>";
+	}
+	document.getElementById("hvacButtons").innerHTML = hvacButtons;
+}
+
 function response() {
 	let xmlResponse = xmlHttp.responseXML;
 	if (xmlResponse == null) //sometimes the xml response is null?
@@ -99,6 +125,8 @@ function response() {
 	document.getElementById("units").innerHTML="Temp Units: " + fetchMessage(xmlResponse, "units");
 	document.getElementById("swing").innerHTML="Temp Swing: " + fetchMessage(xmlResponse, "swing");
 	document.getElementById("correction").innerHTML="Temp Correction: " + fetchMessage(xmlResponse, "correction");
+
+	populateOptionalHvacSettings(fetchMessage(xmlResponse, 'hvacCoolEnable'), fetchMessage(xmlResponse, 'hvacFanEnable'));
 
 	document.getElementById("wifiStrength").innerHTML="Wifi Signal Strength: " + fetchMessage(xmlResponse, "wifiStrength");
 	document.getElementById("address").innerHTML="IP: " + fetchMessage(xmlResponse, "address");
