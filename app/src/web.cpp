@@ -17,6 +17,7 @@
 #include <esp_http_server.h>
 #include <esp_ota_ops.h>
 #include "thermostat.hpp"
+#include "ui/ui.h"
 #include "version.h"
 #include "web_ui.h"
 
@@ -94,6 +95,28 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     OperatingParameters.hvac2StageHeatEnable = !OperatingParameters.hvac2StageHeatEnable;
   else if (!strncmp(content, "reverseEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvacReverseValveEnable = !OperatingParameters.hvacReverseValveEnable;
+  else if (!strncmp(content, "unitToggle", BUTTON_CONTENT_SIZE)) {
+    if (OperatingParameters.tempUnits == 'F') {
+      OperatingParameters.tempSet = (OperatingParameters.tempSet - 32.0) / (9.0/5.0);
+      OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent - 32.0) / (9.0/5.0);
+      OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 5.0 / 9.0;
+      OperatingParameters.tempSwing = OperatingParameters.tempSwing * 5.0 / 9.0;
+      resetTempSmooth();
+      lv_arc_set_range(ui_TempArc, 7*10, 33*10);
+      lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
+      OperatingParameters.tempUnits = 'C';
+    }
+    else {
+      OperatingParameters.tempSet = (OperatingParameters.tempSet * 9.0/5.0) + 32.0;
+      OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent * 9.0/5.0) + 32.0;
+      OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 1.8;
+      OperatingParameters.tempSwing = OperatingParameters.tempSwing * 1.8;
+      resetTempSmooth();
+      lv_arc_set_range(ui_TempArc, 45*10, 92*10);
+      lv_obj_add_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
+      OperatingParameters.tempUnits = 'F';
+    }
+  }
   else
     ESP_LOGI(TAG, "Could not dispatch request \"%s\"", content);
 }

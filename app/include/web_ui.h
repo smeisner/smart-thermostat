@@ -34,7 +34,7 @@ p{margin:0px;padding:0px}
 	</div>
 	<div class="pd mr border content-box">Thermostat Settings
 	<br><br><br>
-		<div id="units"></div>
+		<span id="units"></span><button onclick=pressButton('unitToggle')>toggle</button><br>
 		<span id="swing"></span>
 		<button onclick=pressButton('swingUp')>&uarr;</button>
 		<button onclick=pressButton('swingDown')>&darr;</button><br>
