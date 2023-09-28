@@ -51,6 +51,14 @@ void doTempDown(void)
   eepromUpdateHvacSetTemp();
 }
 
+float enforceRange(float value, float min, float max) {
+  if (value < min)
+    return min;
+  if (value > max)
+    return max;
+  return value;
+}
+
 #define BUTTON_CONTENT_SIZE 30
 void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
 {
@@ -72,9 +80,16 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     clearNVS();
   else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable;  
-  else if (!strncmp(content, "hvacFanEnable", BUTTON_CONTENT_SIZE)) {
+  else if (!strncmp(content, "hvacFanEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvacFanEnable = !OperatingParameters.hvacFanEnable;  
-  }
+  else if (!strncmp(content, "swingUp", BUTTON_CONTENT_SIZE))
+    OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing + 0.1, 0.0, 6.0);
+  else if (!strncmp(content, "swingDown", BUTTON_CONTENT_SIZE))
+    OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing - 0.1, 0.0, 6.0);
+  else if (!strncmp(content, "correctionUp", BUTTON_CONTENT_SIZE))
+    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -6.5, 1.0);
+  else if (!strncmp(content, "correctionDown", BUTTON_CONTENT_SIZE))
+    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -6.5, 1.0);
   else
     ESP_LOGI(TAG, "Could not dispatch request \"%s\"", content);
 }

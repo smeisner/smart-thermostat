@@ -35,8 +35,12 @@ p{margin:0px;padding:0px}
 	<div class="pd mr border content-box">Thermostat Settings
 	<br><br><br><br>
 		<div id="units"></div>
-		<div id="swing"></div>
-		<div id="correction"></div>
+		<span id="swing"></span>
+		<button onclick=pressButton('swingUp')>&uarr;</button>
+		<button onclick=pressButton('swingDown')>&darr;</button><br>
+		<span id="correction"></span>
+		<button onclick=pressButton('correctionUp')>&uarr;</button>
+		<button onclick=pressButton('correctionDown')>&darr;</button>
 	</div>
 	<div class="pd mr border content-box">HVAC system settings
 	<br><br><br><br>
@@ -104,6 +108,11 @@ function populateOptionalHvacSettings(hvacCoolEnable, hvacFanEnable) {
 	document.getElementById("hvacButtons").innerHTML = hvacButtons;
 }
 
+function populateHvacSliders(correction, swing) {
+	document.getElementById("correction").innerHTML="Temp Correction: " + correction;
+	document.getElementById("swing").innerHTML="Temp Swing: " + swing;
+}
+
 function response() {
 	let xmlResponse = xmlHttp.responseXML;
 	if (xmlResponse == null) //sometimes the xml response is null?
@@ -123,8 +132,7 @@ function response() {
 	document.getElementById("motion").innerHTML="Motion detected?: " + fetchMessage(xmlResponse, "motion");
 
 	document.getElementById("units").innerHTML="Temp Units: " + fetchMessage(xmlResponse, "units");
-	document.getElementById("swing").innerHTML="Temp Swing: " + fetchMessage(xmlResponse, "swing");
-	document.getElementById("correction").innerHTML="Temp Correction: " + fetchMessage(xmlResponse, "correction");
+	populateHvacSliders(fetchMessage(xmlResponse, "correction"), fetchMessage(xmlResponse, "swing"));
 
 	populateOptionalHvacSettings(fetchMessage(xmlResponse, 'hvacCoolEnable'), fetchMessage(xmlResponse, 'hvacFanEnable'));
 
