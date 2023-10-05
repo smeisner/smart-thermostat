@@ -66,7 +66,7 @@ void tftHvacModeChange(lv_event_t * e)
 //  OperatingParameters.hvacSetMode = getHvacMode();
   char mode[12];
   lv_dropdown_get_selected_str(ui_ModeDropdown, mode, sizeof(mode));
-  OperatingParameters.hvacSetMode = strToHvacMode(mode);
+  updateHvacMode(strToHvacMode(mode));
 
   switch (OperatingParameters.hvacSetMode)
   {
@@ -287,7 +287,7 @@ void SaveConfigSettings(lv_event_t * e)
 
 #ifdef MATTER_ENABLED
   bool prevMatter = OperatingParameters.MatterEnabled;
-  OperatingParameters.MatterEnabled = lv_obj_has_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+  OperatingParameters.MatterEnabled = lv_obj_has_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
   if (OperatingParameters.MatterEnabled != prevMatter)
   {
     //@@@ Disable all HVAC activity before restarting
@@ -296,6 +296,20 @@ void SaveConfigSettings(lv_event_t * e)
     if (!OperatingParameters.MatterEnabled)
     {
       // MatterFactoryReset() will be called from tftCountDown() func
+      _ui_screen_change(&ui_ThermostatRestart, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0, &ui_ThermostatRestart_screen_init);
+    }
+  }
+#endif
+#ifdef MQTT_ENABLED
+  bool prevMqtt = OperatingParameters.MqttEnabled;
+  OperatingParameters.MqttEnabled = lv_obj_has_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+  if (OperatingParameters.MqttEnabled != prevMqtt)
+  {
+    //@@@ Disable all HVAC activity before restarting
+    printf ("MQTT enablement changed!\n");
+//@@@    wifiSwitchMatterMode();
+    if (!OperatingParameters.MqttEnabled)
+    {
       _ui_screen_change(&ui_ThermostatRestart, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0, &ui_ThermostatRestart_screen_init);
     }
   }
@@ -322,9 +336,26 @@ void LoadConfigSettings(lv_event_t * e)
     lv_obj_clear_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
 #ifdef MATTER_ENABLED
   if (OperatingParameters.MatterEnabled)
-    lv_obj_add_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+    lv_obj_add_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
   else
-    lv_obj_clear_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+    lv_obj_clear_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+
+  lv_obj_add_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+#endif
+#ifdef MQTT_ENABLED
+  if (OperatingParameters.MqttEnabled)
+  {
+    lv_obj_add_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+    lv_obj_clear_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+  }
+  else
+  {
+    lv_obj_clear_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+    lv_obj_add_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+  }
 #endif
 }
 
@@ -379,12 +410,14 @@ bool isCurrentScreenMain()
 }
 
 #ifdef MATTER_ENABLED
+#endif
 
 /**
  * Create a QR Code
  */
 void lv_example_qrcode_1()
 {
+#ifdef MATTER_ENABLED
     lv_color_t bg_color = lv_palette_lighten(LV_PALETTE_LIGHT_BLUE, 5);
     lv_color_t fg_color = lv_palette_darken(LV_PALETTE_BLUE, 4);
 
@@ -404,16 +437,18 @@ void lv_example_qrcode_1()
     /*Add a border with bg_color*/
     lv_obj_set_style_border_color(qr, bg_color, 0);
     lv_obj_set_style_border_width(qr, 5, 0);
+#endif
 }
 
 void ShowQrOnScreen(lv_event_t * e)
 {
+#ifdef MATTER_ENABLED
   printf ("Loading QR and manual pairing codes\n");
   lv_example_qrcode_1();
   lv_label_set_text(ui_ManualPairingCode, OperatingParameters.MatterPairingCode);
+#endif
 }
 
-#endif
 
 void tftCountdown(lv_event_t * e)
 {
@@ -444,6 +479,33 @@ void tftCountdown(lv_event_t * e)
   setWifiCreds();
   printf ("Saving thermostat config\n");
   updateThermostatParams();
-  // printf ("Resetting Matter config and restarting ESP\n");
-  // MatterFactoryReset(); // Will also restart the ESP
+#ifdef MATTER_ENABLED
+  printf ("Resetting Matter config and restarting ESP\n");
+  MatterFactoryReset(); // Will also restart the ESP
+#endif
+}
+
+void loadMqttSettings(lv_event_t * e)
+{
+  lv_textarea_set_text(ui_MqttHostname, OperatingParameters.MqttBrokerHost);
+  lv_textarea_set_text(ui_MqttUsername, OperatingParameters.MqttBrokerUsername);
+  lv_textarea_set_text(ui_MqttPassword, OperatingParameters.MqttBrokerPassword);
+
+  printf ("On load:\n");
+  printf ("  MQTT Broker: %s\n", OperatingParameters.MqttBrokerHost);
+  printf ("  MQTT Username: %s\n", OperatingParameters.MqttBrokerUsername);
+  printf ("  MQTT Password: %s\n", OperatingParameters.MqttBrokerPassword);
+
+}
+
+void saveMqttSettings(lv_event_t * e)
+{
+  strcpy (OperatingParameters.MqttBrokerHost, lv_textarea_get_text(ui_MqttHostname));
+  strcpy (OperatingParameters.MqttBrokerUsername, lv_textarea_get_text(ui_MqttUsername));
+  strcpy (OperatingParameters.MqttBrokerPassword, lv_textarea_get_text(ui_MqttPassword));
+
+  printf ("On save:\n");
+  printf ("  MQTT Broker: %s\n", OperatingParameters.MqttBrokerHost);
+  printf ("  MQTT Username: %s\n", OperatingParameters.MqttBrokerUsername);
+  printf ("  MQTT Password: %s\n", OperatingParameters.MqttBrokerPassword);
 }
