@@ -31,12 +31,11 @@ esp_err_t tempUp(httpd_req_t *req)
   if (OperatingParameters.tempUnits == 'C')
   {
     OperatingParameters.tempSet += 0.5;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
   } else {
     OperatingParameters.tempSet += 1.0;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
-  eepromUpdateHvacSetTemp();
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 
@@ -45,12 +44,11 @@ esp_err_t tempDown(httpd_req_t *req)
   if (OperatingParameters.tempUnits == 'C')
   {
     OperatingParameters.tempSet -= 0.5;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
   } else {
     OperatingParameters.tempSet -= 1.0;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
-  eepromUpdateHvacSetTemp();
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 
@@ -82,36 +80,31 @@ esp_err_t clearFirmware(httpd_req_t *req)
 
 esp_err_t hvacModeOff(httpd_req_t *req)
 {
-  OperatingParameters.hvacSetMode = OFF;
-  eepromUpdateHvacSetMode();
+  updateHvacMode(OFF);
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 
 esp_err_t hvacModeAuto(httpd_req_t *req)
 {
-  OperatingParameters.hvacSetMode = AUTO;
-  eepromUpdateHvacSetMode();
+  updateHvacMode(AUTO);
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 
 esp_err_t hvacModeHeat(httpd_req_t *req)
 {
-  OperatingParameters.hvacSetMode = HEAT;
-  eepromUpdateHvacSetMode();
+  updateHvacMode(HEAT);
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 
 esp_err_t hvacModeCool(httpd_req_t *req)
 {
-  OperatingParameters.hvacSetMode = COOL;
-  eepromUpdateHvacSetMode();
+  updateHvacMode(COOL);
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 
 esp_err_t hvacModeFan(httpd_req_t *req)
 {
-  OperatingParameters.hvacSetMode = FAN;
-  eepromUpdateHvacSetMode();
+  updateHvacMode(FAN);
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 

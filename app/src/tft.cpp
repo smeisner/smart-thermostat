@@ -216,13 +216,13 @@ HVAC_MODE convertSelectedHvacMode()
 
   // Check to see if the selected HVAC mode is now disabled (after config menu)
   if ((OperatingParameters.hvacSetMode == AUTO) && !OperatingParameters.hvacCoolEnable)
-    OperatingParameters.hvacSetMode = OFF;
+    updateHvacMode(OFF);
   if ((OperatingParameters.hvacSetMode == FAN) && !OperatingParameters.hvacFanEnable)
-    OperatingParameters.hvacSetMode = OFF;
+    updateHvacMode(OFF);
   if ((OperatingParameters.hvacSetMode == COOL) && !OperatingParameters.hvacCoolEnable)
-    OperatingParameters.hvacSetMode = OFF;
+    updateHvacMode(OFF);
   if ((OperatingParameters.hvacSetMode == AUX_HEAT) && !OperatingParameters.hvac2StageHeatEnable)
-    OperatingParameters.hvacSetMode = OFF;
+    updateHvacMode(OFF);
 
   // Retrieve currently selected HVAC mode
   strncpy (selMode, hvacModeToString(OperatingParameters.hvacSetMode), sizeof(selMode));

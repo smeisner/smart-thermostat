@@ -25,7 +25,7 @@
 
 #include <string> // for string class
 #include "thermostat.hpp"
-
+#include <esp_mac.h>  // for esp_read_mac()
 #if 0
 
 // This isn't working correctly yet. I believe due to relying on the 
@@ -145,7 +145,8 @@ void WiFi_ScanSSID(void)
     .channel = 0,
     .show_hidden = false,
     .scan_type = WIFI_SCAN_TYPE_ACTIVE,
-    .scan_time = scan_time
+    .scan_time = scan_time,
+    .home_chan_dwell_time = 0
   };
 
   wifiScanActive = true;
@@ -227,39 +228,50 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     return;
   }
 
-	if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
+  if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
   {
     ESP_LOGD(TAG, "  event = STA_START");
-    esp_wifi_connect();
-	}
+#ifdef MATTER_ENABLED
+    if (!OperatingParameters.MatterStarted)
+#endif
+      esp_wifi_connect();
+  }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
     ESP_LOGI(TAG, "  event = STA_DISCONECTED - retry # %d (MAX %d)", s_retry_num, CONFIG_ESP_MAXIMUM_RETRY);
     WifiStatus.Connected = false;
     OperatingParameters.wifiConnected = false;
-		if (s_retry_num < CONFIG_ESP_MAXIMUM_RETRY)
+    if (s_retry_num < CONFIG_ESP_MAXIMUM_RETRY)
     {
-  		ESP_LOGW(TAG, "  connect to the AP failed - retrying");
-      esp_wifi_connect();
-      s_retry_num++;
-		}
+#ifdef MATTER_ENABLED
+      if (!OperatingParameters.MatterStarted)
+      {
+#endif
+        esp_wifi_connect();
+        s_retry_num++;
+        ESP_LOGW(TAG, "  connect to the AP failed - retrying");
+#ifdef MATTER_ENABLED
+      }
+#endif
+    }
     else
     {
       ESP_LOGE(TAG, "  retry count exceeded");
 			xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-		}
-	}
+      wifiConnecting = false;
+    }
+  }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
   {
-		ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-		ESP_LOGI(TAG, "  event = IP_EVENT_STA_GOT_IP - ip: " IPSTR, IP2STR(&event->ip_info.ip));
-		s_retry_num = 0;
-		xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+    ESP_LOGI(TAG, "  event = IP_EVENT_STA_GOT_IP - ip: " IPSTR, IP2STR(&event->ip_info.ip));
+    s_retry_num = 0;
+    xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     WifiStatus.Connected = true;
     OperatingParameters.wifiConnected = true;
     WifiStatus.ip = event->ip_info.ip;
     wifiConnecting = false;
-	}
+  }
 }
 
 void wifiSetHostname(const char *hostname)
@@ -289,10 +301,10 @@ void wifiSetCredentials(const char *ssid, const char *pass)
   }
 
   // Set the wifi parameters
-	wifi_config_t wifi_config;
-	bzero(&wifi_config, sizeof(wifi_config_t));
-	strcpy((char *)wifi_config.sta.ssid, ssid);
-	strcpy((char *)wifi_config.sta.password, pass);
+  wifi_config_t wifi_config;
+  bzero(&wifi_config, sizeof(wifi_config_t));
+  strcpy((char *)wifi_config.sta.ssid, ssid);
+  strcpy((char *)wifi_config.sta.password, pass);
   if (!wasInitialized)
   {
     wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
@@ -302,7 +314,7 @@ void wifiSetCredentials(const char *ssid, const char *pass)
   /* Initialize STA */
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_LOGD(TAG, "- Calling esp_wifi_set_config()");
-	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+  ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
 
   //
   // After creating the driver stack to save the wifi credentials, we
@@ -357,6 +369,49 @@ void wifiDeregisterEventCallbacks()
   s_wifi_event_group = NULL;
 }
 
+#ifdef MATTER_ENABLED
+void wifiSwitchMatterMode()
+{
+  if (OperatingParameters.MatterEnabled)
+  {
+    // Setting MatterStarted keeps networkReconnect task from running
+    OperatingParameters.MatterStarted = true;
+    Serial.printf ("Enabling Matter\n");
+    // Since we are shutting down wifi to enable Matter,
+    // do not allow callbacks to take any action.
+    wifiDeregisterEventCallbacks();
+    Serial.printf ("Shutting down wifi connection\n");
+    WifiDisconnect();
+    Serial.printf ("Unloading wifi driver\n");
+    WifiDeinit();
+    Serial.printf ("Starting Matter API\n");
+    OperatingParameters.MatterStarted = MatterInit();
+    // Serial.printf ("Connecting to wifi\n");
+    // OperatingParameters.wifiConnected =
+    //   wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
+  }
+  else
+  {
+    Serial.printf ("Disabling Matter\n");
+    updateThermostatParams();
+    // ESP restart will happen as part of UI code (see ui_events.cpp)
+  }
+}
+
+void wifiMatterStarted()
+{
+  // wifiSetHostname(WifiCreds.hostname);
+
+  // Add additional wifi details...
+  WifiStatus.wifi_started = true;
+  WifiStatus.if_init = true;
+  WifiStatus.driver_started = true;
+  WifiStatus.Connected = true;
+  // Register callbacks for wifi events
+  // wifiRegisterEventCallbacks();
+}
+#endif
+
 bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 {
   // This code needs to be revisited later after Arduino framework removed.
@@ -365,15 +420,23 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   // Enable debug logging
   // esp_log_level_set("*", ESP_LOG_NONE);
   // esp_log_level_set(TAG, ESP_LOG_WARN);
-  esp_log_level_set("*", ESP_LOG_INFO); 
+  esp_log_level_set("*", ESP_LOG_INFO);
   //
 
-	ESP_LOGI(TAG, "wifiStart()");
+  ESP_LOGI(TAG, "wifiStart()");
 
   nvs_flash_init();
 
   wifiConnecting = true;
- 
+
+#ifdef MATTER_ENABLED
+  if (OperatingParameters.MatterStarted)
+  {
+    ESP_LOGI(TAG, "Matter is already running -- abort wifiStart()");
+    return true;
+  }
+#endif
+
   if (!WifiStatus.driver_started)
   {
     ESP_LOGW(TAG, "  Wifi driver not started; Calling init and create funcs");
@@ -420,6 +483,16 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   }
 
+  // Retrieve the MAC address of the interface
+  esp_read_mac(OperatingParameters.mac, ESP_MAC_WIFI_STA);
+  ESP_LOGI (TAG, "MAC Address: %02x:%02x:%02x:%02x:%02x:%02x",
+    OperatingParameters.mac[0],
+    OperatingParameters.mac[1],
+    OperatingParameters.mac[2],
+    OperatingParameters.mac[3],
+    OperatingParameters.mac[4],
+    OperatingParameters.mac[5]);
+
   ESP_LOGI(TAG, "  Calling esp_wifi_start()");
 	ESP_ERROR_CHECK(esp_wifi_start());
   WifiStatus.wifi_started = true;
@@ -430,45 +503,45 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
     return true;
   }
 
-	/* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
-	 * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
-	esp_err_t ret_value = ESP_OK;
+  /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
+   * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
+  esp_err_t ret_value = ESP_OK;
   ESP_LOGI(TAG, "  Waiting for event callback...");
-	EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-			WIFI_CONNECTED_BIT | WIFI_FAIL_BIT | WIFI_FAIL_ABORTED,
-			pdFALSE,
-			pdFALSE,
-			xTicksToWait);
+  EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
+        WIFI_CONNECTED_BIT | WIFI_FAIL_BIT | WIFI_FAIL_ABORTED,
+        pdFALSE,
+        pdFALSE,
+        xTicksToWait);
 
-	/* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
-	 * happened. */
-	if (bits & WIFI_CONNECTED_BIT)
+  /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
+   * happened. */
+  if (bits & WIFI_CONNECTED_BIT)
   {
-		ESP_LOGI(TAG, "connected to ap SSID:%s password:****", WifiCreds.ssid);
-	}
+    ESP_LOGI(TAG, "connected to ap SSID:%s password:****", WifiCreds.ssid);
+  }
   else if (bits & WIFI_FAIL_BIT)
   {
-		ESP_LOGE(TAG, "Failed to connect to SSID:%s, password:****", WifiCreds.ssid);
-		ret_value = ESP_FAIL;
-	}
+    ESP_LOGE(TAG, "Failed to connect to SSID:%s, password:****", WifiCreds.ssid);
+    ret_value = ESP_FAIL;
+  }
   else if (bits & WIFI_FAIL_ABORTED)
   {
     ESP_LOGE(TAG, "Aborted connect to SSID:%s, password:****", WifiCreds.ssid);
-		ret_value = ESP_FAIL;
+    ret_value = ESP_FAIL;
   }
   else
   {
-		ESP_LOGE(TAG, "UNEXPECTED EVENT");
-		ret_value = ESP_FAIL;
-	}
+    ESP_LOGE(TAG, "UNEXPECTED EVENT");
+    ret_value = ESP_FAIL;
+  }
 
   //
   // Intentionally leave the callbacks in place as they are used to update
   // statuses such as connection status and ip address.
   //
 
-	ESP_LOGD(TAG, "wifi_connect_sta finished.");
-	return (ret_value == ESP_OK);
+  ESP_LOGD(TAG, "wifi_connect_sta finished.");
+  return (ret_value == ESP_OK);
 }
 
 bool wifiConnected()
@@ -592,6 +665,13 @@ void networkReconnectTask(void *pvParameters)
 
 void startReconnectTask()
 {
+#ifdef MATTER_ENABLED
+  if (OperatingParameters.MatterStarted)
+  {
+    ESP_LOGW(TAG, "Network reconnect task -- Matter running ... Exiting");
+    return;
+  }
+#endif
   if (ntReconnectTaskHandler)
   {
     ESP_LOGE(TAG, "Network reconnect task already running ... Exiting");

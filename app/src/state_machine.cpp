@@ -192,6 +192,11 @@ void stateMachine(void *parameter)
 
     OperatingParameters.wifiConnected = wifiConnected();
 
+#ifdef MQTT_ENABLED
+    if ((!OperatingParameters.MqttConnected) && (OperatingParameters.MqttEnabled) && (OperatingParameters.wifiConnected))
+      MqttInit();
+#endif
+
     // Check wifi
 #ifdef MATTER_ENABLED
     if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)) && (!OperatingParameters.MatterStarted))

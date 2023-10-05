@@ -49,7 +49,26 @@ Smoothed<float> sensorHumidity;
 adc_unit_t adcUnit;
 adc_channel_t adcChannel;
 adc_oneshot_unit_handle_t adcHandle;
-#define EXAMPLE_ADC_ATTEN           ADC_ATTEN_DB_11
+#define EXAMPLE_ADC_ATTEN ADC_ATTEN_DB_11
+
+
+void updateHvacMode(HVAC_MODE mode)
+{
+  OperatingParameters.hvacSetMode = mode;
+  eepromUpdateHvacSetMode();
+#ifdef MQTT_ENABLED
+  MqttUpdateStatusTopic();
+#endif
+}
+
+void updateHvacSetTemp(float setTemp)
+{
+  OperatingParameters.tempSet = setTemp;
+  eepromUpdateHvacSetTemp();
+#ifdef MQTT_ENABLED
+  MqttUpdateStatusTopic();
+#endif
+}
 
 /*---------------------------------------------------------------
         ADC Code (for light sensor)
@@ -272,6 +291,9 @@ void updateAht(void *parameter)
 
       ESP_LOGI(TAG, "Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)",
              sensorTemp.get(), temperature, OperatingParameters.tempUnits, sensorHumidity.get(), humidity);
+#ifdef MQTT_ENABLED
+      MqttUpdateStatusTopic();
+#endif
     }
     else
       ESP_LOGE(TAG, "Error reading data: %d (%s)", res, esp_err_to_name(res));

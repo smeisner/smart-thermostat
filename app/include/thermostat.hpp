@@ -37,6 +37,8 @@ typedef enum
 
 typedef struct
 {
+    char DeviceName[32];
+    uint8_t mac[6];
     HVAC_MODE hvacOpMode;
     HVAC_MODE hvacSetMode;
     float tempSet;
@@ -62,6 +64,21 @@ typedef struct
     char *timezone;
     uint16_t timezone_sel;
 
+#ifdef MQTT_ENABLED
+    bool MqttEnabled;
+    bool MqttStarted;
+    bool MqttConnected;
+    char *MqttBrokerHost;
+    uint16_t MqttBrokerPort;
+    char *MqttBrokerUsername;
+    char *MqttBrokerPassword;
+    void *MqttClient;
+#endif
+
+#ifdef MATTER_ENABLED
+    bool MatterEnabled;
+    bool MatterStarted;
+#endif
     //@@@ Zipcode for outside temp??
     //@@@ Calibration data for touchscreen?
 
@@ -121,6 +138,15 @@ int32_t millis();   // Defined in main.cpp
 void showConfigurationData();
 void scanI2cBus();
 
+#ifdef MATTER_ENABLED
+bool MatterInit();
+#endif
+
+#ifdef MQTT_ENABLED
+void MqttInit();
+void MqttUpdateStatusTopic();
+#endif
+
 // State Machine
 void stateCreateTask();
 void serialStart();
@@ -176,6 +202,8 @@ void tftDimDisplay();
 #endif
 
 // Sensors
+void updateHvacMode(HVAC_MODE mode);
+void updateHvacSetTemp(float setTemp);
 // float roundValue(float value, int places = 0);
 float roundValue(float value, int places);
 float getRoundedFrac(float value);

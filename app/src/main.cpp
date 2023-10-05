@@ -17,15 +17,19 @@
  */
 
 #include "thermostat.hpp"
-
 #include "esp_timer.h"
 int32_t millis() { return esp_timer_get_time() / 1000;}
 
 void app_main()
 {
+  printf ("IDF version: %s\n", esp_get_idf_version());
+  printf ("- Free memory: %d bytes\n", esp_get_free_heap_size());
+
   // Load configuration from EEPROM
   printf ("Reading EEPROM\n");
   eepromInit();
+
+  strcpy (OperatingParameters.DeviceName, "BasementTest");
 
   // Initialize the TFT display
   printf ("Initializing TFT\n");
@@ -34,10 +38,25 @@ void app_main()
   printf ("Starting TFT task\n");
   tftCreateTask();
 
+#ifdef MATTER_ENABLED
+  // Start Matter
+  printf ("Starting Matter\n");
+  OperatingParameters.MatterStarted = MatterInit();
+#endif
+
   // Start wifi
   printf ("Starting wifi (\"%s\", \"%s\")\n", WifiCreds.ssid, WifiCreds.password);
   OperatingParameters.wifiConnected = 
-    wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
+    // wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
+    wifiStart(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password);
+
+
+#ifdef MQTT_ENABLED
+  // Start Matter
+  printf ("Starting MQTT\n");
+  MqttInit();
+#endif
+
 
   // Initialize indicators (relays, LEDs, buzzer)
   printf ("Initializing indicators\n");
