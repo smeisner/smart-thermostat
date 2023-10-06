@@ -3,7 +3,7 @@
  * web.cpp
  *
  * This module implements the web UI page. It also provide the
- * initialization of mDNS so the web page can be connected to without 
+ * initialization of mDNS so the web page can be connected to without
  * knowing the IP address.
  *
  * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
@@ -12,6 +12,32 @@
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  18-Aug-2023: Michael Burke (michaelburke2000@gmail.com) - WebUI refresh + reorganization
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *  06-Oct-2023: Michael Burke (michaelburke2000@gmail.com) - Reimplement XML live updating, add more settings to webui
+ *
+ *
+ *
+ * Portions of this module and ../include/web_ui.h come from/are inspired by an example project by Kris Kasprzak.
+ * https://www.youtube.com/watch?v=pL3dhGtmcMY
+ * https://github.com/KrisKasprzak/ESP32_WebPage/tree/main
+ * Kris's project is distributed under an MIT License
+ *  The MIT License (MIT)
+
+  code writen by Kris Kasprzak
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of
+  this software and associated documentation files (the "Software"), to deal in
+  the Software without restriction, including without limitation the rights to
+  use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+  the Software, and to permit persons to whom the Software is furnished to do so,
+  subject to the following conditions:
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+  FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+  COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+  IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #include <esp_http_server.h>
@@ -24,7 +50,7 @@
 static const char *TAG = "WEB";
 
 static char html[2200];
-static char xml[1000];
+static char xml[800];
 
 void doTempUp(void)
 {
@@ -80,9 +106,9 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   else if (!strncmp(content, "clear", BUTTON_CONTENT_SIZE))
     clearNVS();
   else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
-    OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable;  
+    OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable;
   else if (!strncmp(content, "hvacFanEnable", BUTTON_CONTENT_SIZE))
-    OperatingParameters.hvacFanEnable = !OperatingParameters.hvacFanEnable;  
+    OperatingParameters.hvacFanEnable = !OperatingParameters.hvacFanEnable;
   else if (!strncmp(content, "swingUp", BUTTON_CONTENT_SIZE))
     OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing + 0.1, 0.0, 6.0);
   else if (!strncmp(content, "swingDown", BUTTON_CONTENT_SIZE))
@@ -133,55 +159,65 @@ esp_err_t handleButton(httpd_req_t *req)
   buttonDispatch(content);
   return httpd_resp_send(req, 0, 0);
 }
-#undef BUTTON_CONTENT_SIZE
+
+#define CAT_IF_SPACE(xmlBuffer, other, space, request)          \
+  if (space < 0) {                                              \
+    ESP_LOGI(TAG, "XML buffer ran out of space. Aborting...");  \
+    return httpd_resp_send_500(request);                        \
+  }                                                             \
+  strcat(xmlBuffer, other);
 
 esp_err_t handleXML(httpd_req_t *req)
 {
-  httpd_resp_set_type(req, "text/xml");
   char buf[128];
-  strcpy(xml, "<?xml version = '1.0'?><Data>\n");
-  snprintf(buf, sizeof(buf), "<curTemp>%.1f</curTemp>\n", OperatingParameters.tempCurrent + OperatingParameters.tempCorrection);
-  strcat(xml, buf);
+  ssize_t xmlSpace = sizeof(xml) - 1;
+  httpd_resp_set_type(req, "text/xml");
+  xmlSpace -= snprintf(xml, xmlSpace, "<?xml version = '1.0'?><Data>\n");
+  if (xmlSpace < 0)
+    return httpd_resp_send_500(req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<curTemp>%.1f</curTemp>\n", OperatingParameters.tempCurrent + OperatingParameters.tempCorrection);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
   if (OperatingParameters.tempUnits == 'F')
-    snprintf(buf, sizeof(buf), "<setTemp>%.0f</setTemp>\n", OperatingParameters.tempSet);
+    xmlSpace -= snprintf(buf, sizeof(buf), "<setTemp>%.0f</setTemp>\n", OperatingParameters.tempSet);
   else
-    snprintf(buf, sizeof(buf), "<setTemp>%.1f</setTemp>\n", OperatingParameters.tempSet);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<curMode>%s</curMode>\n", hvacModeToString(OperatingParameters.hvacOpMode));
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<setMode>%s</setMode>\n", hvacModeToString(OperatingParameters.hvacSetMode));
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<humidity>%.1f</humidity>\n", OperatingParameters.humidCurrent);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<light>%d</light>\n", OperatingParameters.lightDetected);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<motion>%s</motion>\n", OperatingParameters.motionDetected ? "True" : "False");
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<units>%c</units>\n", OperatingParameters.tempUnits);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<swing>%.1f</swing>\n", OperatingParameters.tempSwing);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<correction>%.1f</correction>\n", OperatingParameters.tempCorrection);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<wifiStrength>%d</wifiStrength>\n", wifiSignal());
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<address>%s</address>\n", wifiAddress());
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<firmwareVer>%s</firmwareVer>\n", VERSION_STRING);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<firmwareDt>%s</firmwareDt>\n", VERSION_BUILD_DATE_TIME);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<copyright>%s</copyright>\n", VERSION_COPYRIGHT);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<hvacCoolEnable>%d</hvacCoolEnable>\n", OperatingParameters.hvacCoolEnable);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<hvacFanEnable>%d</hvacFanEnable>\n", OperatingParameters.hvacFanEnable);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<twoStageEnable>%d</twoStageEnable>\n", OperatingParameters.hvac2StageHeatEnable);
-  strcat(xml, buf);
-  snprintf(buf, sizeof(buf), "<reverseEnable>%d</reverseEnable>\n", OperatingParameters.hvacReverseValveEnable);
-  strcat(xml, buf);
-  strcat(xml, "</Data>");;
+    xmlSpace -= snprintf(buf, sizeof(buf), "<setTemp>%.1f</setTemp>\n", OperatingParameters.tempSet);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<curMode>%s</curMode>\n", hvacModeToString(OperatingParameters.hvacOpMode));
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<setMode>%s</setMode>\n", hvacModeToString(OperatingParameters.hvacSetMode));
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<humidity>%.1f</humidity>\n", OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<light>%d</light>\n", OperatingParameters.lightDetected);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<motion>%s</motion>\n", OperatingParameters.motionDetected ? "True" : "False");
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<units>%c</units>\n", OperatingParameters.tempUnits);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<swing>%.1f</swing>\n", OperatingParameters.tempSwing);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<correction>%.1f</correction>\n", OperatingParameters.tempCorrection);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<wifiStrength>%d</wifiStrength>\n", wifiSignal());
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<address>%s</address>\n", wifiAddress());
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareVer>%s</firmwareVer>\n", VERSION_STRING);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareDt>%s</firmwareDt>\n", VERSION_BUILD_DATE_TIME);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<copyright>%s</copyright>\n", VERSION_COPYRIGHT);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<hvacCoolEnable>%d</hvacCoolEnable>\n", OperatingParameters.hvacCoolEnable);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<hvacFanEnable>%d</hvacFanEnable>\n", OperatingParameters.hvacFanEnable);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<twoStageEnable>%d</twoStageEnable>\n", OperatingParameters.hvac2StageHeatEnable);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<reverseEnable>%d</reverseEnable>\n", OperatingParameters.hvacReverseValveEnable);
+  CAT_IF_SPACE(xml, buf, xmlSpace, req);
+  CAT_IF_SPACE(xml, "</Data>", xmlSpace, req);
+  ESP_LOGI(TAG, "Remaining XML space: %ld", xmlSpace);
   return httpd_resp_send(req, xml, strlen(xml));
 }
 
