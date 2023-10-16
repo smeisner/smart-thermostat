@@ -1,5 +1,23 @@
 #ifdef MQTT_ENABLED
 
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * mqtt.cpp
+ *
+ * Implement support for MQTT and Home Assistant. This module connects to the MQTT broker
+ * (usually running as part of Home Assistant) and provides a discovery MQTT publish. Then
+ * periodically, provide status updates via MQTT publishes.
+ *
+ * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
+ * 
+ * Notes:
+ *
+ * History
+ *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Initial version
+ *  16-Oct-2023: Steve Meisner (steve@meisners.net) - Add support for friendly name & many operational improvements
+ *
+ */
+
 #include <string> // for string class
 #include "thermostat.hpp"
 #include "version.h"
@@ -17,6 +35,7 @@ const char*         g_deviceModel = "Truly Smart Thermostat";                 //
 const char*         g_swVersion = VERSION_STRING;                             // Firmware Version
 const char*         g_manufacturer = "Steve Meisner";                         // Manufacturer Name
 std::string         g_deviceName; // = OperatingParameters.DeviceName;            // Device Name
+std::string         g_friendlyName;
 std::string         g_mqttStatusTopic; // = "SmartThermostat/" + g_deviceName;    // MQTT Topic
 
 struct CustomWriter {
@@ -73,8 +92,8 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
             break;
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-            printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
-            printf("DATA=%.*s\r\n", event->data_len, event->data);
+            ESP_LOGI(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
+            ESP_LOGI(TAG, "DATA=%.*s\r\n", event->data_len, event->data);
             if (strstr(event->topic, "mode"))
             {
                 char m[event->data_len + 1];
@@ -82,12 +101,40 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 m[event->data_len] = '\0';
                 // Make first letter uppercase to match our string representation
                 m[0] = toupper(m[0]);
-                printf ("Looking up %s\n", m);
+                ESP_LOGI(TAG, "Looking up %s\n", m);
                 updateHvacMode (strToHvacMode(m));
             }
             if (strstr(event->topic, "temp"))
             {
-                updateHvacSetTemp (atof(event->data));
+                if (strlen(event->data) > 0 && atof(event->data) != 0)
+                {
+                    updateHvacSetTemp (atof(event->data));
+                }
+                else
+                {
+                    ESP_LOGE(TAG, "Received invalid string for set temp: \"%s\"\n", event->data);
+                }
+            }
+            if (strstr(event->topic, "fan"))
+            {
+                if (strlen(event->data) > 0)
+                {
+                    if (strncmp("on", event->data, event->data_len) == 0)
+                    {
+                        updateHvacMode (FAN_ONLY);
+                    }
+                    else
+                    {
+                        if (OperatingParameters.hvacOpMode == FAN_ONLY)
+                        {
+                            updateHvacMode (OFF);
+                        }
+                    }
+                }
+                else
+                {
+                    ESP_LOGE(TAG, "Received invalid string for set mode: \"%s\"\n", event->data);
+                }
             }
             break;
         case MQTT_EVENT_ERROR:
@@ -97,7 +144,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
     }
 }
 
-void MqttPublish(const char *topic, const char *payload)
+void MqttPublish(const char *topic, const char *payload, bool retain)
 {
     int msg_id;
     if (!OperatingParameters.MqttConnected)
@@ -106,7 +153,7 @@ void MqttPublish(const char *topic, const char *payload)
         return;
     }
     msg_id = esp_mqtt_client_publish(
-        (esp_mqtt_client_handle_t)(OperatingParameters.MqttClient), topic, payload, 0, 0, 0);
+        (esp_mqtt_client_handle_t)(OperatingParameters.MqttClient), topic, payload, 0, 0, (retain ? 1 : 0));
     ESP_LOGV(TAG, "Sent MQTT publish -- msg_id=%d", msg_id);
     xEventGroupSetBits(s_mqtt_event_group, MQTT_EVENT_PUB_BIT);
 }
@@ -126,23 +173,43 @@ void MqttUpdateStatusTopic()
   if (OperatingParameters.MqttEnabled && OperatingParameters.MqttConnected)
   {
     std::string mode = hvacModeToString(OperatingParameters.hvacSetMode);
+    std::string curr_mode = hvacModeToMqttCurrMode(OperatingParameters.hvacOpMode);
     StaticJsonDocument<200> payload;
     // payload["inputstatus"] = "ON";
-    payload["Humidity"] = OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection;
-    payload["Temperature"] = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;
+    std::string hum(16, '\0');
+    auto written = std::snprintf(&hum[0], hum.size(), "%.2f", (OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection));
+    hum.resize(written);
+    payload["Humidity"] = hum;
+    // payload["Humidity"] = OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection;
+    std::string temp(16, '\0');
+    written = std::snprintf(&temp[0], temp.size(), "%.2f", (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection));
+    temp.resize(written);
+    payload["Temperature"] = temp;
+    // payload["Temperature"] = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;
+    //@@@ Should the following line be part of an "else" for the next "if" statement???
     payload["Setpoint"] = OperatingParameters.tempSet;
+
     makeLower(mode.c_str());
     payload["Mode"] = mode;
+
+    makeLower(curr_mode.c_str());
+    payload["CurrMode"] = curr_mode;
+
+    if (OperatingParameters.hvacSetMode == AUTO)
+    {
+        payload["LowSetpoint"] = OperatingParameters.tempSetAutoMin;
+        payload["HighSetpoint"] = OperatingParameters.tempSetAutoMax;
+    }
 
     std::string strPayload;
     serializeJson(payload, strPayload);
     ESP_LOGI (TAG, "%s", strPayload.c_str());
 
     std::string topic;
-    topic = g_mqttStatusTopic + "/status";
+    topic = g_mqttStatusTopic;
     // if(g_mqttPubSub.connected())
     // {
-        MqttPublish(topic.c_str(), strPayload.c_str());
+        MqttPublish(topic.c_str(), strPayload.c_str(), false);
     // }
   }
 }
@@ -155,6 +222,15 @@ void MqttHomeAssistantDiscovery()
     std::string discoveryTopic;
     std::string payload;
     std::string strPayload;
+
+    // printf ("Status of MQTT connectedion: %s\n", (g_mqttPubSub.connected() ? "Connected" : "NOT Connected"));
+
+    if (!OperatingParameters.MqttEnabled || !OperatingParameters.MqttConnected)
+    // if (!OperatingParameters.MqttEnabled || !OperatingParameters.MqttStarted)
+    {
+        ESP_LOGE(TAG, "MQTT not enabled or not connected!");
+        return;
+    }
 
     // if(g_mqttPubSub.connected())
     {
@@ -182,7 +258,7 @@ void MqttHomeAssistantDiscovery()
         // printf ("Mac: %s\n", mac);
 
         // payload["name"] = g_deviceName + ".temp";
-        payload["name"] = g_deviceName;
+        payload["name"] = ""; //@@@g_friendlyName;
         // payload["uniq_id"] = UniqueId + "_temp";
         payload["uniq_id"] = mac;
         // payload["power_command_topic"] = g_deviceName + "/power/set";
@@ -191,21 +267,42 @@ void MqttHomeAssistantDiscovery()
         modes.add("off");
         modes.add("heat");
         if (OperatingParameters.hvacCoolEnable)
+        {
             modes.add("cool");
-        if (OperatingParameters.hvacFanEnable)
-            modes.add("fan");
-        if ((OperatingParameters.hvacCoolEnable) || (OperatingParameters.hvacFanEnable))
             modes.add("auto");
+        }
+        if (OperatingParameters.hvacFanEnable)
+            modes.add("fan_only");
 
+        payload["~"] = g_mqttStatusTopic;
+        payload["act_t"] = "~";
+        payload["act_tpl"] = "{{ value_json.CurrMode }}";
         // payload["stat_t"] = g_mqttStatusTopic + "/temperature";
-        payload["curr_temp_t"] = g_mqttStatusTopic + "/status";
+        payload["curr_temp_t"] = "~";
         payload["curr_temp_tpl"] = "{{ value_json.Temperature|float }}";
-        payload["temp_stat_t"] = g_mqttStatusTopic + "/status";
+        payload["temp_stat_t"] = "~";
         payload["temp_stat_tpl"] = "{{ value_json.Setpoint }}";
-        payload["mode_stat_t"] = g_mqttStatusTopic + "/status";
+        payload["mode_stat_t"] = "~";
         payload["mode_stat_tpl"] = "{{ value_json.Mode }}";
-        payload["current_humidity_topic"] = g_mqttStatusTopic + "/status";
+        payload["current_humidity_topic"] = "~";
         payload["current_humidity_template"] = "{{ value_json.Humidity|float }}";
+        if (OperatingParameters.hvacFanEnable)
+        {
+            payload["fan_mode_stat_t"] = "~";
+            payload["fan_mode_stat_tpl"] = "{{ value_json.Mode }}";
+            payload["fan_mode_cmd_t"] = g_deviceName + "/set/fan";
+            modes = payload.createNestedArray("fan_modes");
+            modes.add("off");
+            modes.add("on");
+        }
+        if (OperatingParameters.hvacCoolEnable)
+        {
+            // Auto is enabled, so we need to specify hi & lo temps
+            payload["temp_lo_stat_t"] = "~";
+            payload["temp_lo_stat_tpl"] = "{{ value_json.LowSetpoint }}";
+            payload["temp_hi_stat_t"] = "~";
+            payload["temp_hi_stat_tpl"] = "{{ value_json.HighSetpoint }}";
+        }
 
         payload["mode_cmd_t"] = g_deviceName + "/set/mode";
         payload["temp_cmd_t"] = g_deviceName + "/set/temp";
@@ -216,10 +313,12 @@ void MqttHomeAssistantDiscovery()
         payload["temp_unit"] = &OperatingParameters.tempUnits;
 
         device = payload.createNestedObject("device");
-        device["name"] = g_deviceName;
-        device["model"] = g_deviceModel;
-        device["sw_version"] = g_swVersion;
-        device["manufacturer"] = g_manufacturer;
+        device["name"] = g_friendlyName;
+        device["mdl"] = g_deviceModel;
+        device["sw"] = g_swVersion;
+        device["mf"] = g_manufacturer;
+        std::string ip = wifiAddress();
+        device["cu"] = "http://" + ip;     //@@@ Must be updated if dhcp address changes
 
         identifiers = device.createNestedArray("identifiers");
         identifiers.add(mac);
@@ -229,7 +328,7 @@ void MqttHomeAssistantDiscovery()
         ESP_LOGI (TAG, "Payload: %s", strPayload.c_str());
 
         // g_mqttPubSub.publish(discoveryTopic.c_str(), strPayload.c_str());
-        MqttPublish(discoveryTopic.c_str(), strPayload.c_str());
+        MqttPublish(discoveryTopic.c_str(), strPayload.c_str(), true);
 
         EventBits_t bits = xEventGroupWaitBits(s_mqtt_event_group,
             MQTT_EVENT_PUB_BIT | MQTT_ERROR_BIT,
@@ -272,7 +371,7 @@ void MqttHomeAssistantDiscovery()
         printf ("Payload: %s\n", strPayload.c_str());
 
         // g_mqttPubSub.publish(discoveryTopic.c_str(), strPayload.c_str());
-        MqttPublish(discoveryTopic.c_str(), strPayload.c_str());
+        MqttPublish(discoveryTopic.c_str(), strPayload.c_str(), true);
 
         bits = xEventGroupWaitBits(s_mqtt_event_group,
             MQTT_EVENT_PUB_BIT | MQTT_ERROR_BIT,
@@ -327,26 +426,34 @@ void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic)
 }
 
 
-static void MqttConnect(void)
+bool MqttConnect(void)
 {
 	ESP_LOGI(__FUNCTION__, "Waiting for MQTT...");
 	esp_mqtt_client_config_t mqtt_cfg;
 	memset(&mqtt_cfg, 0, sizeof(esp_mqtt_client_config_t));
 
-    OperatingParameters.MqttBrokerHost = (char *)malloc(64);
-    strcpy (OperatingParameters.MqttBrokerHost, "mqtt://hass.meisners.net:1883");
-    OperatingParameters.MqttBrokerUsername = (char *)malloc(16);
-    strcpy (OperatingParameters.MqttBrokerUsername, "homeassistant");
-    OperatingParameters.MqttBrokerPassword = (char *)malloc(72);
-    strcpy (OperatingParameters.MqttBrokerPassword, "einiiZeiphah4ish0Rowae7doh0OhNg6wahngohmie4iNae1meipainaeyijai5i");
+    // Build up the fully qualified MQTT URI host string
+    char port[16];
+    snprintf (port, 15, "%d", OperatingParameters.MqttBrokerPort);
+    std::string _host = OperatingParameters.MqttBrokerHost;
+    std::string host = "mqtt://" + _host + ":" + port;
 
-    printf ("Broker:   %s\n", OperatingParameters.MqttBrokerHost);
-    printf ("Username: %s\n", OperatingParameters.MqttBrokerUsername);
-    printf ("Password: %s\n", OperatingParameters.MqttBrokerPassword);
+//@@@
+    // OperatingParameters.MqttBrokerHost = (char *)malloc(64);
+    // strcpy (OperatingParameters.MqttBrokerHost, "mqtt://hass.meisners.net:1883");
+    // OperatingParameters.MqttBrokerUsername = (char *)malloc(16);
+    // strcpy (OperatingParameters.MqttBrokerUsername, "homeassistant");
+    // OperatingParameters.MqttBrokerPassword = (char *)malloc(72);
+    // strcpy (OperatingParameters.MqttBrokerPassword, "einiiZeiphah4ish0Rowae7doh0OhNg6wahngohmie4iNae1meipainaeyijai5i");
+
+    ESP_LOGI(TAG, "FQDN Broker: %s\n", host.c_str());
+    ESP_LOGI(TAG, "Broker:    %s\n", OperatingParameters.MqttBrokerHost);
+    ESP_LOGI(TAG, "Username:  %s\n", OperatingParameters.MqttBrokerUsername);
+    ESP_LOGI(TAG, "Password:  %s\n", OperatingParameters.MqttBrokerPassword);
     // mqtt_cfg.broker.address.uri = "mqtt://iot.eclipse.org";
     // mqtt_cfg.broker.address.uri = "mqtt://test.mosquitto.org:1883";
     // mqtt_cfg.broker.address.transport = MQTT_TRANSPORT_OVER_TCP;
-    mqtt_cfg.broker.address.uri = OperatingParameters.MqttBrokerHost;
+    mqtt_cfg.broker.address.uri = host.c_str();
     // mqtt_cfg.broker.address.hostname = "mqtt://homeassistant.meisners.net:1883";
     // mqtt_cfg.broker.address.port = 1883;
     // mqtt_cfg.credentials.username = "mqtt";
@@ -378,7 +485,10 @@ static void MqttConnect(void)
         xTicksToWait);
 
     if (bits & MQTT_ERROR_BIT)
+    {
         ESP_LOGE (TAG, "MQTT Connect failed");
+        return false;
+    }
 
     if (bits & MQTT_EVENT_CONNECTED_BIT)
     {
@@ -387,6 +497,11 @@ static void MqttConnect(void)
         // MqttSubscribeTopic(client, g_deviceName + "/set/temp");
         MqttSubscribeTopic(client, g_deviceName + "/set/#");
     }
+
+    // Send discovery packet to let all listeners know we have arrived
+    MqttHomeAssistantDiscovery();
+
+    return true;
 }
 
 //@@@ Need a reconnect function
@@ -396,6 +511,13 @@ static void MqttConnect(void)
 
 void MqttInit()
 {
+    esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
+    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
+    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+
     if (!OperatingParameters.MqttEnabled)
     {
         ESP_LOGW(TAG, "MQTT is not enabled!");
@@ -408,21 +530,10 @@ void MqttInit()
         return;
     }
 
-    esp_log_level_set("*", ESP_LOG_INFO);
-    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
-    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
-
     g_deviceName = OperatingParameters.DeviceName;
+    g_friendlyName = OperatingParameters.FriendlyName;
     g_mqttStatusTopic = g_deviceName + "/status";
 
-    MqttConnect();
-
-    MqttHomeAssistantDiscovery();
-
-    // MqttUpdateStatusTopic();
 }
 
 #endif  // #ifdef MQTT_ENABLED

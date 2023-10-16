@@ -25,6 +25,7 @@ void loadMqttSettings(lv_event_t * e);
 void LoadUncommonSettings(lv_event_t * e);
 void SaveConfigSettings(lv_event_t * e);
 void tftCalibrate(lv_event_t * e);
+void loadDeviceName(lv_event_t * e);
 void tftUpdateUiSleepValue(lv_event_t * e);
 void tftClearPsk(lv_event_t * e);
 void SaveUncommonConfigSettings(lv_event_t * e);
@@ -32,8 +33,9 @@ void StartWifiScan(lv_event_t * e);
 void tftSetNewWifi(lv_event_t * e);
 void stopWifiScan(lv_event_t * e);
 void ShowQrOnScreen(lv_event_t * e);
-void tftCountdown(lv_event_t * e);
 void saveMqttSettings(lv_event_t * e);
+void saveDeviceName(lv_event_t * e);
+void tftCountdown(lv_event_t * e);
 
 #ifdef __cplusplus
 } /*extern "C"*/

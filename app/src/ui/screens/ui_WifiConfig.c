@@ -30,7 +30,7 @@ lv_obj_set_height( ui_PSK, LV_SIZE_CONTENT);   /// 33
 lv_obj_set_x( ui_PSK, -55 );
 lv_obj_set_y( ui_PSK, -21 );
 lv_obj_set_align( ui_PSK, LV_ALIGN_CENTER );
-lv_textarea_set_placeholder_text(ui_PSK,"Placeholder...");
+lv_textarea_set_placeholder_text(ui_PSK,"Password");
 lv_textarea_set_one_line(ui_PSK,true);
 lv_obj_set_style_text_font(ui_PSK, &lv_font_montserrat_20, LV_PART_MAIN| LV_STATE_DEFAULT);
 

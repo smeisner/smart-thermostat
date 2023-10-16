@@ -9,10 +9,12 @@
  * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
  * 
  * Notes:
+ *   Need to add support for reversing valve (when aux heat enabled)
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
  * 
  */
 
@@ -57,9 +59,9 @@ void stateMachine(void *parameter)
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
     }
-    else if (OperatingParameters.hvacSetMode == FAN)
+    else if (OperatingParameters.hvacSetMode == FAN_ONLY)
     {
-      OperatingParameters.hvacOpMode = FAN;
+      OperatingParameters.hvacOpMode = FAN_ONLY;
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
@@ -172,7 +174,7 @@ void stateMachine(void *parameter)
       }
     }
 
-    if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN) && (OperatingParameters.hvacSetMode != OFF))
+    if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN_ONLY) && (OperatingParameters.hvacSetMode != OFF))
     {
       OperatingParameters.hvacOpMode = IDLE;
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
@@ -194,7 +196,9 @@ void stateMachine(void *parameter)
 
 #ifdef MQTT_ENABLED
     if ((!OperatingParameters.MqttConnected) && (OperatingParameters.MqttEnabled) && (OperatingParameters.wifiConnected))
-      MqttInit();
+      // MqttInit();
+      //@@@ Should be a "reconnect"
+      MqttConnect();
 #endif
 
     // Check wifi
@@ -260,17 +264,10 @@ void stateCreateTask()
   xTaskCreate(
       stateMachine,
       "State Machine",
-      4096,
+      8192,
       NULL,
       tskIDLE_PRIORITY - 1,
       NULL);
-}
-
-void testToggleRelays()
-{
-  vTaskDelay(pdMS_TO_TICKS(500));
-  gpio_reset_pin((gpio_num_t)HVAC_HEAT_PIN);
-  gpio_set_direction((gpio_num_t)HVAC_HEAT_PIN, GPIO_MODE_OUTPUT);
 }
 
 void serialStart()

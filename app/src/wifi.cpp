@@ -271,6 +271,10 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     OperatingParameters.wifiConnected = true;
     WifiStatus.ip = event->ip_info.ip;
     wifiConnecting = false;
+    #ifdef MQTT_ENABLED
+    //@@@ Is this necessary when the IP address changes (lease expires)?
+    // MqttHomeAssistantDiscovery();
+    #endif
   }
 }
 
@@ -650,7 +654,7 @@ void networkReconnectTask(void *pvParameters)
 
   lastWifiMillis = millis();
 
-  if (wifiReconnect(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password) == true)
+  if (wifiReconnect(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password) == true)
   {
     OperatingParameters.wifiConnected = true;
   }

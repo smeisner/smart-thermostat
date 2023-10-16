@@ -12,6 +12,7 @@
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *  16-Oct-2023: Steve Meisner (steve@meisners.net) - Init relay pins for output
  *
  */
 
@@ -115,6 +116,24 @@ void audioBeep()
 //   //configure GPIO with the given settings
 //   gpio_config(&io_conf);
 // }
+
+void initRelays()
+{
+  vTaskDelay(pdMS_TO_TICKS(500));
+
+  gpio_reset_pin((gpio_num_t)HVAC_HEAT_PIN);
+  gpio_set_direction((gpio_num_t)HVAC_HEAT_PIN, GPIO_MODE_OUTPUT);
+
+  gpio_reset_pin((gpio_num_t)HVAC_COOL_PIN);
+  gpio_set_direction((gpio_num_t)HVAC_COOL_PIN, GPIO_MODE_OUTPUT);
+
+  gpio_reset_pin((gpio_num_t)HVAC_FAN_PIN);
+  gpio_set_direction((gpio_num_t)HVAC_FAN_PIN, GPIO_MODE_OUTPUT);
+
+  gpio_reset_pin((gpio_num_t)HVAC_RVALV_PIN);
+  gpio_set_direction((gpio_num_t)HVAC_RVALV_PIN, GPIO_MODE_OUTPUT);
+}
+
 
 void indicatorsInit()
 {

@@ -20,6 +20,7 @@
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
  * 
  */
 
@@ -164,22 +165,39 @@ void tftUpdateDisplay()
   switch (OperatingParameters.hvacOpMode)
   {
     // Set color of inner circle representing the operating mode
-    case HEAT: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0xa00b0b), LV_PART_MAIN); break;
-    case COOL: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x435deb), LV_PART_MAIN); break;
-    case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x3c8945), LV_PART_MAIN); break;  //@@@
-    default:   lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x7a92b2), LV_PART_MAIN); break;
+    case HEAT:     lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0xa00b0b), LV_PART_MAIN); break;
+    case COOL:     lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x435deb), LV_PART_MAIN); break;
+    case FAN_ONLY: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x3c8945), LV_PART_MAIN); break;  //@@@
+    default:       lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x7a92b2), LV_PART_MAIN); break;
   }
   switch (OperatingParameters.hvacSetMode)
   {
     // Set color of outer circle representing the enabled or set mode
     case AUX_HEAT:
-    case HEAT: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
-    case COOL: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
-    case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x23562b), LV_PART_MAIN); break;  //@@@
-    case AUTO: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
-    default:   lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
+    case HEAT:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
+    case COOL:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
+    case FAN_ONLY: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x23562b), LV_PART_MAIN); break;  //@@@
+    case AUTO:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
+    default:       lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
   }
 }
+
+#ifdef MQTT_ENABLED
+const char *hvacModeToMqttCurrMode(HVAC_MODE mode)
+{
+  switch (mode)
+  {
+    case OFF: return "off";
+    case IDLE: return "idle";
+    case AUTO: return "auto";
+    case HEAT: return "heating";
+    case COOL: return "cooling";
+    case FAN_ONLY: return "Fan_only";
+    case AUX_HEAT: return "Aux Heat";
+    default: return "Error";
+  }
+}
+#endif
 
 const char *hvacModeToString(HVAC_MODE mode)
 {
@@ -190,7 +208,7 @@ const char *hvacModeToString(HVAC_MODE mode)
     case AUTO: return "Auto";
     case HEAT: return "Heat";
     case COOL: return "Cool";
-    case FAN:  return "Fan";
+    case FAN_ONLY: return "Fan_only";
     case AUX_HEAT: return "Aux Heat";
     default:   return "Error";
   }
@@ -217,7 +235,7 @@ HVAC_MODE convertSelectedHvacMode()
   // Check to see if the selected HVAC mode is now disabled (after config menu)
   if ((OperatingParameters.hvacSetMode == AUTO) && !OperatingParameters.hvacCoolEnable)
     updateHvacMode(OFF);
-  if ((OperatingParameters.hvacSetMode == FAN) && !OperatingParameters.hvacFanEnable)
+  if ((OperatingParameters.hvacSetMode == FAN_ONLY) && !OperatingParameters.hvacFanEnable)
     updateHvacMode(OFF);
   if ((OperatingParameters.hvacSetMode == COOL) && !OperatingParameters.hvacCoolEnable)
     updateHvacMode(OFF);
@@ -251,7 +269,7 @@ void setHvacModesDropdown()
   {
     if ((n == AUTO) && !OperatingParameters.hvacCoolEnable)
       continue;
-    if ((n == FAN) && !OperatingParameters.hvacFanEnable)
+    if ((n == FAN_ONLY) && !OperatingParameters.hvacFanEnable)
       continue;
     if ((n == COOL) && !OperatingParameters.hvacCoolEnable)
       continue;
@@ -426,7 +444,7 @@ void tftCreateTask()
   xTaskCreate (
       tftPump,
       "Touch Screen UI",
-      4096,
+      8192,
       NULL,
       tskIDLE_PRIORITY+1,
       &xTouchUIHandle

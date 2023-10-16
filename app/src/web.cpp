@@ -104,7 +104,7 @@ esp_err_t hvacModeCool(httpd_req_t *req)
 
 esp_err_t hvacModeFan(httpd_req_t *req)
 {
-  updateHvacMode(FAN);
+  updateHvacMode(FAN_ONLY);
   return httpd_resp_send(req, serverRedirect, strlen(serverRedirect));
 }
 
@@ -339,6 +339,7 @@ void webStart()
   }
 
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+  config.max_uri_handlers = 11;
   httpd_handle_t server = NULL;
 
   if (httpd_start(&server, &config) == ESP_OK)

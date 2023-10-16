@@ -97,6 +97,9 @@ extern lv_obj_t *ui_SetupHomeBtn;
 extern lv_obj_t *ui_SetupHomeLabel;
 extern lv_obj_t *ui_HomeAutomationLabel;
 extern lv_obj_t *ui_HomeAutomationCheckbox;
+void ui_event_SetupCancelBtn( lv_event_t * e);
+extern lv_obj_t *ui_SetupCancelBtn;
+extern lv_obj_t *ui_SetupCancelLabel;
 // SCREEN: ui_LessCommonSetup
 void ui_LessCommonSetup_screen_init(void);
 void ui_event_LessCommonSetup( lv_event_t * e);
@@ -104,6 +107,8 @@ extern lv_obj_t *ui_LessCommonSetup;
 void ui_event_CalibrateBtn( lv_event_t * e);
 extern lv_obj_t *ui_CalibrateBtn;
 extern lv_obj_t *ui_CalibrateLabel;
+void ui_event_DevNameBtn( lv_event_t * e);
+extern lv_obj_t *ui_DevNameBtn;
 extern lv_obj_t *ui_TimezoneLabel1;
 extern lv_obj_t *ui_TimezoneDropdown;
 extern lv_obj_t *ui_UiSleepTextLabel;
@@ -122,6 +127,10 @@ extern lv_obj_t *ui_SetupWifiLabel;
 void ui_event_SetupHomeBtn2( lv_event_t * e);
 extern lv_obj_t *ui_SetupHomeBtn2;
 extern lv_obj_t *ui_SetupHomeLabel2;
+extern lv_obj_t *ui_DevNameLabel;
+void ui_event_UncommonCancelBtn( lv_event_t * e);
+extern lv_obj_t *ui_UncommonCancelBtn;
+extern lv_obj_t *ui_UncommonCancelLabel;
 // SCREEN: ui_WifiConfig
 void ui_WifiConfig_screen_init(void);
 extern lv_obj_t *ui_WifiConfig;
@@ -150,12 +159,6 @@ extern lv_obj_t *ui_QrHomeBtn;
 extern lv_obj_t *ui_SetupHomeLabel1;
 extern lv_obj_t *ui_QRImage;
 extern lv_obj_t *ui_ManualPairingCode;
-// SCREEN: ui_ThermostatRestart
-void ui_ThermostatRestart_screen_init(void);
-void ui_event_ThermostatRestart( lv_event_t * e);
-extern lv_obj_t *ui_ThermostatRestart;
-extern lv_obj_t *ui_Notification;
-extern lv_obj_t *ui_RestartCountdown;
 // SCREEN: ui_MqttConfig
 void ui_MqttConfig_screen_init(void);
 extern lv_obj_t *ui_MqttConfig;
@@ -166,13 +169,30 @@ void ui_event_MqttUsername( lv_event_t * e);
 extern lv_obj_t *ui_MqttUsername;
 void ui_event_MqttPassword( lv_event_t * e);
 extern lv_obj_t *ui_MqttPassword;
-extern lv_obj_t *ui_MqttPwdLabel;
 void ui_event_MqttSaveBtn( lv_event_t * e);
 extern lv_obj_t *ui_MqttSaveBtn;
 extern lv_obj_t *ui_MqttSaveLabel;
 void ui_event_MqttCancelBtn( lv_event_t * e);
 extern lv_obj_t *ui_MqttCancelBtn;
 extern lv_obj_t *ui_MqttCancelLabel;
+// SCREEN: ui_DeviceName
+void ui_DeviceName_screen_init(void);
+extern lv_obj_t *ui_DeviceName;
+extern lv_obj_t *ui_DevNameKeyboard;
+void ui_event_DeviceHostname( lv_event_t * e);
+extern lv_obj_t *ui_DeviceHostname;
+void ui_event_DevNameSaveBtn( lv_event_t * e);
+extern lv_obj_t *ui_DevNameSaveBtn;
+extern lv_obj_t *ui_DevNameSaveLabel;
+void ui_event_DevNameCancelBtn( lv_event_t * e);
+extern lv_obj_t *ui_DevNameCancelBtn;
+extern lv_obj_t *ui_DevNameCancelLabel;
+// SCREEN: ui_ThermostatRestart
+void ui_ThermostatRestart_screen_init(void);
+void ui_event_ThermostatRestart( lv_event_t * e);
+extern lv_obj_t *ui_ThermostatRestart;
+extern lv_obj_t *ui_Notification;
+extern lv_obj_t *ui_RestartCountdown;
 extern lv_obj_t *ui____initial_actions0;
 
 

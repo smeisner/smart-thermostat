@@ -1,6 +1,6 @@
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 6
+#define VERSION_MINOR 7
 #define VERSION_BUILD 0
 
 #define VERSION_BUILD_DATE __DATE__

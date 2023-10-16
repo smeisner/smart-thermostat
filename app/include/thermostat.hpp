@@ -17,7 +17,6 @@
 #define LOW 0
 
 
-
 /////////////////////////////////////////////////////////////////////
 //     Shared data structures
 /////////////////////////////////////////////////////////////////////
@@ -28,7 +27,7 @@ typedef enum
     AUTO,
     HEAT,
     COOL,
-    FAN,
+    FAN_ONLY,
     AUX_HEAT,
     ERROR,
     IDLE
@@ -37,6 +36,10 @@ typedef enum
 
 typedef struct
 {
+    // FriendlyName and DeviceName must be
+    // the same size due to copy operation
+    // in ui_events.cpp, saveDeviceName()
+    char FriendlyName[32];
     char DeviceName[32];
     uint8_t mac[6];
     HVAC_MODE hvacOpMode;
@@ -66,13 +69,13 @@ typedef struct
 
 #ifdef MQTT_ENABLED
     bool MqttEnabled;
-    bool MqttStarted;
+    // bool MqttStarted;
     bool MqttConnected;
-    char *MqttBrokerHost;
+    char MqttBrokerHost[32];
     uint16_t MqttBrokerPort;
-    char *MqttBrokerUsername;
-    char *MqttBrokerPassword;
-    void *MqttClient;
+    char MqttBrokerUsername[32];
+    char MqttBrokerPassword[72];
+    void *MqttClient;   // Used during MQTT publish
 #endif
 
 #ifdef MATTER_ENABLED
@@ -86,7 +89,7 @@ typedef struct
 
 typedef struct
 {
-    char hostname[24];
+    // char hostname[24];   ...replaced by OperatingParameters.DeviceName
     char ssid[24];
     char password[16];
 
@@ -144,7 +147,9 @@ bool MatterInit();
 
 #ifdef MQTT_ENABLED
 void MqttInit();
+bool MqttConnect();
 void MqttUpdateStatusTopic();
+void MqttHomeAssistantDiscovery();
 #endif
 
 // State Machine
@@ -183,6 +188,9 @@ void tftCreateTask();
 HVAC_MODE strToHvacMode(char *mode);
 HVAC_MODE convertSelectedHvacMode();
 void setHvacModesDropdown();
+#ifdef MQTT_ENABLED
+const char *hvacModeToMqttCurrMode(HVAC_MODE mode);
+#endif
 const char *hvacModeToString(HVAC_MODE mode);
 extern volatile bool tftMotionTrigger;
 
@@ -213,7 +221,7 @@ float getRoundedFrac(float value);
 // float degFtoC(float degF);
 void resetTempSmooth();
 bool sensorsInit();
-void testToggleRelays();
+void initRelays();
 int getTemp();
 int getHumidity();
 void ld2410_loop();
