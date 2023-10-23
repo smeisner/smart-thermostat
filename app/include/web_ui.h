@@ -143,7 +143,7 @@ function response() {
 	document.getElementById("curTemp").innerHTML = fetchMessage(xmlResponse, "curTemp") + "&deg;" + fetchMessage(xmlResponse, "units");
 	document.getElementById("humidity").innerHTML="Humidity: " + fetchMessage(xmlResponse, "humidity") + "%";
 	document.getElementById("light").innerHTML="Light level: " + fetchMessage(xmlResponse, "light");
-	document.getElementById("motion").innerHTML="Motion detected?: " + fetchMessage(xmlResponse, "motion");
+	document.getElementById("motion").innerHTML="Motion detected: " + fetchMessage(xmlResponse, "motion");
 
 	document.getElementById("units").innerHTML="Temp Units: " + fetchMessage(xmlResponse, "units");
 	populateHvacSliders(fetchMessage(xmlResponse, "correction"), fetchMessage(xmlResponse, "swing"));

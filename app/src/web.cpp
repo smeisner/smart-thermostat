@@ -16,14 +16,11 @@
  *
  *
  *
- * Portions of this module and ../include/web_ui.h come from/are inspired by an example project by Kris Kasprzak.
+ * Portions of this module and ../include/web_ui.h, and ONLY these two modules, are inspired by an example project by Kris Kasprzak.
  * https://www.youtube.com/watch?v=pL3dhGtmcMY
  * https://github.com/KrisKasprzak/ESP32_WebPage/tree/main
- * Kris's project is distributed under an MIT License
+ * Kris's project is distributed under an MIT License.
  *  The MIT License (MIT)
-
-  code writen by Kris Kasprzak
-
   Permission is hereby granted, free of charge, to any person obtaining a copy of
   this software and associated documentation files (the "Software"), to deal in
   the Software without restriction, including without limitation the rights to
