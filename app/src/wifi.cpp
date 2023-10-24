@@ -586,17 +586,20 @@ void WifiDeinit()
   }
 }
 
+static int32_t lastWifiMillis = 0;
+TaskHandle_t ntReconnectTaskHandler = NULL;
+
 void WifiDisconnect()
 {
   ESP_LOGI(TAG, "WifiDisconnect()");
 
   ESP_LOGD(TAG, "- Calling esp_wifi_disconnect()");
   esp_wifi_disconnect();
+  // Reset lastWifiMillis to 0 so a reconnect is enabled right away
+  // [see networkReconnectTask()]
+  lastWifiMillis = 0;
   OperatingParameters.wifiConnected = false;
 }
-
-int32_t lastWifiMillis = 0;
-TaskHandle_t ntReconnectTaskHandler = NULL;
 
 bool wifiReconnect(const char *hostname, const char *ssid, const char *pass)
 {
@@ -652,6 +655,7 @@ void networkReconnectTask(void *pvParameters)
     return; // Will never get here, but wanted to give the compiler an exit path
   }
 
+  // Update timestamp for last wifi connect attempt
   lastWifiMillis = millis();
 
   if (wifiReconnect(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password) == true)

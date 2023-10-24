@@ -110,10 +110,14 @@ typedef struct
 
 } WIFI_STATUS;
 
+
 extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
 extern int32_t ui_WifiStatusLabel_timestamp;
 
+#ifdef MQTT_ENABLED
+#define MQTT_RECONNECT_DELAY 75000
+#endif
 #define MOTION_TIMEOUT 10000
 #define WIFI_CONNECT_INTERVAL 30000
 #define UPDATE_TIME_INTERVAL 60000

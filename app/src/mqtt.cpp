@@ -59,7 +59,7 @@ struct CustomWriter {
 #define MQTT_EVENT_PUB_BIT BIT2
 #define MQTT_ERROR_BIT BIT3
 static EventGroupHandle_t s_mqtt_event_group = NULL;
-const TickType_t xTicksToWait = 10000 / portTICK_PERIOD_MS;
+const TickType_t xTicksToWait = 11000 / portTICK_PERIOD_MS;
 
 static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data)
 {
@@ -90,10 +90,15 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
             ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
             // xEventGroupSetBits(s_mqtt_event_group, MQTT_EVENT_PUB_BIT);
             break;
+        case MQTT_EVENT_ERROR:
+            ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
+            OperatingParameters.MqttConnected = false;
+            xEventGroupSetBits(s_mqtt_event_group, MQTT_ERROR_BIT);
+            break;
         case MQTT_EVENT_DATA:
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
-            ESP_LOGI(TAG, "TOPIC=%.*s\r\n", event->topic_len, event->topic);
-            ESP_LOGI(TAG, "DATA=%.*s\r\n", event->data_len, event->data);
+            ESP_LOGI(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
+            ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
             if (strstr(event->topic, "mode"))
             {
                 char m[event->data_len + 1];
@@ -101,7 +106,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 m[event->data_len] = '\0';
                 // Make first letter uppercase to match our string representation
                 m[0] = toupper(m[0]);
-                ESP_LOGI(TAG, "Looking up %s\n", m);
+                ESP_LOGI(TAG, "Looking up %s", m);
                 updateHvacMode (strToHvacMode(m));
             }
             if (strstr(event->topic, "temp"))
@@ -112,7 +117,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 }
                 else
                 {
-                    ESP_LOGE(TAG, "Received invalid string for set temp: \"%s\"\n", event->data);
+                    ESP_LOGE(TAG, "Received invalid string for set temp: \"%s\"", event->data);
                 }
             }
             if (strstr(event->topic, "fan"))
@@ -133,13 +138,9 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 }
                 else
                 {
-                    ESP_LOGE(TAG, "Received invalid string for set mode: \"%s\"\n", event->data);
+                    ESP_LOGE(TAG, "Received invalid string for set mode: \"%s\"", event->data);
                 }
             }
-            break;
-        case MQTT_EVENT_ERROR:
-            ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-            xEventGroupSetBits(s_mqtt_event_group, MQTT_ERROR_BIT);
             break;
     }
 }
@@ -327,6 +328,8 @@ void MqttHomeAssistantDiscovery()
         serializeJson(payload, strPayload);
         ESP_LOGI (TAG, "Payload: %s", strPayload.c_str());
 
+        xEventGroupClearBits (s_mqtt_event_group, MQTT_EVENT_PUB_BIT | MQTT_ERROR_BIT);
+
         // g_mqttPubSub.publish(discoveryTopic.c_str(), strPayload.c_str());
         MqttPublish(discoveryTopic.c_str(), strPayload.c_str(), true);
 
@@ -369,6 +372,8 @@ void MqttHomeAssistantDiscovery()
         ESP_LOGI (TAG, "test2");
         serializeJson(payload, strPayload);
         printf ("Payload: %s\n", strPayload.c_str());
+
+        xEventGroupClearBits (s_mqtt_event_group, MQTT_EVENT_PUB_BIT | MQTT_ERROR_BIT);
 
         // g_mqttPubSub.publish(discoveryTopic.c_str(), strPayload.c_str());
         MqttPublish(discoveryTopic.c_str(), strPayload.c_str(), true);
@@ -425,10 +430,9 @@ void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic)
         ESP_LOGI (TAG, "Send subscribe successful, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
 }
 
-
 bool MqttConnect(void)
 {
-	ESP_LOGI(__FUNCTION__, "Waiting for MQTT...");
+	ESP_LOGI(__FUNCTION__, "Connecting to MQTT broker");
 	esp_mqtt_client_config_t mqtt_cfg;
 	memset(&mqtt_cfg, 0, sizeof(esp_mqtt_client_config_t));
 
@@ -446,10 +450,10 @@ bool MqttConnect(void)
     // OperatingParameters.MqttBrokerPassword = (char *)malloc(72);
     // strcpy (OperatingParameters.MqttBrokerPassword, "einiiZeiphah4ish0Rowae7doh0OhNg6wahngohmie4iNae1meipainaeyijai5i");
 
-    ESP_LOGI(TAG, "FQDN Broker: %s\n", host.c_str());
-    ESP_LOGI(TAG, "Broker:    %s\n", OperatingParameters.MqttBrokerHost);
-    ESP_LOGI(TAG, "Username:  %s\n", OperatingParameters.MqttBrokerUsername);
-    ESP_LOGI(TAG, "Password:  %s\n", OperatingParameters.MqttBrokerPassword);
+    ESP_LOGI(TAG, "FQDN Broker: %s", host.c_str());
+    ESP_LOGI(TAG, "Broker:    %s", OperatingParameters.MqttBrokerHost);
+    ESP_LOGI(TAG, "Username:  %s", OperatingParameters.MqttBrokerUsername);
+    ESP_LOGI(TAG, "Password:  %s", OperatingParameters.MqttBrokerPassword);
     // mqtt_cfg.broker.address.uri = "mqtt://iot.eclipse.org";
     // mqtt_cfg.broker.address.uri = "mqtt://test.mosquitto.org:1883";
     // mqtt_cfg.broker.address.transport = MQTT_TRANSPORT_OVER_TCP;
@@ -469,37 +473,63 @@ bool MqttConnect(void)
     //     // .user_context = (void *)your_context
     // };
 
-    /* Initialize event group */
-    s_mqtt_event_group = xEventGroupCreate();
-
     esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
+    if (client == NULL)
+    {
+        ESP_LOGE(TAG, "Failed to init client!");
+        return false;
+    }
     OperatingParameters.MqttClient = client;
 
-    esp_mqtt_client_register_event (client, MQTT_EVENT_ANY, MqttEventHandler, client);
-    esp_mqtt_client_start(client);
+    xEventGroupClearBits (s_mqtt_event_group, MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT);
+
+    esp_err_t err;
+    err = esp_mqtt_client_register_event (client, MQTT_EVENT_ANY, MqttEventHandler, client);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to register client: 0x%x", err);
+        if (err == ESP_ERR_NO_MEM) ESP_LOGE(TAG, "ESP_ERR_NO_MEM");
+        if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+        esp_mqtt_client_destroy(client);
+        return false;
+    }
+
+    err = esp_mqtt_client_start(client);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to start client: 0x%x", err);
+        if (err == ESP_FAIL) ESP_LOGE(TAG, "ESP_FAIL");
+        if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+        esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
+        esp_mqtt_client_destroy(client);
+        return false;
+    }
 
     EventBits_t bits = xEventGroupWaitBits(s_mqtt_event_group,
-        MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT,
+        MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT,
         pdFALSE,
         pdFALSE,
         xTicksToWait);
 
-    if (bits & MQTT_ERROR_BIT)
+    // bits == 0 means timeout
+    if ((bits == 0) || (bits & MQTT_ERROR_BIT) || (bits & MQTT_EVENT_DISCONNECTED_BIT))
     {
         ESP_LOGE (TAG, "MQTT Connect failed");
+        // esp_mqtt_client_stop(client); // Commented out since connect never worked
+        ESP_LOGI(TAG, "Tearing down MQTT data structures");
+        esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
+        esp_mqtt_client_destroy(client);
         return false;
     }
 
     if (bits & MQTT_EVENT_CONNECTED_BIT)
     {
-        // MqttSubscribeTopic(client, g_mqttStatusTopic);
-        // MqttSubscribeTopic(client, g_deviceName + "/set/mode");
-        // MqttSubscribeTopic(client, g_deviceName + "/set/temp");
+        ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName);
         MqttSubscribeTopic(client, g_deviceName + "/set/#");
-    }
 
-    // Send discovery packet to let all listeners know we have arrived
-    MqttHomeAssistantDiscovery();
+        // Send discovery packet to let all listeners know we have arrived
+        MqttHomeAssistantDiscovery();
+    }
 
     return true;
 }
@@ -523,6 +553,10 @@ void MqttInit()
         ESP_LOGW(TAG, "MQTT is not enabled!");
         return;
     }
+
+    /* Initialize event group */
+    s_mqtt_event_group = xEventGroupCreate();
+
     ESP_LOGI(TAG, "MQTT Startup...");
     if (!wifiConnected())
     {
@@ -533,7 +567,7 @@ void MqttInit()
     g_deviceName = OperatingParameters.DeviceName;
     g_friendlyName = OperatingParameters.FriendlyName;
     g_mqttStatusTopic = g_deviceName + "/status";
-
+    OperatingParameters.MqttConnected = false;
 }
 
 #endif  // #ifdef MQTT_ENABLED

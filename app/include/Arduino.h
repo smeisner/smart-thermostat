@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------
         Simple header file to incorporate Arduino functions
-        mostly for the LD2410 sensor.
+        mostly for the LD2410 sensor library.
 ---------------------------------------------------------------*/
 
 #include "thermostat.hpp"

@@ -345,6 +345,14 @@ void LoadConfigSettings(lv_event_t * e)
     lv_obj_add_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
   else
     lv_obj_clear_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
+
+#if !defined(MATTER_ENABLED) && !defined(MQTT_ENABLED)
+  lv_obj_add_flag(ui_HomeAutomationLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_HomeAutomationCheckbox, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+#endif
+
 #ifdef MATTER_ENABLED
   lv_label_set_text(ui_HomeAutomationLabel,"Matter Enable:");
   if (OperatingParameters.MatterEnabled)
@@ -355,6 +363,7 @@ void LoadConfigSettings(lv_event_t * e)
   lv_obj_add_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
   lv_obj_add_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
 #endif
+
 #ifdef MQTT_ENABLED
   lv_label_set_text(ui_HomeAutomationLabel,"MQTT Enable:");
   //@@@ For now, if we compile with MQTT support, enable the config button

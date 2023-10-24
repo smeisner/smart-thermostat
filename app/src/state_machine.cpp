@@ -26,12 +26,20 @@
 OPERATING_PARAMETERS OperatingParameters;
 extern int32_t lastTimeUpdate;
 int32_t lastWifiReconnect = 0;
+#ifdef MQTT_ENABLED
+int32_t lastMqttReconnect = 0;
+#endif
 
 void stateMachine(void *parameter)
 {
   float currentTemp;
   float minTemp, maxTemp;
   float autoMinTemp, autoMaxTemp;
+
+#ifdef MQTT_ENABLED
+  // This will cause the first pass to make a connect attempt
+  lastMqttReconnect = MQTT_RECONNECT_DELAY * -1;
+#endif
 
   for (;;) // infinite loop
   {
@@ -195,10 +203,15 @@ void stateMachine(void *parameter)
     OperatingParameters.wifiConnected = wifiConnected();
 
 #ifdef MQTT_ENABLED
-    if ((!OperatingParameters.MqttConnected) && (OperatingParameters.MqttEnabled) && (OperatingParameters.wifiConnected))
-      // MqttInit();
-      //@@@ Should be a "reconnect"
-      MqttConnect();
+    if ((OperatingParameters.wifiConnected) && (OperatingParameters.MqttEnabled) && (!OperatingParameters.MqttConnected))
+    {
+      if (millis() > (lastMqttReconnect + MQTT_RECONNECT_DELAY))
+      {
+        lastMqttReconnect = millis();
+        //@@@ Should be a "reconnect"
+        MqttConnect();
+      }
+    }
 #endif
 
     // Check wifi
@@ -208,7 +221,7 @@ void stateMachine(void *parameter)
     if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)))
 #endif
     {
-      if (millis() > lastWifiReconnect + 60000)
+      if (millis() > lastWifiReconnect + WIFI_CONNECT_INTERVAL)
       {
         lastWifiReconnect = millis();
         startReconnectTask();
