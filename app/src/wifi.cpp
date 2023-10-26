@@ -380,15 +380,15 @@ void wifiSwitchMatterMode()
   {
     // Setting MatterStarted keeps networkReconnect task from running
     OperatingParameters.MatterStarted = true;
-    Serial.printf ("Enabling Matter\n");
+    ESP_LOGI(TAG, "Enabling Matter");
     // Since we are shutting down wifi to enable Matter,
     // do not allow callbacks to take any action.
     wifiDeregisterEventCallbacks();
-    Serial.printf ("Shutting down wifi connection\n");
+    ESP_LOGI(TAG, "Shutting down wifi connection");
     WifiDisconnect();
-    Serial.printf ("Unloading wifi driver\n");
+    ESP_LOGI(TAG, "Unloading wifi driver");
     WifiDeinit();
-    Serial.printf ("Starting Matter API\n");
+    ESP_LOGI(TAG, "Starting Matter API");
     OperatingParameters.MatterStarted = MatterInit();
     // Serial.printf ("Connecting to wifi\n");
     // OperatingParameters.wifiConnected =
@@ -396,7 +396,7 @@ void wifiSwitchMatterMode()
   }
   else
   {
-    Serial.printf ("Disabling Matter\n");
+    ESP_LOGI(TAG, "Disabling Matter");
     updateThermostatParams();
     // ESP restart will happen as part of UI code (see ui_events.cpp)
   }

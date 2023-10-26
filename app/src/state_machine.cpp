@@ -282,28 +282,3 @@ void stateCreateTask()
       tskIDLE_PRIORITY - 1,
       NULL);
 }
-
-void serialStart()
-{
-  //
-  // Serial port mapping:
-  //
-  // Serial relates to the onboard UART port
-  // Serial1 is mapped (I believe) to the SWD port
-  // Serial2 is the USB port directly connected to the ESP32
-  //  NB: Serial2 is remapped to provide serial comms with the LD2410
-  //
-  // Do not use Serial2 as this will disable firmware uploading
-  // and debugging via the USB port. It will also cause the USB
-  // interface to not show up as a USB device to the host.
-  //
-
-  // int32_t tmo = millis() + 60000;
-  //Serial.begin(115200);
-  // Serial.setDebugOutput(true);
-  printf("UART Serial port (via UART-USB adapter -> usually /dev/ttyUSB0)\n");
-
-  // Serial1.begin(115200);
-  // Serial1.setDebugOutput(true);
-  // Serial1.printf("SERIAL1\n");
-}

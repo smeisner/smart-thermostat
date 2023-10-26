@@ -158,7 +158,6 @@ void MqttHomeAssistantDiscovery();
 
 // State Machine
 void stateCreateTask();
-void serialStart();
 extern int32_t lastWifiReconnect;
 
 // EEPROM

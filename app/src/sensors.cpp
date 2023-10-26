@@ -164,33 +164,30 @@ bool ld2410_init()
 
   if (radar.begin(RadarPort))
   {
-    printf("LD2410: Sensor started\n");
+    ESP_LOGI(TAG, "LD2410: Sensor started");
     rc = true;
 
     if (radar.requestFirmwareVersion())
     {
-      printf ("LD2410: Firmware: v%u.%02u.%u%u%u%u\n",
+      ESP_LOGI(TAG, "LD2410: Firmware: v%u.%02u.%08x",
         radar.firmware_major_version,
         radar.firmware_minor_version,
-        (uint8_t)(radar.firmware_bugfix_version & 0xff000000) >> 24,
-        (uint8_t)(radar.firmware_bugfix_version & 0x00ff0000) >> 16,
-        (uint8_t)(radar.firmware_bugfix_version & 0x0000ff00) >> 8,
-        (uint8_t)radar.firmware_bugfix_version & 0x000000ff
+        radar.firmware_bugfix_version
         );
     } else {
-      printf ("LD2410: Failed to read firmware version\n");
+      ESP_LOGE(TAG, "LD2410: Failed to read firmware version\n");
     }
 
     if (radar.requestCurrentConfiguration())
     {
-      printf("LD2410: Maximum gate ID: %d\n", radar.max_gate);
-      printf("LD2410: Maximum gate for moving targets: %d\n", radar.max_moving_gate);
-      printf("LD2410: Maximum gate for stationary targets: %d\n", radar.max_stationary_gate);
-      printf("LD2410: Idle time for targets: %d\n", radar.sensor_idle_time);
-      printf("LD2410: Gate sensitivity\n");
+      ESP_LOGI(TAG, "LD2410: Maximum gate ID: %d", radar.max_gate);
+      ESP_LOGI(TAG, "LD2410: Maximum gate for moving targets: %d", radar.max_moving_gate);
+      ESP_LOGI(TAG, "LD2410: Maximum gate for stationary targets: %d", radar.max_stationary_gate);
+      ESP_LOGI(TAG, "LD2410: Idle time for targets: %d", radar.sensor_idle_time);
+      ESP_LOGI(TAG, "LD2410: Gate sensitivity");
       for (uint8_t gate = 0; gate <= radar.max_gate; gate++)
       {
-        printf("  Gate %d moving targets: %d stationary targets: %d\n",
+        ESP_LOGI(TAG, "  Gate %d moving targets: %d stationary targets: %d",
           gate, radar.motion_sensitivity[gate], radar.stationary_sensitivity[gate]);
       }
     }
@@ -208,15 +205,15 @@ bool ld2410_init()
     // limited to 0 (0.75m). Use this to also change the inactivity timer.
     //
     //bool setMaxValues(uint16_t moving, uint16_t stationary, uint16_t inactivityTimer);
-    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000))) printf ("LD2410: Max gate values set\n"); else printf ("LD2410: FAILED to set max gate values\n");
+    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000))) ESP_LOGI(TAG, "LD2410: Max gate values set"); else ESP_LOGE(TAG, "LD2410: FAILED to set max gate values");
     //
     // Now request a restart to enable all the setting specified above
     //
-    if (radar.requestRestart()) printf ("LD2410: Restart requested\n"); else printf ("LD2410: FAILED requesting restart\n");
+    if (radar.requestRestart()) ESP_LOGW(TAG, "LD2410: Restart requested"); else ESP_LOGE(TAG, "LD2410: FAILED requesting restart");
   }
   else
   {
-    printf ("LD2410: Sensor not connected\n");
+    ESP_LOGE(TAG, "LD2410: Sensor not connected");
     rc = false;
   }
   return rc;

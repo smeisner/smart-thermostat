@@ -42,18 +42,20 @@ int32_t lastMotionDetected = 0;
 
 volatile bool tftMotionTrigger = false;
 
+#define TAG "TFT"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void tftDisableTouchTimer()
 {
-  printf ("Disabling touch timer\n");
+  ESP_LOGI(TAG, "Disabling touch/motion timer");
   tftTouchTimerEnabled = false;
 }
 void tftEnableTouchTimer()
 {
-  printf ("Enabling touch timer\n");
+  ESP_LOGI(TAG, "Enabling touch/motion timer");
   tftTouchTimerEnabled = true;
 }
 
@@ -100,7 +102,7 @@ void tftWakeDisplayMotion()
     // float ratio = (float)(OperatingParameters.lightDetected) / 3150.0;  // Measured in mV (max = 3.15 V)
     int brightness = (int)(ratio * (float)(FULL_BRIGHTNESS));
     tftShowDisplayItems();
-    printf ("Setting display to partial brightness: %d (%d%%)\n",
+    ESP_LOGI(TAG, "Setting display to partial brightness: %d (%d%%)",
       brightness, (int)(ratio*100.0));
     tft.setBrightness(brightness);
     tftEnableTouchTimer();
@@ -112,6 +114,7 @@ void tftDimDisplay()
 {
   if (tftTouchTimerEnabled)
   {
+    ESP_LOGD(TAG, "Dimming display");
     tft.setBrightness(OFF_BRIGHTNESS);
     tftHideDisplayItems();
     tftDisableTouchTimer();
@@ -324,8 +327,8 @@ Cal data:
   // Use calData to set up touch dimensions
   tft.setTouchCalibrate(calData);
   // Dump data to debug logger
-  printf ("Touch Screen calibration data:\n");
-  for (int n=0; n < 8; n++) printf("%d : %d\n", n, calData[n]);
+  ESP_LOGI (TAG, "Touch Screen calibration data:");
+  for (int n=0; n < 8; n++) ESP_LOGI (TAG, "%d : %d", n, calData[n]);
 }
 
 void tftInit()
@@ -360,7 +363,7 @@ void tftInit()
 
   setHvacModesDropdown();
 
-  printf("Current temp set to %.1f°\n", OperatingParameters.tempSet);
+  ESP_LOGI (TAG, "Current temp set to %.1f°", OperatingParameters.tempSet);
 
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
@@ -414,7 +417,7 @@ void tftPump(void * parameter)
     //
     if (/*(lastMotionDetected == 0) &&*/ (!tftTouchTimerEnabled) && isCurrentScreenMain())
     {
-      printf("Motion wake triggered\n");
+      ESP_LOGI (TAG, "Motion wake triggered");
       lastMotionDetected = millis();
       OperatingParameters.motionDetected = true;
       tftWakeDisplayMotion();
@@ -429,7 +432,7 @@ void tftPump(void * parameter)
   {
     if (millis() - lastMotionDetected > MOTION_TIMEOUT)
     {
-      printf ("Motion detection timeout\n");
+      ESP_LOGI (TAG, "Motion detection timeout");
       OperatingParameters.motionDetected = false;
     }
   }
