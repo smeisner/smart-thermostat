@@ -450,7 +450,7 @@ bool MqttConnect(void)
     // OperatingParameters.MqttBrokerPassword = (char *)malloc(72);
     // strcpy (OperatingParameters.MqttBrokerPassword, "einiiZeiphah4ish0Rowae7doh0OhNg6wahngohmie4iNae1meipainaeyijai5i");
 
-    ESP_LOGI(TAG, "FQDN Broker: %s", host.c_str());
+    ESP_LOGI(TAG, "Broker FQDN: %s", host.c_str());
     ESP_LOGI(TAG, "Broker:    %s", OperatingParameters.MqttBrokerHost);
     ESP_LOGI(TAG, "Username:  %s", OperatingParameters.MqttBrokerUsername);
     ESP_LOGI(TAG, "Password:  %s", OperatingParameters.MqttBrokerPassword);
