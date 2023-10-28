@@ -425,9 +425,9 @@ void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic)
     int msg_id;
     msg_id = esp_mqtt_client_subscribe(client, topic.c_str(), 1);
     if (msg_id < 0)
-        ESP_LOGE (TAG, "Send subscribe FAILED, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
+        ESP_LOGE (TAG, "Subscribe topic FAILED, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
     else
-        ESP_LOGI (TAG, "Send subscribe successful, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
+        ESP_LOGI (TAG, "Subscribe topic successful, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
 }
 
 bool MqttConnect(void)
