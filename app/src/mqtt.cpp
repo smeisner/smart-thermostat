@@ -516,7 +516,7 @@ bool MqttConnect(void)
     {
         ESP_LOGE (TAG, "MQTT Connect failed");
         // esp_mqtt_client_stop(client); // Commented out since connect never worked
-        ESP_LOGI(TAG, "Tearing down MQTT data structures");
+        ESP_LOGW(TAG, "Removing MQTT data structures");
         esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
         esp_mqtt_client_destroy(client);
         return false;
