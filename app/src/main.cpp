@@ -24,8 +24,9 @@
 
 #include "thermostat.hpp"
 #include "esp_timer.h"
-int32_t millis() { return esp_timer_get_time() / 1000;}
 #define TAG "Main"
+
+int64_t millis() { return esp_timer_get_time() / 1000;}
 
 void app_main()
 {
@@ -42,6 +43,10 @@ void app_main()
   // Create the RTOS task to drive the touchscreen
   ESP_LOGI (TAG, "Starting TFT task");
   tftCreateTask();
+
+  // Initialize sensors (temp, humidity, motion, etc)
+  ESP_LOGI (TAG, "Initializing sensors");
+  sensorsInit();
 
 #ifdef MATTER_ENABLED
   // Start Matter
@@ -62,14 +67,13 @@ void app_main()
   MqttInit();
 #endif
 
+  // Start SNTP connection to get local time
+  initTimeSntp();
 
   // Initialize indicators (relays, LEDs, buzzer)
   ESP_LOGI (TAG, "Initializing indicators");
   indicatorsInit();
   initRelays();
-  // Initialize sensors (temp, humidity, motion, etc)
-  ESP_LOGI (TAG, "Initializing sensors");
-  sensorsInit();
 
   // Create the RTOS task to drive the state machine
   ESP_LOGI (TAG, "Starting state machine task");

@@ -29,10 +29,10 @@ void tftDecreaseSetTemp(lv_event_t * e)
   if (OperatingParameters.tempUnits == 'C')
   {
     OperatingParameters.tempSet -= 0.5;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
   } else {
     OperatingParameters.tempSet -= 1.0;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
@@ -47,10 +47,10 @@ void tftIncreaseSetTemp(lv_event_t * e)
   if (OperatingParameters.tempUnits == 'C')
   {
     OperatingParameters.tempSet += 0.5;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
   } else {
     OperatingParameters.tempSet += 1.0;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));

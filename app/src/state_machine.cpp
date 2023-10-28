@@ -24,10 +24,10 @@
 #define LOW 0
 
 OPERATING_PARAMETERS OperatingParameters;
-extern int32_t lastTimeUpdate;
-int32_t lastWifiReconnect = 0;
+extern int64_t lastTimeUpdate;
+int64_t lastWifiReconnect = 0;
 #ifdef MQTT_ENABLED
-int32_t lastMqttReconnect = 0;
+int64_t lastMqttReconnect = 0;
 #endif
 
 void stateMachine(void *parameter)

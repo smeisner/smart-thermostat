@@ -113,7 +113,7 @@ typedef struct
 
 extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
-extern int32_t ui_WifiStatusLabel_timestamp;
+extern int64_t ui_WifiStatusLabel_timestamp;
 
 #ifdef MQTT_ENABLED
 #define MQTT_RECONNECT_DELAY 75000
@@ -140,7 +140,7 @@ extern void app_main();
 } /*extern "C"*/
 #endif
 
-int32_t millis();   // Defined in main.cpp
+int64_t millis();   // Defined in main.cpp
 
 void showConfigurationData();
 void scanI2cBus();
@@ -158,7 +158,7 @@ void MqttHomeAssistantDiscovery();
 
 // State Machine
 void stateCreateTask();
-extern int32_t lastWifiReconnect;
+extern int64_t lastWifiReconnect;
 
 // EEPROM
 void eepromInit();
@@ -218,12 +218,13 @@ void updateHvacSetTemp(float setTemp);
 // float roundValue(float value, int places = 0);
 float roundValue(float value, int places);
 float getRoundedFrac(float value);
+void initTimeSntp();
 // int degCfrac(float tempF);
 // int tempOut(float tempF);
 // float tempIn(float tempC);
 // float degFtoC(float degF);
 void resetTempSmooth();
-bool sensorsInit();
+void sensorsInit();
 void initRelays();
 int getTemp();
 int getHumidity();
@@ -237,7 +238,7 @@ void audioBeep();
 
 // SNTP Time Sync
 void updateTimezone();
-bool getLocalTime(struct tm *, uint32_t);
+bool getLocalTime(struct tm *, uint64_t);
 void updateTimeSntp();
 
 // ui_events.cpp

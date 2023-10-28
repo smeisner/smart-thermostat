@@ -586,7 +586,7 @@ void WifiDeinit()
   }
 }
 
-static int32_t lastWifiMillis = 0;
+static int64_t lastWifiMillis = 0;
 TaskHandle_t ntReconnectTaskHandler = NULL;
 
 void WifiDisconnect()

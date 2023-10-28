@@ -37,11 +37,11 @@ const char *gmt_timezones[] =
   {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
    "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
 
-int32_t lastTimeUpdate = 0;
+int64_t lastTimeUpdate = 0;
 
 Stream RadarPort;
 ld2410 radar;
-uint32_t last_ld2410_Reading = 0;
+uint64_t last_ld2410_Reading = 0;
 
 Smoothed<float> sensorTemp;
 Smoothed<float> sensorHumidity;
@@ -65,6 +65,7 @@ void updateHvacSetTemp(float setTemp)
 {
   OperatingParameters.tempSet = setTemp;
   eepromUpdateHvacSetTemp();
+  ESP_LOGI(TAG, "Set temp: %.1f", setTemp);
 #ifdef MQTT_ENABLED
   MqttUpdateStatusTopic();
 #endif
@@ -126,7 +127,6 @@ float roundValue(float value, int places)
     r = (float)((int)(value + 0.5));
   if (places == 1)
     r = (float)((int)(value + 0.25) + (getRoundedFrac(value + 0.25) / 10.0));
-  ESP_LOGI(TAG, "%.1f", r);
   return r;
 }
 
@@ -299,6 +299,27 @@ void updateAht(void *parameter)
   }
 }
 
+bool startAht()
+{
+  if (initAht())
+  {
+    xTaskCreate(
+        updateAht,            // Function that should be called
+        "Update AHT",         // Name of the task (for debugging)
+        4096,                 // Stack size (bytes)
+        NULL,                 // Parameter to pass
+        tskIDLE_PRIORITY + 1, // Task priority
+        NULL                  // Task handle
+    );
+
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+
 // Read sensor temp and return rounded up and correction applied
 int getTemp()
 {
@@ -336,10 +357,10 @@ void updateTimezone()
   tzset();
 }
 
-bool getLocalTime(struct tm * info, uint32_t ms)
+bool getLocalTime(struct tm * info, uint64_t ms)
 {
-  uint32_t start = millis();
-  uint32_t tmo = ms;
+  uint64_t start = millis();
+  uint64_t tmo = ms;
   time_t now;
 
   if (!wifiConnected())
@@ -395,34 +416,14 @@ void initTimeSntp()
 /*---------------------------------------------------------------
         Init code for sensors entry point
 ---------------------------------------------------------------*/
-bool sensorsInit()
+void sensorsInit()
 {
   sensorTemp.begin(SMOOTHED_EXPONENTIAL, 10);
   sensorHumidity.begin(SMOOTHED_EXPONENTIAL, 10);
   sensorTemp.clear();
   sensorHumidity.clear();
 
-  initTimeSntp();
-
+  startAht();
   ld2410_init();
-
   initLightSensor();
-
-  if (initAht())
-  {
-    xTaskCreate(
-        updateAht,            // Function that should be called
-        "Update AHT",         // Name of the task (for debugging)
-        4096,                 // Stack size (bytes)
-        NULL,                 // Parameter to pass
-        tskIDLE_PRIORITY + 1, // Task priority
-        NULL                  // Task handle
-    );
-
-    return true;
-  }
-  else
-  {
-    return false;
-  }
 }

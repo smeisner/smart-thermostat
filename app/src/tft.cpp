@@ -32,13 +32,13 @@
 
 static char thermostatModes[48] = {0};
 TaskHandle_t xTouchUIHandle;
-int32_t lastTouchDetected = 0;
+int64_t lastTouchDetected = 0;
 bool tftTouchTimerEnabled = true;
-int32_t ui_WifiStatusLabel_timestamp = 0;
+int64_t ui_WifiStatusLabel_timestamp = 0;
 uint16_t calData_2_8[8] = { 3839, 336, 3819, 3549, 893, 390, 718, 3387 };
 uint16_t calData_3_2[8] = { 3778, 359, 3786, 3803, 266, 347, 258, 3769 };
 uint16_t calData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-int32_t lastMotionDetected = 0;
+int64_t lastMotionDetected = 0;
 
 volatile bool tftMotionTrigger = false;
 

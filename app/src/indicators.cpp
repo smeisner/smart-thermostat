@@ -77,7 +77,7 @@ void audioStartupBeep()
 }
 
 // Use lastBeep to rate limit the beeping
-unsigned long lastBeep = 0;
+uint64_t lastBeep = 0;
 
 void audioBeep()
 {
@@ -119,19 +119,23 @@ void audioBeep()
 
 void initRelays()
 {
-  vTaskDelay(pdMS_TO_TICKS(500));
+  vTaskDelay(pdMS_TO_TICKS(250));
 
-  gpio_reset_pin((gpio_num_t)HVAC_HEAT_PIN);
   gpio_set_direction((gpio_num_t)HVAC_HEAT_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
+  // gpio_reset_pin((gpio_num_t)HVAC_HEAT_PIN);
 
-  gpio_reset_pin((gpio_num_t)HVAC_COOL_PIN);
   gpio_set_direction((gpio_num_t)HVAC_COOL_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
+  // gpio_reset_pin((gpio_num_t)HVAC_COOL_PIN);
 
-  gpio_reset_pin((gpio_num_t)HVAC_FAN_PIN);
   gpio_set_direction((gpio_num_t)HVAC_FAN_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level((gpio_num_t)HVAC_FAN_PIN, LOW);
+  // gpio_reset_pin((gpio_num_t)HVAC_FAN_PIN);
 
-  gpio_reset_pin((gpio_num_t)HVAC_RVALV_PIN);
   gpio_set_direction((gpio_num_t)HVAC_RVALV_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level((gpio_num_t)HVAC_RVALV_PIN, LOW);
+  // gpio_reset_pin((gpio_num_t)HVAC_RVALV_PIN);
 }
 
 
