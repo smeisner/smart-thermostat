@@ -6,6 +6,7 @@
 #include "thermostat.hpp"
 #include "ui.h"
 #include "version.h"
+#include <ctype.h>
 // #include <nvs_flash.h>    // For nvs_flash_init()
 
 #define screenWidth 320
@@ -28,10 +29,10 @@ void tftDecreaseSetTemp(lv_event_t * e)
   if (OperatingParameters.tempUnits == 'C')
   {
     OperatingParameters.tempSet -= 0.5;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
   } else {
     OperatingParameters.tempSet -= 1.0;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
@@ -46,10 +47,10 @@ void tftIncreaseSetTemp(lv_event_t * e)
   if (OperatingParameters.tempUnits == 'C')
   {
     OperatingParameters.tempSet += 0.5;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
   } else {
     OperatingParameters.tempSet += 1.0;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
@@ -66,16 +67,17 @@ void tftHvacModeChange(lv_event_t * e)
 //  OperatingParameters.hvacSetMode = getHvacMode();
   char mode[12];
   lv_dropdown_get_selected_str(ui_ModeDropdown, mode, sizeof(mode));
-  OperatingParameters.hvacSetMode = strToHvacMode(mode);
+  updateHvacMode(strToHvacMode(mode));
 
   switch (OperatingParameters.hvacSetMode)
   {
     // Set color of outer ring to represent set mode
-    case HEAT: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
-    case COOL: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
-    case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x23562b), LV_PART_MAIN); break;  //@@@
-    case AUTO: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
-    default:   lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
+    case AUX_HEAT:
+    case HEAT:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
+    case COOL:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
+    case FAN_ONLY: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x23562b), LV_PART_MAIN); break;  //@@@
+    case AUTO:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
+    default:       lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
   }
   
   tftWakeDisplay(true);
@@ -166,7 +168,7 @@ void LoadInfoStrings(lv_event_t * e)
   lv_label_set_text_fmt(ui_WifiSsidLabel, "%s SSID:# %s", LABEL_COLOR, WifiCreds.ssid);
 
   lv_label_set_recolor(ui_HostnameLabel, true);
-  lv_label_set_text_fmt(ui_HostnameLabel, "%s Hostname:# %s", LABEL_COLOR, WifiCreds.hostname);
+  lv_label_set_text_fmt(ui_HostnameLabel, "%s Hostname:# %s", LABEL_COLOR, OperatingParameters.DeviceName);
 
   lv_label_set_recolor(ui_IPLabel, true);
   lv_label_set_text_fmt(ui_IPLabel, "%s IP:# %s", LABEL_COLOR, wifiAddress());
@@ -287,7 +289,7 @@ void SaveConfigSettings(lv_event_t * e)
 
 #ifdef MATTER_ENABLED
   bool prevMatter = OperatingParameters.MatterEnabled;
-  OperatingParameters.MatterEnabled = lv_obj_has_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+  OperatingParameters.MatterEnabled = lv_obj_has_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
   if (OperatingParameters.MatterEnabled != prevMatter)
   {
     //@@@ Disable all HVAC activity before restarting
@@ -300,6 +302,29 @@ void SaveConfigSettings(lv_event_t * e)
     }
   }
 #endif
+#ifdef MQTT_ENABLED
+  bool prevMqtt = OperatingParameters.MqttEnabled;
+  OperatingParameters.MqttEnabled = lv_obj_has_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+  if (OperatingParameters.MqttEnabled != prevMqtt)
+  {
+    //@@@ Disable all HVAC activity before restarting
+    printf ("MQTT enablement changed!\n");
+//@@@    wifiSwitchMatterMode();
+    if (!OperatingParameters.MqttEnabled)
+    {
+      _ui_screen_change(&ui_ThermostatRestart, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0, &ui_ThermostatRestart_screen_init);
+    }
+  }
+  else
+  {
+    if (OperatingParameters.MqttEnabled && OperatingParameters.MqttConnected)
+    {
+      // Update config by sending a new discovery packet
+      MqttHomeAssistantDiscovery();
+    }
+  }
+#endif
+  updateThermostatParams();
 }
 
 void LoadConfigSettings(lv_event_t * e)
@@ -320,11 +345,45 @@ void LoadConfigSettings(lv_event_t * e)
     lv_obj_add_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
   else
     lv_obj_clear_state(ui_HvacFanCheckbox, LV_STATE_CHECKED);
+
+#if !defined(MATTER_ENABLED) && !defined(MQTT_ENABLED)
+  lv_obj_add_flag(ui_HomeAutomationLabel, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_HomeAutomationCheckbox, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+#endif
+
 #ifdef MATTER_ENABLED
+  lv_label_set_text(ui_HomeAutomationLabel,"Matter Enable:");
   if (OperatingParameters.MatterEnabled)
-    lv_obj_add_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+    lv_obj_add_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
   else
-    lv_obj_clear_state(ui_MatterCheckbox, LV_STATE_CHECKED);
+    lv_obj_clear_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+
+  lv_obj_add_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_add_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+#endif
+
+#ifdef MQTT_ENABLED
+  lv_label_set_text(ui_HomeAutomationLabel,"MQTT Enable:");
+  //@@@ For now, if we compile with MQTT support, enable the config button
+  if (OperatingParameters.MqttEnabled)
+    lv_obj_add_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+  lv_obj_clear_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+
+  // if (OperatingParameters.MqttEnabled)
+  // {
+  //   lv_obj_add_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+  //   lv_obj_clear_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+  //   lv_obj_clear_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+  // }
+  // else
+  // {
+  //   lv_obj_clear_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+  //   lv_obj_add_flag(ui_SetupMqttBtn, LV_OBJ_FLAG_HIDDEN);
+  //   lv_obj_add_flag(ui_SetupMqttLabel, LV_OBJ_FLAG_HIDDEN);
+  // }
 #endif
 }
 
@@ -361,6 +420,8 @@ void SaveUncommonConfigSettings(lv_event_t * e)
 
   setHvacModesDropdown();
   updateTimezone();
+  updateThermostatParams();
+
 }
 
 void tftCalibrate(lv_event_t * e)
@@ -379,12 +440,14 @@ bool isCurrentScreenMain()
 }
 
 #ifdef MATTER_ENABLED
+#endif
 
 /**
  * Create a QR Code
  */
 void lv_example_qrcode_1()
 {
+#ifdef MATTER_ENABLED
     lv_color_t bg_color = lv_palette_lighten(LV_PALETTE_LIGHT_BLUE, 5);
     lv_color_t fg_color = lv_palette_darken(LV_PALETTE_BLUE, 4);
 
@@ -404,16 +467,18 @@ void lv_example_qrcode_1()
     /*Add a border with bg_color*/
     lv_obj_set_style_border_color(qr, bg_color, 0);
     lv_obj_set_style_border_width(qr, 5, 0);
+#endif
 }
 
 void ShowQrOnScreen(lv_event_t * e)
 {
+#ifdef MATTER_ENABLED
   printf ("Loading QR and manual pairing codes\n");
   lv_example_qrcode_1();
   lv_label_set_text(ui_ManualPairingCode, OperatingParameters.MatterPairingCode);
+#endif
 }
 
-#endif
 
 void tftCountdown(lv_event_t * e)
 {
@@ -444,6 +509,84 @@ void tftCountdown(lv_event_t * e)
   setWifiCreds();
   printf ("Saving thermostat config\n");
   updateThermostatParams();
-  // printf ("Resetting Matter config and restarting ESP\n");
-  // MatterFactoryReset(); // Will also restart the ESP
+#ifdef MATTER_ENABLED
+  printf ("Resetting Matter config and restarting ESP\n");
+  MatterFactoryReset(); // Will also restart the ESP
+#endif
+}
+
+void loadMqttSettings(lv_event_t * e)
+{
+  lv_textarea_set_text(ui_MqttHostname, OperatingParameters.MqttBrokerHost);
+  lv_textarea_set_text(ui_MqttUsername, OperatingParameters.MqttBrokerUsername);
+  lv_textarea_set_text(ui_MqttPassword, OperatingParameters.MqttBrokerPassword);
+
+  printf ("On load:\n");
+  printf ("  MQTT Broker: %s\n", OperatingParameters.MqttBrokerHost);
+  printf ("  MQTT Username: %s\n", OperatingParameters.MqttBrokerUsername);
+  printf ("  MQTT Password: %s\n", OperatingParameters.MqttBrokerPassword);
+
+}
+
+void saveMqttSettings(lv_event_t * e)
+{
+  strcpy (OperatingParameters.MqttBrokerHost, lv_textarea_get_text(ui_MqttHostname));
+  strcpy (OperatingParameters.MqttBrokerUsername, lv_textarea_get_text(ui_MqttUsername));
+  strcpy (OperatingParameters.MqttBrokerPassword, lv_textarea_get_text(ui_MqttPassword));
+
+  updateThermostatParams();
+
+  printf ("On save:\n");
+  printf ("  MQTT Broker: %s\n", OperatingParameters.MqttBrokerHost);
+  printf ("  MQTT Username: %s\n", OperatingParameters.MqttBrokerUsername);
+  printf ("  MQTT Password: %s\n", OperatingParameters.MqttBrokerPassword);
+}
+
+void loadDeviceName(lv_event_t * e)
+{
+  lv_textarea_set_text(ui_DeviceHostname, OperatingParameters.FriendlyName);
+
+  printf ("On load:\n");
+  printf ("  Friendly Name:   %s\n", OperatingParameters.FriendlyName);
+  printf ("  Device Hostname: %s\n", OperatingParameters.DeviceName);
+}
+
+void saveDeviceName(lv_event_t * e)
+{
+  char *oldName = strdup(OperatingParameters.DeviceName);
+
+  strcpy (OperatingParameters.FriendlyName, lv_textarea_get_text(ui_DeviceHostname));
+
+  char *p = (char *)OperatingParameters.FriendlyName;
+  char *t = (char *)OperatingParameters.DeviceName;
+  // Make DeviceName the same as FriendlyName just with all lower
+  // case letters and no spaces.
+  while (*p)
+  {
+    if (*p != ' ')
+    {
+      *t = tolower(*p);
+      t++;
+    }
+    p++;
+  }
+
+  printf ("On save:\n");
+  printf ("  Friendly Name:   %s\n", OperatingParameters.FriendlyName);
+  printf ("  Device Hostname: %s\n", OperatingParameters.DeviceName);
+
+  /* Rewrite the wifi credentials after resetting NVS storage */
+  printf ("Rewriting wifi credentials\n");
+  setWifiCreds();   // Save device name
+  printf ("Saving thermostat config\n");
+  updateThermostatParams();   // Save Friendly name
+
+  if (strcmp(oldName, OperatingParameters.DeviceName))
+  {
+    printf ("Hostname/Devicename changed -- Restarting wifi to update network name\n");
+    // Initiate a disconnect so the new wifi info will be used when auto-reconnect happens
+    WifiDisconnect();
+    // Immediately start a new wifi connection
+    lastWifiReconnect = 0;
+  }
 }

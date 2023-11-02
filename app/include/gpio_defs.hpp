@@ -38,6 +38,7 @@
 #define HVAC_FAN_PIN 4
 #define HVAC_HEAT_PIN 5
 #define HVAC_COOL_PIN 6
+#define HVAC_RVALV_PIN 7
 #define BUZZER_PIN 17
 #define MOTION_PIN 18
 #define LIGHT_SENS_PIN 8

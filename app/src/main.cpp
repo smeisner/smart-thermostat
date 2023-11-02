@@ -13,48 +13,77 @@
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
+ *  16-Oct-2023: Steve Meisner (steve@meisners.net) - Add restriction for enabling both MQTT & Matter & removed printf's
  * 
  */
 
-#include "thermostat.hpp"
+#if defined(MATTER_ENABLED) && defined(MQTT_ENABLED)
+  #error "Do not enable Matter/CHIP and MQTT at the same time"
+#endif
 
+#include "thermostat.hpp"
 #include "esp_timer.h"
-int32_t millis() { return esp_timer_get_time() / 1000;}
+#define TAG "Main"
+
+int64_t millis() { return esp_timer_get_time() / 1000;}
 
 void app_main()
 {
+  ESP_LOGI (TAG, "IDF version: %s", esp_get_idf_version());
+  ESP_LOGD (TAG, "- Free memory: %d bytes", esp_get_free_heap_size());
+
   // Load configuration from EEPROM
-  printf ("Reading EEPROM\n");
+  ESP_LOGI (TAG, "Reading EEPROM");
   eepromInit();
 
   // Initialize the TFT display
-  printf ("Initializing TFT\n");
+  ESP_LOGI (TAG, "Initializing TFT");
   tftInit();
   // Create the RTOS task to drive the touchscreen
-  printf ("Starting TFT task\n");
+  ESP_LOGI (TAG, "Starting TFT task");
   tftCreateTask();
 
-  // Start wifi
-  printf ("Starting wifi (\"%s\", \"%s\")\n", WifiCreds.ssid, WifiCreds.password);
-  OperatingParameters.wifiConnected = 
-    wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
-
-  // Initialize indicators (relays, LEDs, buzzer)
-  printf ("Initializing indicators\n");
-  indicatorsInit();
   // Initialize sensors (temp, humidity, motion, etc)
-  printf ("Initializing sensors\n");
+  ESP_LOGI (TAG, "Initializing sensors");
   sensorsInit();
 
+#ifdef MATTER_ENABLED
+  // Start Matter
+  ESP_LOGI (TAG, "Starting Matter");
+  OperatingParameters.MatterStarted = MatterInit();
+#endif
+
+  // Start wifi
+  ESP_LOGI (TAG, "Starting wifi (\"%s\", \"%s\")", WifiCreds.ssid, WifiCreds.password);
+  OperatingParameters.wifiConnected = 
+    // wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
+    wifiStart(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password);
+
+
+#ifdef MQTT_ENABLED
+  // Start Matter
+  ESP_LOGI (TAG, "Starting MQTT");
+  MqttInit();
+#endif
+
+  // Start SNTP connection to get local time
+  initTimeSntp();
+
+  // Initialize indicators (relays, LEDs, buzzer)
+  ESP_LOGI (TAG, "Initializing indicators");
+  indicatorsInit();
+  initRelays();
+
   // Create the RTOS task to drive the state machine
-  printf ("Starting state machine task\n");
+  ESP_LOGI (TAG, "Starting state machine task");
   stateCreateTask();
 
   // Start web server
-  // printf ("Starting web server\n");
+  ESP_LOGI (TAG, "Starting web server");
   webStart();
 
   // Play the startup sound
   audioStartupBeep();
-  printf ("Startup done\n");
+  ESP_LOGI (TAG, "Startup done");
 }

@@ -54,12 +54,11 @@ void doTempUp(void)
   if (OperatingParameters.tempUnits == 'C')
   {
     OperatingParameters.tempSet += 0.5;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
   } else {
     OperatingParameters.tempSet += 1.0;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
-  eepromUpdateHvacSetTemp();
 }
 
 void doTempDown(void)
@@ -67,12 +66,11 @@ void doTempDown(void)
   if (OperatingParameters.tempUnits == 'C')
   {
     OperatingParameters.tempSet -= 0.5;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 1);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
   } else {
     OperatingParameters.tempSet -= 1.0;
-    OperatingParameters.tempSet = roundValue(OperatingParameters.tempSet, 0);
+    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
-  eepromUpdateHvacSetTemp();
 }
 
 float enforceRange(float value, float min, float max) {
@@ -91,15 +89,15 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   else if (!strncmp(content, "tempDown", BUTTON_CONTENT_SIZE))
     doTempDown();
   else if (!strncmp(content, "hvacModeOff", BUTTON_CONTENT_SIZE))
-    OperatingParameters.hvacSetMode = OFF;
+    updateHvacMode(OFF);
   else if (!strncmp(content, "hvacModeAuto", BUTTON_CONTENT_SIZE))
-    OperatingParameters.hvacSetMode = AUTO;
+    updateHvacMode(AUTO);
   else if (!strncmp(content, "hvacModeHeat", BUTTON_CONTENT_SIZE))
-    OperatingParameters.hvacSetMode = HEAT;
+    updateHvacMode(HEAT);
   else if (!strncmp(content, "hvacModeCool", BUTTON_CONTENT_SIZE))
-    OperatingParameters.hvacSetMode = COOL;
+    updateHvacMode(COOL);
   else if (!strncmp(content, "hvacModeFan", BUTTON_CONTENT_SIZE))
-    OperatingParameters.hvacSetMode = FAN;
+    updateHvacMode(FAN_ONLY);
   else if (!strncmp(content, "clear", BUTTON_CONTENT_SIZE))
     clearNVS();
   else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
@@ -111,9 +109,9 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   else if (!strncmp(content, "swingDown", BUTTON_CONTENT_SIZE))
     OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing - 0.1, 0.0, 6.0);
   else if (!strncmp(content, "correctionUp", BUTTON_CONTENT_SIZE))
-    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -6.5, 1.0);
+    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -10.0, 1.0);
   else if (!strncmp(content, "correctionDown", BUTTON_CONTENT_SIZE))
-    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -6.5, 1.0);
+    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -10.0, 1.0);
   else if (!strncmp(content, "twoStageEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvac2StageHeatEnable = !OperatingParameters.hvac2StageHeatEnable;
   else if (!strncmp(content, "reverseEnable", BUTTON_CONTENT_SIZE))
@@ -214,7 +212,7 @@ esp_err_t handleXML(httpd_req_t *req)
   xmlSpace -= snprintf(buf, sizeof(buf), "<reverseEnable>%d</reverseEnable>\n", OperatingParameters.hvacReverseValveEnable);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   CAT_IF_SPACE(xml, "</Data>", xmlSpace, req);
-  ESP_LOGI(TAG, "Remaining XML space: %ld", xmlSpace);
+  ESP_LOGD(TAG, "Remaining XML space: %ld", xmlSpace);
   return httpd_resp_send(req, xml, strlen(xml));
 }
 

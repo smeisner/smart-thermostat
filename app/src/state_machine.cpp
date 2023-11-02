@@ -9,10 +9,12 @@
  * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
  * 
  * Notes:
+ *   Need to add support for reversing valve (when aux heat enabled)
  *
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
  * 
  */
 
@@ -22,14 +24,22 @@
 #define LOW 0
 
 OPERATING_PARAMETERS OperatingParameters;
-extern int32_t lastTimeUpdate;
-int32_t lastWifiReconnect = 0;
+extern int64_t lastTimeUpdate;
+int64_t lastWifiReconnect = 0;
+#ifdef MQTT_ENABLED
+int64_t lastMqttReconnect = 0;
+#endif
 
 void stateMachine(void *parameter)
 {
   float currentTemp;
   float minTemp, maxTemp;
   float autoMinTemp, autoMaxTemp;
+
+#ifdef MQTT_ENABLED
+  // This will cause the first pass to make a connect attempt
+  lastMqttReconnect = MQTT_RECONNECT_DELAY * -1;
+#endif
 
   for (;;) // infinite loop
   {
@@ -57,9 +67,9 @@ void stateMachine(void *parameter)
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
     }
-    else if (OperatingParameters.hvacSetMode == FAN)
+    else if (OperatingParameters.hvacSetMode == FAN_ONLY)
     {
-      OperatingParameters.hvacOpMode = FAN;
+      OperatingParameters.hvacOpMode = FAN_ONLY;
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
@@ -172,7 +182,7 @@ void stateMachine(void *parameter)
       }
     }
 
-    if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN) && (OperatingParameters.hvacSetMode != OFF))
+    if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN_ONLY) && (OperatingParameters.hvacSetMode != OFF))
     {
       OperatingParameters.hvacOpMode = IDLE;
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
@@ -192,6 +202,18 @@ void stateMachine(void *parameter)
 
     OperatingParameters.wifiConnected = wifiConnected();
 
+#ifdef MQTT_ENABLED
+    if ((OperatingParameters.wifiConnected) && (OperatingParameters.MqttEnabled) && (!OperatingParameters.MqttConnected))
+    {
+      if (millis() > (lastMqttReconnect + MQTT_RECONNECT_DELAY))
+      {
+        lastMqttReconnect = millis();
+        //@@@ Should be a "reconnect"
+        MqttConnect();
+      }
+    }
+#endif
+
     // Check wifi
 #ifdef MATTER_ENABLED
     if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)) && (!OperatingParameters.MatterStarted))
@@ -199,7 +221,7 @@ void stateMachine(void *parameter)
     if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)))
 #endif
     {
-      if (millis() > lastWifiReconnect + 60000)
+      if (millis() > lastWifiReconnect + WIFI_CONNECT_INTERVAL)
       {
         lastWifiReconnect = millis();
         startReconnectTask();
@@ -255,40 +277,8 @@ void stateCreateTask()
   xTaskCreate(
       stateMachine,
       "State Machine",
-      4096,
+      8192,
       NULL,
       tskIDLE_PRIORITY - 1,
       NULL);
-}
-
-void testToggleRelays()
-{
-  vTaskDelay(pdMS_TO_TICKS(500));
-  gpio_reset_pin((gpio_num_t)HVAC_HEAT_PIN);
-  gpio_set_direction((gpio_num_t)HVAC_HEAT_PIN, GPIO_MODE_OUTPUT);
-}
-
-void serialStart()
-{
-  //
-  // Serial port mapping:
-  //
-  // Serial relates to the onboard UART port
-  // Serial1 is mapped (I believe) to the SWD port
-  // Serial2 is the USB port directly connected to the ESP32
-  //  NB: Serial2 is remapped to provide serial comms with the LD2410
-  //
-  // Do not use Serial2 as this will disable firmware uploading
-  // and debugging via the USB port. It will also cause the USB
-  // interface to not show up as a USB device to the host.
-  //
-
-  // int32_t tmo = millis() + 60000;
-  //Serial.begin(115200);
-  // Serial.setDebugOutput(true);
-  printf("UART Serial port (via UART-USB adapter -> usually /dev/ttyUSB0)\n");
-
-  // Serial1.begin(115200);
-  // Serial1.setDebugOutput(true);
-  // Serial1.printf("SERIAL1\n");
 }

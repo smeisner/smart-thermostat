@@ -24,6 +24,12 @@ Basic layout of thermostat:
 
 <img src="./assets/Block%20Diagram.drawio.png">
 
+# October 4, 2023 addition of Matter support
+
+Getting started: https://docs.espressif.com/projects/esp-matter/en/latest/esp32/developing.html
+
+Matter support is delayed until the SDK can be added as a library to PlatformIO. Currently, the actions required to create a dev environment is too extreme.
+
 # September 8, 2023 update - V0.6
 
 The thermostat app code is now 100% ESP-IDF based. All dependencies on the Arduino framework have been removed. This provides for much better control of the code and better integration with the upcoming Matter implementation.

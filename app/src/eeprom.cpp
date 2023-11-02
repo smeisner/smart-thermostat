@@ -14,6 +14,8 @@
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
+ *  16-Oct-2023: Steve Meisner (steve@meisners.net) - Add support for friendly names & saving MQTT broker info
  * 
  */
 
@@ -40,6 +42,11 @@
 #define DEF_SLEEP_TIME 30
 #define DEF_TZ_SEL 15
 #define DEF_BEEP_ENABLE true
+#define DEF_MQTT_ENABLE false
+#define DEF_MQTT_BROKER "mqtt"
+#define DEF_MQTT_USER "mqtt"
+#define DEF_MQTT_PASS "mqtt"
+#define DEF_MQTT_PORT 1883
 #define DEF_MATTER_ENABLE false
 
 //@@@
@@ -285,6 +292,7 @@ void setDefaultThermostatParams()
     ESP_LOGE(TAG, "Failed to open handle to NVS partition");
     return;
   }
+  strncpy (OperatingParameters.FriendlyName, "Thermostat", sizeof(OperatingParameters.FriendlyName));
   nvs_writeMode(my_handle, "currMode", DEF_CURR_MODE);
   nvs_writeMode(my_handle, "setMode", DEF_SET_MODE);
   nvs_writeFloat(my_handle, "setTemp", DEF_SET_TEMP);
@@ -299,6 +307,13 @@ void setDefaultThermostatParams()
   nvs_writeInt16(my_handle, "sleepTime", DEF_SLEEP_TIME);
   nvs_writeInt16(my_handle, "timezoneSel", DEF_TZ_SEL);
   nvs_writeBool(my_handle, "Beep", DEF_BEEP_ENABLE);
+#ifdef MQTT_ENABLED
+  nvs_writeBool(my_handle, "MqttEn", DEF_MQTT_ENABLE);
+  nvs_writeString(my_handle, "MqttBroker", DEF_MQTT_BROKER);
+  nvs_writeString(my_handle, "MqttUsername", DEF_MQTT_USER);
+  nvs_writeString(my_handle, "MqttPassword", DEF_MQTT_PASS);
+  nvs_writeInt16(my_handle, "MqttBrokerPort", DEF_MQTT_PORT);
+#endif
 #ifdef MATTER_ENABLED
   nvs_writeBool(my_handle, "MatterEn", DEF_MATTER_ENABLE);
 #endif
@@ -319,6 +334,13 @@ void setDefaultThermostatParams()
   OperatingParameters.thermostatSleepTime = DEF_SLEEP_TIME;
   OperatingParameters.timezone_sel = DEF_TZ_SEL;
   OperatingParameters.thermostatBeepEnable = DEF_BEEP_ENABLE;
+#ifdef MQTT_ENABLED
+  OperatingParameters.MqttEnabled = DEF_MQTT_ENABLE;
+  strncpy (OperatingParameters.MqttBrokerHost, DEF_MQTT_BROKER, sizeof(OperatingParameters.MqttBrokerHost));
+  strncpy (OperatingParameters.MqttBrokerUsername, DEF_MQTT_USER, sizeof(OperatingParameters.MqttBrokerUsername));
+  strncpy (OperatingParameters.MqttBrokerPassword, DEF_MQTT_PASS, sizeof(OperatingParameters.MqttBrokerPassword));
+  OperatingParameters.MqttBrokerPort = DEF_MQTT_PORT;
+#endif
 #ifdef MATTER_ENABLED
   OperatingParameters.MatterEnabled = DEF_MATTER_ENABLE;
 #endif
@@ -329,6 +351,7 @@ void updateThermostatParams()
   nvs_handle_t my_handle;
   ESP_LOGI(TAG, "Updating Thermostat parameters in NVS");
   openNVS(&my_handle, NVS_TAG);
+  nvs_writeString(my_handle, "friendlyname", OperatingParameters.FriendlyName);
   nvs_writeMode(my_handle, "currMode", OperatingParameters.hvacOpMode);
   nvs_writeMode(my_handle, "setMode", OperatingParameters.hvacSetMode);
   nvs_writeFloat(my_handle, "setTemp", OperatingParameters.tempSet);
@@ -343,6 +366,13 @@ void updateThermostatParams()
   nvs_writeInt16(my_handle, "sleepTime", OperatingParameters.thermostatSleepTime);
   nvs_writeInt16(my_handle, "timezoneSel", OperatingParameters.timezone_sel);
   nvs_writeBool(my_handle, "Beep", OperatingParameters.thermostatBeepEnable);
+#ifdef MQTT_ENABLED
+  nvs_writeBool(my_handle, "MqttEn", &OperatingParameters.MqttEnabled);
+  nvs_writeString(my_handle, "MqttBroker", OperatingParameters.MqttBrokerHost);
+  nvs_writeString(my_handle, "MqttUsername", OperatingParameters.MqttBrokerUsername);
+  nvs_writeString(my_handle, "MqttPassword", OperatingParameters.MqttBrokerPassword);
+  nvs_writeInt16(my_handle, "MqttBrokerPort", OperatingParameters.MqttBrokerPort);
+#endif
 #ifdef MATTER_ENABLED
   nvs_writeBool(my_handle, "MatterEn", &OperatingParameters.MatterEnabled);
 #endif
@@ -360,6 +390,7 @@ void getThermostatParams()
       return;
   }
 
+  nvs_readStr(my_handle, "friendlyname", "Thermostat", OperatingParameters.FriendlyName, sizeof(OperatingParameters.FriendlyName));
   nvs_readMode(my_handle, "currMode", &OperatingParameters.hvacOpMode, DEF_CURR_MODE);
   nvs_readMode(my_handle, "setMode", &OperatingParameters.hvacSetMode, DEF_SET_MODE);
   nvs_readFloat(my_handle, "setTemp", &OperatingParameters.tempSet, DEF_SET_TEMP);
@@ -375,6 +406,13 @@ void getThermostatParams()
   nvs_readInt16(my_handle, "timezoneSel", &OperatingParameters.timezone_sel, DEF_TZ_SEL);
   OperatingParameters.timezone = (char *)gmt_timezones[OperatingParameters.timezone_sel];
   nvs_readBool(my_handle, "Beep", &OperatingParameters.thermostatBeepEnable, DEF_BEEP_ENABLE);
+#ifdef MQTT_ENABLED
+  nvs_readBool(my_handle, "MqttEn", &OperatingParameters.MqttEnabled, DEF_MQTT_ENABLE);
+  nvs_readStr(my_handle, "MqttBroker", DEF_MQTT_BROKER, OperatingParameters.MqttBrokerHost, sizeof(OperatingParameters.MqttBrokerHost));
+  nvs_readStr(my_handle, "MqttUsername", DEF_MQTT_USER, OperatingParameters.MqttBrokerUsername, sizeof(OperatingParameters.MqttBrokerUsername));
+  nvs_readStr(my_handle, "MqttPassword", DEF_MQTT_PASS, OperatingParameters.MqttBrokerPassword, sizeof(OperatingParameters.MqttBrokerPassword));
+  nvs_readInt16(my_handle, "MqttBrokerPort", &OperatingParameters.MqttBrokerPort, DEF_MQTT_PORT);
+#endif
 #ifdef MATTER_ENABLED
   nvs_readBool(my_handle, "MatterEn", &OperatingParameters.MatterEnabled, DEF_MATTER_ENABLE);
 #endif
@@ -414,7 +452,7 @@ void setDefaultWifiCreds()
   nvs_writeString(my_handle, "pass", "");
   closeNVS(my_handle);
 
-  strncpy (WifiCreds.hostname, "thermostat", sizeof(WifiCreds.hostname));
+  strncpy (OperatingParameters.DeviceName, "thermostat", sizeof(OperatingParameters.DeviceName));
   strncpy (WifiCreds.ssid, "", sizeof(WifiCreds.ssid));
   strncpy (WifiCreds.password, "", sizeof(WifiCreds.password));
 }
@@ -428,7 +466,7 @@ void setWifiCreds()
   // printf ("*** [setWifiCreds] WifiCreds.password = %s\n", WifiCreds.password);
   nvs_handle_t my_handle;
   openNVS(&my_handle, NVS_WIFI_TAG);
-  nvs_writeString(my_handle, "hostname", WifiCreds.hostname);
+  nvs_writeString(my_handle, "hostname", OperatingParameters.DeviceName);
   nvs_writeString(my_handle, "ssid", WifiCreds.ssid);
   nvs_writeString(my_handle, "pass", WifiCreds.password);
   closeNVS(my_handle);
@@ -444,7 +482,7 @@ void getWifiCreds()
     if (!openNVS(&my_handle, NVS_WIFI_TAG))
       return;
   }
-  nvs_readStr(my_handle, "hostname", "thermostat", WifiCreds.hostname, sizeof(WifiCreds.hostname));
+  nvs_readStr(my_handle, "hostname", "thermostat", OperatingParameters.DeviceName, sizeof(OperatingParameters.DeviceName));
   nvs_readStr(my_handle, "ssid", "", WifiCreds.ssid, sizeof(WifiCreds.ssid));
   nvs_readStr(my_handle, "pass", "", WifiCreds.password, sizeof(WifiCreds.password));
   // printf ("*** [getWifiCreds] WifiCreds.password = %s\n", WifiCreds.password);

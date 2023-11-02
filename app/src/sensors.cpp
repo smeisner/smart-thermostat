@@ -37,11 +37,11 @@ const char *gmt_timezones[] =
   {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
    "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
 
-int32_t lastTimeUpdate = 0;
+int64_t lastTimeUpdate = 0;
 
 Stream RadarPort;
 ld2410 radar;
-uint32_t last_ld2410_Reading = 0;
+uint64_t last_ld2410_Reading = 0;
 
 Smoothed<float> sensorTemp;
 Smoothed<float> sensorHumidity;
@@ -49,7 +49,27 @@ Smoothed<float> sensorHumidity;
 adc_unit_t adcUnit;
 adc_channel_t adcChannel;
 adc_oneshot_unit_handle_t adcHandle;
-#define EXAMPLE_ADC_ATTEN           ADC_ATTEN_DB_11
+#define EXAMPLE_ADC_ATTEN ADC_ATTEN_DB_11
+
+
+void updateHvacMode(HVAC_MODE mode)
+{
+  OperatingParameters.hvacSetMode = mode;
+  eepromUpdateHvacSetMode();
+#ifdef MQTT_ENABLED
+  MqttUpdateStatusTopic();
+#endif
+}
+
+void updateHvacSetTemp(float setTemp)
+{
+  OperatingParameters.tempSet = setTemp;
+  eepromUpdateHvacSetTemp();
+  ESP_LOGI(TAG, "Set temp: %.1f", setTemp);
+#ifdef MQTT_ENABLED
+  MqttUpdateStatusTopic();
+#endif
+}
 
 /*---------------------------------------------------------------
         ADC Code (for light sensor)
@@ -107,7 +127,6 @@ float roundValue(float value, int places)
     r = (float)((int)(value + 0.5));
   if (places == 1)
     r = (float)((int)(value + 0.25) + (getRoundedFrac(value + 0.25) / 10.0));
-  ESP_LOGI(TAG, "%.1f", r);
   return r;
 }
 
@@ -145,33 +164,30 @@ bool ld2410_init()
 
   if (radar.begin(RadarPort))
   {
-    printf("LD2410: Sensor started\n");
+    ESP_LOGI(TAG, "LD2410: Sensor started");
     rc = true;
 
     if (radar.requestFirmwareVersion())
     {
-      printf ("LD2410: Firmware: v%u.%02u.%u%u%u%u\n",
+      ESP_LOGI(TAG, "LD2410: Firmware: v%u.%02u.%08x",
         radar.firmware_major_version,
         radar.firmware_minor_version,
-        (uint8_t)(radar.firmware_bugfix_version & 0xff000000) >> 24,
-        (uint8_t)(radar.firmware_bugfix_version & 0x00ff0000) >> 16,
-        (uint8_t)(radar.firmware_bugfix_version & 0x0000ff00) >> 8,
-        (uint8_t)radar.firmware_bugfix_version & 0x000000ff
+        radar.firmware_bugfix_version
         );
     } else {
-      printf ("LD2410: Failed to read firmware version\n");
+      ESP_LOGE(TAG, "LD2410: Failed to read firmware version\n");
     }
 
     if (radar.requestCurrentConfiguration())
     {
-      printf("LD2410: Maximum gate ID: %d\n", radar.max_gate);
-      printf("LD2410: Maximum gate for moving targets: %d\n", radar.max_moving_gate);
-      printf("LD2410: Maximum gate for stationary targets: %d\n", radar.max_stationary_gate);
-      printf("LD2410: Idle time for targets: %d\n", radar.sensor_idle_time);
-      printf("LD2410: Gate sensitivity\n");
+      ESP_LOGI(TAG, "LD2410: Maximum gate ID: %d", radar.max_gate);
+      ESP_LOGI(TAG, "LD2410: Maximum gate for moving targets: %d", radar.max_moving_gate);
+      ESP_LOGI(TAG, "LD2410: Maximum gate for stationary targets: %d", radar.max_stationary_gate);
+      ESP_LOGI(TAG, "LD2410: Idle time for targets: %d", radar.sensor_idle_time);
+      ESP_LOGI(TAG, "LD2410: Gate sensitivity");
       for (uint8_t gate = 0; gate <= radar.max_gate; gate++)
       {
-        printf("  Gate %d moving targets: %d stationary targets: %d\n",
+        ESP_LOGI(TAG, "  Gate %d moving targets: %d stationary targets: %d",
           gate, radar.motion_sensitivity[gate], radar.stationary_sensitivity[gate]);
       }
     }
@@ -189,15 +205,15 @@ bool ld2410_init()
     // limited to 0 (0.75m). Use this to also change the inactivity timer.
     //
     //bool setMaxValues(uint16_t moving, uint16_t stationary, uint16_t inactivityTimer);
-    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000))) printf ("LD2410: Max gate values set\n"); else printf ("LD2410: FAILED to set max gate values\n");
+    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000))) ESP_LOGI(TAG, "LD2410: Max gate values set"); else ESP_LOGE(TAG, "LD2410: FAILED to set max gate values");
     //
     // Now request a restart to enable all the setting specified above
     //
-    if (radar.requestRestart()) printf ("LD2410: Restart requested\n"); else printf ("LD2410: FAILED requesting restart\n");
+    if (radar.requestRestart()) ESP_LOGW(TAG, "LD2410: Restart requested"); else ESP_LOGE(TAG, "LD2410: FAILED requesting restart");
   }
   else
   {
-    printf ("LD2410: Sensor not connected\n");
+    ESP_LOGE(TAG, "LD2410: Sensor not connected");
     rc = false;
   }
   return rc;
@@ -272,11 +288,35 @@ void updateAht(void *parameter)
 
       ESP_LOGI(TAG, "Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)",
              sensorTemp.get(), temperature, OperatingParameters.tempUnits, sensorHumidity.get(), humidity);
+#ifdef MQTT_ENABLED
+      MqttUpdateStatusTopic();
+#endif
     }
     else
       ESP_LOGE(TAG, "Error reading data: %d (%s)", res, esp_err_to_name(res));
 
     vTaskDelay(pdMS_TO_TICKS(10000));
+  }
+}
+
+bool startAht()
+{
+  if (initAht())
+  {
+    xTaskCreate(
+        updateAht,            // Function that should be called
+        "Update AHT",         // Name of the task (for debugging)
+        4096,                 // Stack size (bytes)
+        NULL,                 // Parameter to pass
+        tskIDLE_PRIORITY + 1, // Task priority
+        NULL                  // Task handle
+    );
+
+    return true;
+  }
+  else
+  {
+    return false;
   }
 }
 
@@ -317,10 +357,10 @@ void updateTimezone()
   tzset();
 }
 
-bool getLocalTime(struct tm * info, uint32_t ms)
+bool getLocalTime(struct tm * info, uint64_t ms)
 {
-  uint32_t start = millis();
-  uint32_t tmo = ms;
+  uint64_t start = millis();
+  uint64_t tmo = ms;
   time_t now;
 
   if (!wifiConnected())
@@ -376,34 +416,14 @@ void initTimeSntp()
 /*---------------------------------------------------------------
         Init code for sensors entry point
 ---------------------------------------------------------------*/
-bool sensorsInit()
+void sensorsInit()
 {
   sensorTemp.begin(SMOOTHED_EXPONENTIAL, 10);
   sensorHumidity.begin(SMOOTHED_EXPONENTIAL, 10);
   sensorTemp.clear();
   sensorHumidity.clear();
 
-  initTimeSntp();
-
+  startAht();
   ld2410_init();
-
   initLightSensor();
-
-  if (initAht())
-  {
-    xTaskCreate(
-        updateAht,            // Function that should be called
-        "Update AHT",         // Name of the task (for debugging)
-        4096,                 // Stack size (bytes)
-        NULL,                 // Parameter to pass
-        tskIDLE_PRIORITY + 1, // Task priority
-        NULL                  // Task handle
-    );
-
-    return true;
-  }
-  else
-  {
-    return false;
-  }
 }

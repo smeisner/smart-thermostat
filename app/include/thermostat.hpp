@@ -17,7 +17,6 @@
 #define LOW 0
 
 
-
 /////////////////////////////////////////////////////////////////////
 //     Shared data structures
 /////////////////////////////////////////////////////////////////////
@@ -28,7 +27,7 @@ typedef enum
     AUTO,
     HEAT,
     COOL,
-    FAN,
+    FAN_ONLY,
     AUX_HEAT,
     ERROR,
     IDLE
@@ -37,6 +36,12 @@ typedef enum
 
 typedef struct
 {
+    // FriendlyName and DeviceName must be
+    // the same size due to copy operation
+    // in ui_events.cpp, saveDeviceName()
+    char FriendlyName[32];
+    char DeviceName[32];
+    uint8_t mac[6];
     HVAC_MODE hvacOpMode;
     HVAC_MODE hvacSetMode;
     float tempSet;
@@ -62,6 +67,21 @@ typedef struct
     char *timezone;
     uint16_t timezone_sel;
 
+#ifdef MQTT_ENABLED
+    bool MqttEnabled;
+    // bool MqttStarted;
+    bool MqttConnected;
+    char MqttBrokerHost[32];
+    uint16_t MqttBrokerPort;
+    char MqttBrokerUsername[32];
+    char MqttBrokerPassword[72];
+    void *MqttClient;   // Used during MQTT publish
+#endif
+
+#ifdef MATTER_ENABLED
+    bool MatterEnabled;
+    bool MatterStarted;
+#endif
     //@@@ Zipcode for outside temp??
     //@@@ Calibration data for touchscreen?
 
@@ -69,7 +89,7 @@ typedef struct
 
 typedef struct
 {
-    char hostname[24];
+    // char hostname[24];   ...replaced by OperatingParameters.DeviceName
     char ssid[24];
     char password[16];
 
@@ -90,10 +110,14 @@ typedef struct
 
 } WIFI_STATUS;
 
+
 extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
-extern int32_t ui_WifiStatusLabel_timestamp;
+extern int64_t ui_WifiStatusLabel_timestamp;
 
+#ifdef MQTT_ENABLED
+#define MQTT_RECONNECT_DELAY 75000
+#endif
 #define MOTION_TIMEOUT 10000
 #define WIFI_CONNECT_INTERVAL 30000
 #define UPDATE_TIME_INTERVAL 60000
@@ -116,15 +140,25 @@ extern void app_main();
 } /*extern "C"*/
 #endif
 
-int32_t millis();   // Defined in main.cpp
+int64_t millis();   // Defined in main.cpp
 
 void showConfigurationData();
 void scanI2cBus();
 
+#ifdef MATTER_ENABLED
+bool MatterInit();
+#endif
+
+#ifdef MQTT_ENABLED
+void MqttInit();
+bool MqttConnect();
+void MqttUpdateStatusTopic();
+void MqttHomeAssistantDiscovery();
+#endif
+
 // State Machine
 void stateCreateTask();
-void serialStart();
-extern int32_t lastWifiReconnect;
+extern int64_t lastWifiReconnect;
 
 // EEPROM
 void eepromInit();
@@ -157,6 +191,9 @@ void tftCreateTask();
 HVAC_MODE strToHvacMode(char *mode);
 HVAC_MODE convertSelectedHvacMode();
 void setHvacModesDropdown();
+#ifdef MQTT_ENABLED
+const char *hvacModeToMqttCurrMode(HVAC_MODE mode);
+#endif
 const char *hvacModeToString(HVAC_MODE mode);
 extern volatile bool tftMotionTrigger;
 
@@ -176,16 +213,19 @@ void tftDimDisplay();
 #endif
 
 // Sensors
+void updateHvacMode(HVAC_MODE mode);
+void updateHvacSetTemp(float setTemp);
 // float roundValue(float value, int places = 0);
 float roundValue(float value, int places);
 float getRoundedFrac(float value);
+void initTimeSntp();
 // int degCfrac(float tempF);
 // int tempOut(float tempF);
 // float tempIn(float tempC);
 // float degFtoC(float degF);
 void resetTempSmooth();
-bool sensorsInit();
-void testToggleRelays();
+void sensorsInit();
+void initRelays();
 int getTemp();
 int getHumidity();
 void ld2410_loop();
@@ -198,7 +238,7 @@ void audioBeep();
 
 // SNTP Time Sync
 void updateTimezone();
-bool getLocalTime(struct tm *, uint32_t);
+bool getLocalTime(struct tm *, uint64_t);
 void updateTimeSntp();
 
 // ui_events.cpp

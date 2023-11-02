@@ -20,6 +20,7 @@
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
+ *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
  * 
  */
 
@@ -31,15 +32,17 @@
 
 static char thermostatModes[48] = {0};
 TaskHandle_t xTouchUIHandle;
-int32_t lastTouchDetected = 0;
+int64_t lastTouchDetected = 0;
 bool tftTouchTimerEnabled = true;
-int32_t ui_WifiStatusLabel_timestamp = 0;
+int64_t ui_WifiStatusLabel_timestamp = 0;
 uint16_t calData_2_8[8] = { 3839, 336, 3819, 3549, 893, 390, 718, 3387 };
 uint16_t calData_3_2[8] = { 3778, 359, 3786, 3803, 266, 347, 258, 3769 };
 uint16_t calData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-int32_t lastMotionDetected = 0;
+int64_t lastMotionDetected = 0;
 
 volatile bool tftMotionTrigger = false;
+
+#define TAG "TFT"
 
 #ifdef __cplusplus
 extern "C" {
@@ -47,12 +50,12 @@ extern "C" {
 
 void tftDisableTouchTimer()
 {
-  printf ("Disabling touch timer\n");
+  ESP_LOGI(TAG, "Disabling touch/motion timer");
   tftTouchTimerEnabled = false;
 }
 void tftEnableTouchTimer()
 {
-  printf ("Enabling touch timer\n");
+  ESP_LOGI(TAG, "Enabling touch/motion timer");
   tftTouchTimerEnabled = true;
 }
 
@@ -99,7 +102,7 @@ void tftWakeDisplayMotion()
     // float ratio = (float)(OperatingParameters.lightDetected) / 3150.0;  // Measured in mV (max = 3.15 V)
     int brightness = (int)(ratio * (float)(FULL_BRIGHTNESS));
     tftShowDisplayItems();
-    printf ("Setting display to partial brightness: %d (%d%%)\n",
+    ESP_LOGI(TAG, "Setting display to partial brightness: %d (%d%%)",
       brightness, (int)(ratio*100.0));
     tft.setBrightness(brightness);
     tftEnableTouchTimer();
@@ -111,6 +114,7 @@ void tftDimDisplay()
 {
   if (tftTouchTimerEnabled)
   {
+    ESP_LOGD(TAG, "Dimming display");
     tft.setBrightness(OFF_BRIGHTNESS);
     tftHideDisplayItems();
     tftDisableTouchTimer();
@@ -164,22 +168,39 @@ void tftUpdateDisplay()
   switch (OperatingParameters.hvacOpMode)
   {
     // Set color of inner circle representing the operating mode
-    case HEAT: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0xa00b0b), LV_PART_MAIN); break;
-    case COOL: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x435deb), LV_PART_MAIN); break;
-    case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x3c8945), LV_PART_MAIN); break;  //@@@
-    default:   lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x7a92b2), LV_PART_MAIN); break;
+    case HEAT:     lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0xa00b0b), LV_PART_MAIN); break;
+    case COOL:     lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x435deb), LV_PART_MAIN); break;
+    case FAN_ONLY: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x3c8945), LV_PART_MAIN); break;  //@@@
+    default:       lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x7a92b2), LV_PART_MAIN); break;
   }
   switch (OperatingParameters.hvacSetMode)
   {
     // Set color of outer circle representing the enabled or set mode
     case AUX_HEAT:
-    case HEAT: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
-    case COOL: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
-    case FAN:  lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x23562b), LV_PART_MAIN); break;  //@@@
-    case AUTO: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
-    default:   lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
+    case HEAT:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
+    case COOL:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
+    case FAN_ONLY: lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x23562b), LV_PART_MAIN); break;  //@@@
+    case AUTO:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xaeac40), LV_PART_MAIN); break;
+    default:       lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x7d7d7d), LV_PART_MAIN); break;
   }
 }
+
+#ifdef MQTT_ENABLED
+const char *hvacModeToMqttCurrMode(HVAC_MODE mode)
+{
+  switch (mode)
+  {
+    case OFF: return "off";
+    case IDLE: return "idle";
+    case AUTO: return "auto";
+    case HEAT: return "heating";
+    case COOL: return "cooling";
+    case FAN_ONLY: return "Fan_only";
+    case AUX_HEAT: return "Aux Heat";
+    default: return "Error";
+  }
+}
+#endif
 
 const char *hvacModeToString(HVAC_MODE mode)
 {
@@ -190,7 +211,7 @@ const char *hvacModeToString(HVAC_MODE mode)
     case AUTO: return "Auto";
     case HEAT: return "Heat";
     case COOL: return "Cool";
-    case FAN:  return "Fan";
+    case FAN_ONLY: return "Fan_only";
     case AUX_HEAT: return "Aux Heat";
     default:   return "Error";
   }
@@ -216,13 +237,13 @@ HVAC_MODE convertSelectedHvacMode()
 
   // Check to see if the selected HVAC mode is now disabled (after config menu)
   if ((OperatingParameters.hvacSetMode == AUTO) && !OperatingParameters.hvacCoolEnable)
-    OperatingParameters.hvacSetMode = OFF;
-  if ((OperatingParameters.hvacSetMode == FAN) && !OperatingParameters.hvacFanEnable)
-    OperatingParameters.hvacSetMode = OFF;
+    updateHvacMode(OFF);
+  if ((OperatingParameters.hvacSetMode == FAN_ONLY) && !OperatingParameters.hvacFanEnable)
+    updateHvacMode(OFF);
   if ((OperatingParameters.hvacSetMode == COOL) && !OperatingParameters.hvacCoolEnable)
-    OperatingParameters.hvacSetMode = OFF;
+    updateHvacMode(OFF);
   if ((OperatingParameters.hvacSetMode == AUX_HEAT) && !OperatingParameters.hvac2StageHeatEnable)
-    OperatingParameters.hvacSetMode = OFF;
+    updateHvacMode(OFF);
 
   // Retrieve currently selected HVAC mode
   strncpy (selMode, hvacModeToString(OperatingParameters.hvacSetMode), sizeof(selMode));
@@ -251,7 +272,7 @@ void setHvacModesDropdown()
   {
     if ((n == AUTO) && !OperatingParameters.hvacCoolEnable)
       continue;
-    if ((n == FAN) && !OperatingParameters.hvacFanEnable)
+    if ((n == FAN_ONLY) && !OperatingParameters.hvacFanEnable)
       continue;
     if ((n == COOL) && !OperatingParameters.hvacCoolEnable)
       continue;
@@ -306,8 +327,8 @@ Cal data:
   // Use calData to set up touch dimensions
   tft.setTouchCalibrate(calData);
   // Dump data to debug logger
-  printf ("Touch Screen calibration data:\n");
-  for (int n=0; n < 8; n++) printf("%d : %d\n", n, calData[n]);
+  ESP_LOGI (TAG, "Touch Screen calibration data:");
+  for (int n=0; n < 8; n++) ESP_LOGI (TAG, "%d : %d", n, calData[n]);
 }
 
 void tftInit()
@@ -342,7 +363,7 @@ void tftInit()
 
   setHvacModesDropdown();
 
-  printf("Current temp set to %.1f°\n", OperatingParameters.tempSet);
+  ESP_LOGI (TAG, "Current temp set to %.1f°", OperatingParameters.tempSet);
 
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
@@ -396,7 +417,7 @@ void tftPump(void * parameter)
     //
     if (/*(lastMotionDetected == 0) &&*/ (!tftTouchTimerEnabled) && isCurrentScreenMain())
     {
-      printf("Motion wake triggered\n");
+      ESP_LOGI (TAG, "Motion wake triggered");
       lastMotionDetected = millis();
       OperatingParameters.motionDetected = true;
       tftWakeDisplayMotion();
@@ -411,7 +432,7 @@ void tftPump(void * parameter)
   {
     if (millis() - lastMotionDetected > MOTION_TIMEOUT)
     {
-      printf ("Motion detection timeout\n");
+      ESP_LOGI (TAG, "Motion detection timeout");
       OperatingParameters.motionDetected = false;
     }
   }
@@ -426,7 +447,7 @@ void tftCreateTask()
   xTaskCreate (
       tftPump,
       "Touch Screen UI",
-      4096,
+      8192,
       NULL,
       tskIDLE_PRIORITY+1,
       &xTouchUIHandle
