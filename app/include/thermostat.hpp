@@ -156,6 +156,10 @@ void MqttUpdateStatusTopic();
 void MqttHomeAssistantDiscovery();
 #endif
 
+#ifdef TELNET_ENABLED
+esp_err_t telnetStart();
+#endif
+
 // State Machine
 void stateCreateTask();
 extern int64_t lastWifiReconnect;

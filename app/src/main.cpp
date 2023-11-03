@@ -83,6 +83,11 @@ void app_main()
   ESP_LOGI (TAG, "Starting web server");
   webStart();
 
+#ifdef TELNET_ENABLED
+  // Start telnet server
+  telnetStart();
+#endif
+
   // Play the startup sound
   audioStartupBeep();
   ESP_LOGI (TAG, "Startup done");

@@ -228,6 +228,10 @@ void stateMachine(void *parameter)
       }
     }
 
+#ifdef TELNET_ENABLED
+    //@@@ telnetLoop();
+#endif
+
     // if (Serial.available())
     // {
     //   String temp = Serial.readString();

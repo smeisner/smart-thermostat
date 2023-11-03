@@ -230,11 +230,11 @@ void ld2410_loop()
     last_ld2410_Reading = millis();
     if (radar.presenceDetected())
     {
-      ESP_LOGD (TAG, "LD2410: Motion detected");
+      ESP_LOGI (TAG, "LD2410: Presence detected");
       if (radar.stationaryTargetDetected())
-        ESP_LOGI (TAG, "LD2410: Stationary target: %d in", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
+        ESP_LOGD (TAG, "LD2410: Stationary target: %d in", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
       if (radar.movingTargetDetected())
-        ESP_LOGI (TAG, "LD2410: Moving target: %d in", (int)((float)(radar.movingTargetDistance()) / 2.54));
+        ESP_LOGD (TAG, "LD2410: Moving target: %d in", (int)((float)(radar.movingTargetDistance()) / 2.54));
     }
   }
 }
