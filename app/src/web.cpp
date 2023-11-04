@@ -49,7 +49,7 @@ static const char *TAG = "WEB";
 static char html[2200];
 static char xml[800];
 
-void doTempUp(void)
+float doTempUp(void)
 {
   if (OperatingParameters.tempUnits == 'C')
   {
@@ -59,9 +59,10 @@ void doTempUp(void)
     OperatingParameters.tempSet += 1.0;
     updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
+  return OperatingParameters.tempSet;
 }
 
-void doTempDown(void)
+float doTempDown(void)
 {
   if (OperatingParameters.tempUnits == 'C')
   {
@@ -71,6 +72,7 @@ void doTempDown(void)
     OperatingParameters.tempSet -= 1.0;
     updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
+  return OperatingParameters.tempSet;
 }
 
 float enforceRange(float value, float min, float max) {
@@ -139,7 +141,7 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     }
   }
   else
-    ESP_LOGI(TAG, "Could not dispatch request \"%s\"", content);
+    ESP_LOGE(TAG, "Could not dispatch request \"%s\"", content);
 }
 
 #define min(x, y) ((x < y) ? x : y)
@@ -157,7 +159,7 @@ esp_err_t handleButton(httpd_req_t *req)
 
 #define CAT_IF_SPACE(xmlBuffer, other, space, request)          \
   if (space < 0) {                                              \
-    ESP_LOGI(TAG, "XML buffer ran out of space. Aborting...");  \
+    ESP_LOGE(TAG, "XML buffer ran out of space. Aborting...");  \
     return httpd_resp_send_500(request);                        \
   }                                                             \
   strcat(xmlBuffer, other);
