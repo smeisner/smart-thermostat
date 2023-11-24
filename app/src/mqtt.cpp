@@ -32,7 +32,7 @@ static const char *TAG = "MQTT";
 
 // Variable used for MQTT Discovery
 const char*         g_deviceModel = "Truly Smart Thermostat";                 // Hardware Model
-const char*         g_swVersion = VERSION_STRING;                             // Firmware Version
+const char*         g_swVersion = VersionString;                             // Firmware Version
 const char*         g_manufacturer = "Steve Meisner";                         // Manufacturer Name
 std::string         g_deviceName; // = OperatingParameters.DeviceName;            // Device Name
 std::string         g_friendlyName;
@@ -99,7 +99,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
             ESP_LOGI(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
             ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
-            if (strstr(event->topic, "mode"))
+            if (strstr(event->topic, "/set/mode"))
             {
                 char m[event->data_len + 1];
                 strncpy (m, event->data, event->data_len);
@@ -109,7 +109,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 ESP_LOGI(TAG, "Looking up %s", m);
                 updateHvacMode (strToHvacMode(m));
             }
-            if (strstr(event->topic, "temp"))
+            if (strstr(event->topic, "/set/temp"))
             {
                 if (strlen(event->data) > 0 && atof(event->data) != 0)
                 {
@@ -177,16 +177,19 @@ void MqttUpdateStatusTopic()
     std::string curr_mode = hvacModeToMqttCurrMode(OperatingParameters.hvacOpMode);
     StaticJsonDocument<200> payload;
     // payload["inputstatus"] = "ON";
-    std::string hum(16, '\0');
-    auto written = std::snprintf(&hum[0], hum.size(), "%.2f", (OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection));
-    hum.resize(written);
-    payload["Humidity"] = hum;
-    // payload["Humidity"] = OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection;
+
     std::string temp(16, '\0');
-    written = std::snprintf(&temp[0], temp.size(), "%.2f", (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection));
+    auto written = std::snprintf(&temp[0], temp.size(), "%.2f", (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection));
     temp.resize(written);
     payload["Temperature"] = temp;
     // payload["Temperature"] = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;
+
+    std::string hum(16, '\0');
+    written = std::snprintf(&hum[0], hum.size(), "%.2f", (OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection));
+    hum.resize(written);
+    payload["Humidity"] = hum;
+    // payload["Humidity"] = OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection;
+
     //@@@ Should the following line be part of an "else" for the next "if" statement???
     payload["Setpoint"] = OperatingParameters.tempSet;
 
@@ -465,7 +468,8 @@ bool MqttConnect(void)
     mqtt_cfg.credentials.set_null_client_id = true;
     // mqtt_cfg.credentials.authentication.password = "mqtt";
     mqtt_cfg.credentials.authentication.password = OperatingParameters.MqttBrokerPassword;
-    
+
+    mqtt_cfg.network.disable_auto_reconnect = true;
 
     //  = {
     //     .uri = "mqtt://iot.eclipse.org",
@@ -524,7 +528,7 @@ bool MqttConnect(void)
 
     if (bits & MQTT_EVENT_CONNECTED_BIT)
     {
-        ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName);
+        ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName.c_str());
         MqttSubscribeTopic(client, g_deviceName + "/set/#");
 
         // Send discovery packet to let all listeners know we have arrived
@@ -548,26 +552,25 @@ void MqttInit()
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
 
-    if (!OperatingParameters.MqttEnabled)
-    {
-        ESP_LOGW(TAG, "MQTT is not enabled!");
-        return;
-    }
-
     /* Initialize event group */
     s_mqtt_event_group = xEventGroupCreate();
 
     ESP_LOGI(TAG, "MQTT Startup...");
-    if (!wifiConnected())
-    {
-        ESP_LOGE(TAG, "Attempting to start MQTT when wifi connection down");
-        return;
-    }
 
     g_deviceName = OperatingParameters.DeviceName;
     g_friendlyName = OperatingParameters.FriendlyName;
     g_mqttStatusTopic = g_deviceName + "/status";
     OperatingParameters.MqttConnected = false;
+
+    if (!OperatingParameters.MqttEnabled)
+    {
+        ESP_LOGW(TAG, "MQTT is not enabled!");
+    }
+
+    if (!wifiConnected())
+    {
+        ESP_LOGE(TAG, "Attempting to start MQTT when wifi connection down");
+    }
 }
 
 #endif  // #ifdef MQTT_ENABLED

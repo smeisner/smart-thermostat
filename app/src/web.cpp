@@ -111,9 +111,9 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   else if (!strncmp(content, "swingDown", BUTTON_CONTENT_SIZE))
     OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing - 0.1, 0.0, 6.0);
   else if (!strncmp(content, "correctionUp", BUTTON_CONTENT_SIZE))
-    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -10.0, 1.0);
+    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -10.0, 10.0);
   else if (!strncmp(content, "correctionDown", BUTTON_CONTENT_SIZE))
-    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -10.0, 1.0);
+    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -10.0, 10.0);
   else if (!strncmp(content, "twoStageEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvac2StageHeatEnable = !OperatingParameters.hvac2StageHeatEnable;
   else if (!strncmp(content, "reverseEnable", BUTTON_CONTENT_SIZE))
@@ -199,11 +199,11 @@ esp_err_t handleXML(httpd_req_t *req)
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   xmlSpace -= snprintf(buf, sizeof(buf), "<address>%s</address>\n", wifiAddress());
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareVer>%s</firmwareVer>\n", VERSION_STRING);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareVer>%s</firmwareVer>\n", VersionString);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareDt>%s</firmwareDt>\n", VERSION_BUILD_DATE_TIME);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareDt>%s</firmwareDt>\n", VersionBuildDateTime);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<copyright>%s</copyright>\n", VERSION_COPYRIGHT);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<copyright>%s</copyright>\n", VersionCopyright);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   xmlSpace -= snprintf(buf, sizeof(buf), "<hvacCoolEnable>%d</hvacCoolEnable>\n", OperatingParameters.hvacCoolEnable);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
@@ -245,7 +245,7 @@ esp_err_t fwUpdate(httpd_req_t *req)
             ota_partition->subtype, ota_partition->address);
 	ESP_ERROR_CHECK(esp_ota_begin(ota_partition, OTA_SIZE_UNKNOWN, &ota_handle));
 
-  ESP_LOGI (TAG, "Firmware size: %i\n", remaining);
+  ESP_LOGI (TAG, "Firmware size: %i", remaining);
 
 	while (remaining > 0)
   {
@@ -326,6 +326,7 @@ void webStart()
     httpd_register_uri_handler(server, &uri_xml);
     httpd_register_uri_handler(server, &uri_button);
     httpd_register_uri_handler(server, &uri_upload);
+    httpd_register_uri_handler(server, &uri_update);
   }
 
   if (server == NULL)

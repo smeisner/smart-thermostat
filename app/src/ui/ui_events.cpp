@@ -177,14 +177,14 @@ void LoadInfoStrings(lv_event_t * e)
   lv_label_set_text_fmt(ui_RssiLabel, "%s Signal:# %d%%", LABEL_COLOR, wifiSignal());
 
   lv_label_set_recolor(ui_FwVersionLabel, true);
-  lv_label_set_text_fmt(ui_FwVersionLabel, "%s Firmware:# %s", LABEL_COLOR, VERSION_STRING);
+  lv_label_set_text_fmt(ui_FwVersionLabel, "%s Firmware:# %s", LABEL_COLOR, VersionString);
 
   lv_label_set_recolor(ui_BuildDateLabel, true);
-  lv_label_set_text_fmt(ui_BuildDateLabel, "%s Build date:# %s", LABEL_COLOR, VERSION_BUILD_DATE_TIME);
+  lv_label_set_text_fmt(ui_BuildDateLabel, "%s Build date:# %s", LABEL_COLOR, VersionBuildDateTime);
 
 //  lv_label_set_long_mode(ui_CopyrightLabel, LV_LABEL_LONG_SCROLL_CIRCULAR);
   lv_obj_set_width(ui_CopyrightLabel, screenWidth - 2);
-  lv_label_set_text_fmt(ui_CopyrightLabel, "%s", VERSION_COPYRIGHT);
+  lv_label_set_text_fmt(ui_CopyrightLabel, "%s", VersionCopyright);
 }
 
 void tftUpdateTempCorrectionValue(lv_event_t * e)
@@ -287,9 +287,24 @@ void SaveConfigSettings(lv_event_t * e)
 
   setHvacModesDropdown();
 
+//
+// If MQTT or Matter are enabled and that selection is changing, we need
+// to update the internal state (in OperatingParameters and eeprom) before
+// restarting the ESP32.
+//
 #ifdef MATTER_ENABLED
   bool prevMatter = OperatingParameters.MatterEnabled;
   OperatingParameters.MatterEnabled = lv_obj_has_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+#endif
+#ifdef MQTT_ENABLED
+  bool prevMqtt = OperatingParameters.MqttEnabled;
+  OperatingParameters.MqttEnabled = lv_obj_has_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
+#endif
+
+// All fields updated...write to eeprom
+  updateThermostatParams();
+
+#ifdef MATTER_ENABLED
   if (OperatingParameters.MatterEnabled != prevMatter)
   {
     //@@@ Disable all HVAC activity before restarting
@@ -303,8 +318,6 @@ void SaveConfigSettings(lv_event_t * e)
   }
 #endif
 #ifdef MQTT_ENABLED
-  bool prevMqtt = OperatingParameters.MqttEnabled;
-  OperatingParameters.MqttEnabled = lv_obj_has_state(ui_HomeAutomationCheckbox, LV_STATE_CHECKED);
   if (OperatingParameters.MqttEnabled != prevMqtt)
   {
     //@@@ Disable all HVAC activity before restarting
@@ -324,7 +337,6 @@ void SaveConfigSettings(lv_event_t * e)
     }
   }
 #endif
-  updateThermostatParams();
 }
 
 void LoadConfigSettings(lv_event_t * e)
@@ -500,6 +512,11 @@ void tftCountdown(lv_event_t * e)
     vTaskDelay(pdMS_TO_TICKS(1000));
     n--;
   }
+
+  lv_label_set_text(ui_RestartCountdown, "Saving config");
+  lv_refr_now(NULL);
+  vTaskDelay(pdMS_TO_TICKS(1000));
+
   /* Initialize the ESP NVS layer */
   printf ("Initializing NVS\n");
   // nvs_flash_init();
@@ -509,9 +526,17 @@ void tftCountdown(lv_event_t * e)
   setWifiCreds();
   printf ("Saving thermostat config\n");
   updateThermostatParams();
+
+  lv_label_set_text(ui_RestartCountdown, "Restarting...");
+  lv_refr_now(NULL);
+  vTaskDelay(pdMS_TO_TICKS(1000));
+
 #ifdef MATTER_ENABLED
   printf ("Resetting Matter config and restarting ESP\n");
   MatterFactoryReset(); // Will also restart the ESP
+#else
+  printf ("Restarting the ESP32...\n");
+  esp_restart();
 #endif
 }
 

@@ -367,7 +367,7 @@ void updateThermostatParams()
   nvs_writeInt16(my_handle, "timezoneSel", OperatingParameters.timezone_sel);
   nvs_writeBool(my_handle, "Beep", OperatingParameters.thermostatBeepEnable);
 #ifdef MQTT_ENABLED
-  nvs_writeBool(my_handle, "MqttEn", &OperatingParameters.MqttEnabled);
+  nvs_writeBool(my_handle, "MqttEn", OperatingParameters.MqttEnabled);
   nvs_writeString(my_handle, "MqttBroker", OperatingParameters.MqttBrokerHost);
   nvs_writeString(my_handle, "MqttUsername", OperatingParameters.MqttBrokerUsername);
   nvs_writeString(my_handle, "MqttPassword", OperatingParameters.MqttBrokerPassword);

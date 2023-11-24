@@ -58,11 +58,14 @@ float doTempDown(void);
 
 static char tag[] = "telnet";
 
+static vprintf_like_t OrigEsplogger = NULL;
+static bool telnetLoggerActive = false;
+
 // The global tnHandle ... since we are only processing ONE telnet
 // client at a time, this can be a global static.
 static telnet_t *tnHandle;
 
-static void (*receivedDataCallback)(uint8_t *buffer, size_t size);
+static void (*receivedDataCallback)(int sock, uint8_t *buffer, size_t size);
 
 struct telnetUserData {
 	int sockfd;
@@ -174,6 +177,11 @@ static void telnetHandler(
 				{
 					rc = send(telnetUserData->sockfd, event->data.buffer, event->data.size, 0);
 					if (rc < 0) {
+						// Shutdown the telnet logger, if active;
+						if (telnetLoggerActive == true)
+						{
+							esp_log_set_vprintf(OrigEsplogger);
+						}
 						ESP_LOGE(tag, "send: %d (%s)", errno, strerror(errno));
 						closesocket(telnetUserData->sockfd);
 						telnetUserData->sockfd = -1;
@@ -203,7 +211,7 @@ static void telnetHandler(
 				if (telnetUserData->sockfd != -1)
 					if (receivedDataCallback != NULL)
 					{
-						receivedDataCallback((uint8_t *)event->data.buffer, (size_t)event->data.size);
+						receivedDataCallback(telnetUserData->sockfd, (uint8_t *)event->data.buffer, (size_t)event->data.size);
 						// Clear the prior contents
 						memset ((void *)(event->data.buffer), 0, sizeof((void *)(event->data.buffer)));
 						event->data.size = 0;
@@ -254,6 +262,11 @@ static void doTelnet(int partnerSocket)
 		}
 		vTaskDelay(pdMS_TO_TICKS(15));
   }
+	// Shutdown the telnet logger, if active;
+	if (telnetLoggerActive == true)
+	{
+		esp_log_set_vprintf(OrigEsplogger);
+	}
   ESP_LOGI(tag, "Telnet partner finished");
   telnet_free(tnHandle);
   tnHandle = NULL;
@@ -263,7 +276,7 @@ static void doTelnet(int partnerSocket)
 /**
  * Listen for telnet clients and handle them.
  */
-void telnet_esp32_listenForClients(void (*callbackParam)(uint8_t *buffer, size_t size))
+void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buffer, size_t size))
 {
 	//ESP_LOGD(tag, ">> telnet_listenForClients");
 	receivedDataCallback = callbackParam;
@@ -306,6 +319,212 @@ void telnet_esp32_listenForClients(void (*callbackParam)(uint8_t *buffer, size_t
 } // listenForNewClient
 
 
+
+
+
+void DisplayStatus()
+{
+	telnet_esp32_printf ("Current Status:\n");
+	telnet_esp32_printf ("--------------------------------------------------------\n");
+
+	telnet_esp32_printf ("Firmware version: %s\n", VersionString);
+	telnet_esp32_printf ("Firmware build date: %s\n", VersionBuildDateTime);
+
+	telnet_esp32_printf ("Device name: %s\n", OperatingParameters.DeviceName);
+	telnet_esp32_printf ("Friendly name: %s\n", OperatingParameters.FriendlyName);
+	telnet_esp32_printf ("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
+		OperatingParameters.mac[0],
+		OperatingParameters.mac[1],
+		OperatingParameters.mac[2],
+		OperatingParameters.mac[3],
+		OperatingParameters.mac[4],
+		OperatingParameters.mac[5]);
+	telnet_esp32_printf ("Wifi SSID: %s\n", WifiCreds.ssid);
+	telnet_esp32_printf ("Wifi connected: %s\n", OperatingParameters.wifiConnected ? "Yes" : "No");
+	telnet_esp32_printf ("Wifi signal: %d%%\n", wifiSignal());
+	telnet_esp32_printf ("Wifi IP address: %s\n", wifiAddress());
+
+	{
+		struct tm local_time;
+		char buffer[16];
+
+		getLocalTime(&local_time, 1);
+		strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
+		telnet_esp32_printf ("Current time: %s", buffer);
+	}
+	telnet_esp32_printf ("    Timezone: %s\n", OperatingParameters.timezone);
+
+#ifdef MQTT_ENABLED
+	telnet_esp32_printf ("MQTT Enabled: %s\n", (OperatingParameters.MqttEnabled) ? "Yes" : "No");
+	telnet_esp32_printf ("MQTT Connected: %s\n", (OperatingParameters.MqttConnected) ? "Yes" : "No");
+	telnet_esp32_printf ("MQTT Broker: %s  Port: %d\n", OperatingParameters.MqttBrokerHost, OperatingParameters.MqttBrokerPort);
+	telnet_esp32_printf ("MQTT Username:  %s\n", OperatingParameters.MqttBrokerUsername);
+	telnet_esp32_printf ("MQTT Password:  %s\n", OperatingParameters.MqttBrokerPassword);
+#endif
+
+#ifdef MATTER_ENABLED
+	telnet_esp32_printf ("Matter Enabled: %s\n", (OperatingParameters.MatterEnabled) ? "Yes" : "No");
+	telnet_esp32_printf ("Matter Started: %s\n", (OperatingParameters.MatterStarted) ? "Yes" : "No");
+#endif
+
+	telnet_esp32_printf ("Current temp: %.1f %c (Correction: %.1f)\n",
+		OperatingParameters.tempCurrent + OperatingParameters.tempCorrection, 
+		OperatingParameters.tempUnits,
+		OperatingParameters.tempCorrection);
+	telnet_esp32_printf ("Current humidity: %.1f%% (Correction: %.1f)\n",
+		OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection, 
+		OperatingParameters.humidityCorrection);
+	telnet_esp32_printf ("Target temp: %.1f %c\n", OperatingParameters.tempSet);
+	telnet_esp32_printf ("Swing temp: %.1f %c\n", OperatingParameters.tempSwing);
+
+	{
+		int64_t uptime = millis();
+		telnet_esp32_printf ("Uptime: %d days, %02d:%02d:%02d\n",
+			(int)(uptime / (1000L * 60L * 60L * 24L)), 	// days
+			(int)(uptime / (1000L * 60L * 60L)) % 24,		// hours
+			(int)(uptime / (1000L * 60L)) % 60,				// mins
+			(int)(uptime / 1000L) % 60);							// seconds
+	}
+
+	telnet_esp32_printf ("Light detected: %d\n", OperatingParameters.lightDetected);
+	telnet_esp32_printf ("Motion detected: %s\n", OperatingParameters.motionDetected ? "Yes" : "No");
+	telnet_esp32_printf ("Display sleep time: %d\n", OperatingParameters.thermostatSleepTime);
+	telnet_esp32_printf ("Touch screen beep: %s\n", OperatingParameters.thermostatBeepEnable ? "Enabled" : "Disabled");
+
+	telnet_esp32_printf ("Current HVAC mode set: %s (Currently: %s)\n", 
+		hvacModeToString(OperatingParameters.hvacSetMode),
+		hvacModeToString(OperatingParameters.hvacOpMode));
+
+	telnet_esp32_printf ("HVAC modes enabled:\n");
+	telnet_esp32_printf ("  Heat: %s  Cool: %s  Fan: %s\n", 
+		"True", OperatingParameters.hvacCoolEnable ? "True" : "False",
+		OperatingParameters.hvacFanEnable ? "True" : "False");
+	telnet_esp32_printf ("  2-stage heating enabled: %s\n",
+		OperatingParameters.hvac2StageHeatEnable ? "True" : "False");
+	telnet_esp32_printf ("  Reversing valve (heat pumps): %s\n",
+		OperatingParameters.hvacReverseValveEnable ? "True" : "False");
+}
+
+void doConfiguration(int sock)
+{
+  char buffer[128];
+	ssize_t len;
+
+	telnet_esp32_printf ("Configuration\n");
+
+	telnet_esp32_printf ("Device name [%s]: ", OperatingParameters.DeviceName);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		strcpy (OperatingParameters.DeviceName, buffer);
+
+	telnet_esp32_printf ("Friendly name [%s]: ", OperatingParameters.FriendlyName);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		strcpy (OperatingParameters.FriendlyName, buffer);
+
+	telnet_esp32_printf ("WIFI Network name [%s]: ", WifiCreds.ssid);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		strcpy (WifiCreds.ssid, buffer);
+
+	telnet_esp32_printf ("WIFI Password or PSK [%s]: ", WifiCreds.password);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		strcpy (WifiCreds.password, buffer);
+
+	telnet_esp32_printf ("Swing temperature [%.1f]: ", OperatingParameters.tempSwing);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		OperatingParameters.tempSwing = atof(buffer);
+
+	telnet_esp32_printf ("Temperature correction [%.1f]: ", OperatingParameters.tempCorrection);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		OperatingParameters.tempCorrection = atof(buffer);
+
+	telnet_esp32_printf ("Humidity correction [%.1f]: ", OperatingParameters.humidityCorrection);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		OperatingParameters.humidityCorrection = atof(buffer);
+
+	telnet_esp32_printf ("Display Sleep time [%d]: ", OperatingParameters.thermostatSleepTime);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+	  OperatingParameters.thermostatSleepTime = atoi(buffer);
+
+	telnet_esp32_printf ("Touchscreen Beep [%s]: ", (OperatingParameters.thermostatBeepEnable) ? "Yes" : "No");
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		if (lwip_stricmp("yes", buffer) == 0)
+			OperatingParameters.thermostatBeepEnable = true;
+		else
+			OperatingParameters.thermostatBeepEnable = false;
+
+//@@@	HVAC modes
+// 2-stage heat
+// Reverse valve
+// timezone
+
+#ifdef MATTER
+	telnet_esp32_printf ("Enable Matter [%s]: ", (OperatingParameters.Matter) ? "Yes" : "No");
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		if (lwip_stricmp("yes", buffer) == 0)
+			OperatingParameters.Matter = true;
+		else
+			OperatingParameters.Matter = false;
+#endif
+
+#ifdef MQTT_ENABLED
+	telnet_esp32_printf ("Enable MQTT [%s]: ", (OperatingParameters.MqttEnabled) ? "Yes" : "No");
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		if (lwip_stricmp("yes", buffer) == 0)
+			OperatingParameters.MqttEnabled = true;
+		else
+			OperatingParameters.MqttEnabled = false;
+	if (OperatingParameters.MqttEnabled)
+	{
+		telnet_esp32_printf ("MQTT Broker Hostname [%s]: ", OperatingParameters.MqttBrokerHost);
+	 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+		if ((len) && (len < sizeof(buffer)))
+		  strcpy (OperatingParameters.MqttBrokerHost, buffer);
+
+		telnet_esp32_printf ("MQTT Broker Port [%d]: ", OperatingParameters.MqttBrokerPort);
+	 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+		if ((len) && (len < sizeof(buffer)))
+		  OperatingParameters.MqttBrokerPort = atoi(buffer);
+
+		telnet_esp32_printf ("MQTT Broker Username [%s]: ", OperatingParameters.MqttBrokerUsername);
+	 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+		if ((len) && (len < sizeof(buffer)))
+		  strcpy (OperatingParameters.MqttBrokerUsername, buffer);
+
+		telnet_esp32_printf ("MQTT Broker Password [%s]: ", OperatingParameters.MqttBrokerPassword);
+	 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+		if ((len) && (len < sizeof(buffer)))
+		  strcpy (OperatingParameters.MqttBrokerPassword, buffer);
+	}
+#endif
+
+	telnet_esp32_printf ("Save changes? [no]: ");
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+		if (lwip_strnicmp("yes", buffer, len) == 0)
+		{
+			telnet_esp32_printf ("Resetting NVS\n");
+			// nvs_flash_init();
+			clearNVS();
+			/* Rewrite the wifi credentials after resetting NVS storage */
+			telnet_esp32_printf ("Rewriting wifi credentials\n");
+			setWifiCreds();
+			telnet_esp32_printf ("Saving thermostat config\n");
+			updateThermostatParams();
+		}
+
+	telnet_esp32_printf ("Config complete. If changes made, consider restarting (with 'Reboot')\n");
+}
+
 // All valid commands
 typedef enum {
 	HELP = 0,
@@ -315,14 +534,14 @@ typedef enum {
 	TEMP_SET,
 	MODE_SET,
 	MONITOR_LOG,
-	LOG_LEVEL,
 	STATUS,
 	ERROR_COUNTS,
+	REBOOT,
 	QUIT,
 	UNKNOWN
 } CMD;
 
-const char *cmdStrings[] = {"HELP", "CONFIG", "UP", "DOWN", "TEMP", "MODE", "MONITOR", "LOG", "STATUS", "ERROR", "QUIT", NULL};
+const char *cmdStrings[] = {"HELP", "CONFIG", "UP", "DOWN", "TEMP", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "QUIT", NULL};
 
 #define min(x, y) ((x > y) ? y : x)
 
@@ -341,13 +560,47 @@ static CMD lookupCommnd(char *buffer, size_t len)
 	return UNKNOWN;
 }
 
-static void recvData(uint8_t *buffer, size_t _size)
+static int telnetLogger(const char *fmt, va_list list)
+{
+	static char telnetBuffer[256];
+
+	if (telnetLoggerActive == false)
+	{
+		printf ("telnetLogger: Telnet logger is not enabled!! Restoring original\n");
+		if (OrigEsplogger == NULL)
+		{
+			printf ("telnetLogger: No original logger defined - Restarting...\n");
+			esp_restart();
+		}
+		esp_log_set_vprintf(OrigEsplogger);
+		return ESP_OK;
+	}
+
+	OrigEsplogger(fmt, list);
+
+	int res = vsprintf(telnetBuffer, fmt, list);
+	telnet_esp32_printf(telnetBuffer);
+
+	return res;
+}
+
+static void recvData(int sock, uint8_t *buffer, size_t _size)
 {
 	size_t size = _size - 2;	// Every line will end with \r\n
 	char *ptr;
 	int i;
 
-	if (size == 0) return;
+	if (size == 0)
+	{
+		if (telnetLoggerActive)
+		{
+			telnet_esp32_printf ("Log monitoring disabled\n");
+			telnetLoggerActive = false;
+			esp_log_set_vprintf(OrigEsplogger);
+			ESP_LOGI (tag, "Log monitoring via telnet disabled");
+		}
+		return;
+	}
 
 	if (!wifiConnected())
 	{
@@ -362,16 +615,16 @@ static void recvData(uint8_t *buffer, size_t _size)
 	{
 		case HELP:
 			telnet_esp32_printf("Valid commands:\n");
-			telnet_esp32_printf("  Config:      Run configuration\n");
+			telnet_esp32_printf("  Config:      Change configuration\n");
 			telnet_esp32_printf("  Help:        This!\n");
 			telnet_esp32_printf("  Up:          Increase set temp\n");
 			telnet_esp32_printf("  Down:        Decrease set temp\n");
 			telnet_esp32_printf("  Temp <temp>: Set arbitrary temp\n");
 			telnet_esp32_printf("  Mode <mode>: Set operating mode\n");
 			telnet_esp32_printf("  Monitor:     Monitor log output\n");
-			telnet_esp32_printf("  Log <level>: Change log level output\n");
 			telnet_esp32_printf("  Status:      Dump status counters\n");
 			telnet_esp32_printf("  Error:       Dump error counters\n");
+			telnet_esp32_printf("  Reboot:      Reboot the ESP32\n");
 			// telnet_esp32_printf("  Quit:        Close telnet connection\n");
 			break;
 		// case QUIT:
@@ -386,27 +639,7 @@ static void recvData(uint8_t *buffer, size_t _size)
 		// 	// free(telnetUserData);
 		// 	break;
 		case CONFIG:
-			telnet_esp32_printf ("Configuration\n");
-			/*
-			device name
-			set temp
-			set mode
-			ssid
-			hostname
-			swing temp
-			temp correction
-			humidity correction
-			[modes enabled?]
-			2 stage heat
-			reverse valve
-			audible beep
-			display sleep time
-			timezone
-			MQTT broker
-			MQTT User
-			MQTT Password
-			(MQTT Port)
-			*/
+			doConfiguration(sock);
 			break;
 		case TEMP_UP:
 			telnet_esp32_printf ("Temperature up\n");
@@ -424,105 +657,42 @@ static void recvData(uint8_t *buffer, size_t _size)
 			updateHvacSetTemp((float)i);
 			break;
 		case MODE_SET:
+		{
+			HVAC_MODE mode = ERROR;
 			telnet_esp32_printf ("Set mode\n");
 			ptr = strchr((char *)buffer, (int)' ');
 			ptr++;	// Move past ' '
 			ptr[0] = toupper(ptr[0]);
 			ESP_LOGI(tag, "Looking up %s", ptr);
-			updateHvacMode (strToHvacMode(ptr));
-			telnet_esp32_printf ("Mode now set to: %s\n", ptr);
-			break;
-		case LOG_LEVEL:
-			telnet_esp32_printf ("Change log level\n");
+			mode = strToHvacMode(ptr);
+			if (mode == ERROR)
+			{
+				telnet_esp32_printf ("Invalid mode: %s\n", ptr);
+			}
+			else
+			{
+				updateHvacMode (mode);
+				telnet_esp32_printf ("Mode now set to: %s\n", ptr);
+			}
+		}
 			break;
 		case MONITOR_LOG:
-			telnet_esp32_printf ("Enable log monitoring\n");
+			telnet_esp32_printf ("Enable log monitoring (CR to exit)\n");
+			ESP_LOGI (tag, "Log monitoring via telnet enabled");
+			telnetLoggerActive = true;
+			OrigEsplogger = esp_log_set_vprintf(telnetLogger);
 			break;
 		case STATUS:
-			telnet_esp32_printf ("Current Status:\n");
-			telnet_esp32_printf ("--------------------------------------------------------\n");
-
-			telnet_esp32_printf ("Firmware version: %s\n", VERSION_STRING);
-			telnet_esp32_printf ("Firmware build date: %s\n", VERSION_BUILD_DATE_TIME);
-
-			telnet_esp32_printf ("Device name: %s\n", OperatingParameters.DeviceName);
-			telnet_esp32_printf ("Friendly name: %s\n", OperatingParameters.FriendlyName);
-			telnet_esp32_printf ("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
-				OperatingParameters.mac[0],
-				OperatingParameters.mac[1],
-				OperatingParameters.mac[2],
-				OperatingParameters.mac[3],
-				OperatingParameters.mac[4],
-				OperatingParameters.mac[5]);
-			telnet_esp32_printf ("Wifi SSID: %s\n", WifiCreds.ssid);
-			telnet_esp32_printf ("Wifi connected: %s\n", OperatingParameters.wifiConnected ? "Yes" : "No");
-			telnet_esp32_printf ("Wifi signal: %d%%\n", wifiSignal());
-			telnet_esp32_printf ("Wifi IP address: %s\n", wifiAddress());
-
-			{
-				struct tm local_time;
-				char buffer[16];
-
-				getLocalTime(&local_time, 1);
-				strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
-				telnet_esp32_printf ("Current time: %s", buffer);
-			}
-			telnet_esp32_printf ("    Timezone: %s\n", OperatingParameters.timezone);
-
-#ifdef MQTT_ENABLED
-			telnet_esp32_printf ("MQTT Enabled: %s\n", (OperatingParameters.MqttEnabled) ? "Yes" : "No");
-			telnet_esp32_printf ("MQTT Connected: %s\n", (OperatingParameters.MqttConnected) ? "Yes" : "No");
-			telnet_esp32_printf ("MQTT Broker: %s  Port: %d\n", OperatingParameters.MqttBrokerHost, OperatingParameters.MqttBrokerPort);
-			telnet_esp32_printf ("MQTT Username:  %s\n", OperatingParameters.MqttBrokerUsername);
-			telnet_esp32_printf ("MQTT Password:  %s\n", OperatingParameters.MqttBrokerPassword);
-#endif
-
-#ifdef MATTER_ENABLED
-			telnet_esp32_printf ("Matter Enabled: %s\n", (OperatingParameters.MatterEnabled) ? "Yes" : "No");
-			telnet_esp32_printf ("Matter Started: %s\n", (OperatingParameters.MatterStarted) ? "Yes" : "No");
-#endif
-
-			telnet_esp32_printf ("Current temp: %.1f %c (Correction: %.1f)\n",
-				OperatingParameters.tempCurrent + OperatingParameters.tempCorrection, 
-				OperatingParameters.tempUnits,
-				OperatingParameters.tempCorrection);
-			telnet_esp32_printf ("Current humidity: %.1f%% (Correction: %.1f)\n",
-				OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection, 
-				OperatingParameters.humidityCorrection);
-			telnet_esp32_printf ("Target temp: %.1f %c\n", OperatingParameters.tempSet);
-			telnet_esp32_printf ("Swing temp: %.1f %c\n", OperatingParameters.tempSwing);
-
-			{
-				int64_t uptime = millis();
-				telnet_esp32_printf ("Uptime: %d days, %02d:%02d:%02d\n",
-					(int)(uptime / (1000L * 60L * 60L * 24L)), 	// days
-					(int)(uptime / (1000L * 60L * 60L)) % 24,		// hours
-					(int)(uptime / (1000L * 60L)) % 60,				// mins
-					(int)(uptime / 1000L) % 60);							// seconds
-			}
-
-			telnet_esp32_printf ("Light detected: %d\n", OperatingParameters.lightDetected);
-			telnet_esp32_printf ("Motion detected: %s\n", OperatingParameters.motionDetected ? "Yes" : "No");
-			telnet_esp32_printf ("Display sleep time: %d\n", OperatingParameters.thermostatSleepTime);
-			telnet_esp32_printf ("Touch screen beep: %s\n", OperatingParameters.thermostatBeepEnable ? "Enabled" : "Disabled");
-
-			telnet_esp32_printf ("Current HVAC mode set: %s (Currently: %s)\n", 
-				hvacModeToString(OperatingParameters.hvacSetMode),
-				hvacModeToString(OperatingParameters.hvacOpMode));
-
-			telnet_esp32_printf ("HVAC modes enabled:\n");
-			telnet_esp32_printf ("  Heat: %s  Cool: %s  Fan: %s\n", 
-				"True", OperatingParameters.hvacCoolEnable ? "True" : "False",
-				OperatingParameters.hvacFanEnable ? "True" : "False");
-			telnet_esp32_printf ("  2-stage heating enabled: %s\n",
-				OperatingParameters.hvac2StageHeatEnable ? "True" : "False");
-			telnet_esp32_printf ("  Reversing valve (heat pumps): %s\n",
-				OperatingParameters.hvacReverseValveEnable ? "True" : "False");
-
+			DisplayStatus();
 			break;
 		case ERROR_COUNTS:
 			telnet_esp32_printf ("Dump error stats\n");
 			// Add struct to count errors
+			break;
+		case REBOOT:
+			telnet_esp32_printf ("Restarting the ESP32...\n");
+			vTaskDelay(pdMS_TO_TICKS(1500));
+			esp_restart();
 			break;
 		case UNKNOWN:
 		default:

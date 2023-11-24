@@ -79,25 +79,32 @@ void stateMachine(void *parameter)
     }
     else if (OperatingParameters.hvacSetMode == HEAT)
     {
-      if (OperatingParameters.hvacOpMode == COOL)
-      {
-        gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
-      }
       if (currentTemp < minTemp)
       {
+        if (OperatingParameters.hvacOpMode != HEAT)
+          ESP_LOGI(__FUNCTION__, "Entering heat mode: Current: %.2f  Lo Limit: %.2f", currentTemp, minTemp);
+
         OperatingParameters.hvacOpMode = HEAT;
         gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, HIGH);
+        gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
       }
       else
       {
-        OperatingParameters.hvacOpMode = IDLE;
-        gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+        // Expected overshoot (where furnace continues to run to dissipate residual heat) is ~0.5F
+        // Almost the same in Celcius.
+        if (currentTemp > maxTemp - 0.5)
+        {
+          if (OperatingParameters.hvacOpMode != IDLE)
+            ESP_LOGI(__FUNCTION__, "Stopping heat mode: Current: %.2f  Hi Limit: %.2f", currentTemp, maxTemp);
+
+          OperatingParameters.hvacOpMode = IDLE;
+          gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
+          gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
+          gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+          gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+        }
       }
     }
     else if (OperatingParameters.hvacSetMode == AUX_HEAT)
@@ -105,24 +112,19 @@ void stateMachine(void *parameter)
       //
       // Set up for 2-stage, emergency or aux heat mode
       // Set relays correct
-      // For now, just emulate HEAT mode
       //
-      if (OperatingParameters.hvacOpMode == COOL)
-      {
-        // gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
-      }
       if (currentTemp < minTemp)
       {
         OperatingParameters.hvacOpMode = HEAT;
         gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, HIGH);
+        gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
       }
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
+        gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -130,22 +132,18 @@ void stateMachine(void *parameter)
     }
     else if (OperatingParameters.hvacSetMode == COOL)
     {
-      if (OperatingParameters.hvacOpMode == HEAT)
-      {
-        gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
-      }
       if (currentTemp > maxTemp)
       {
         OperatingParameters.hvacOpMode = COOL;
         gpio_set_level((gpio_num_t)HVAC_COOL_PIN, HIGH);
+        gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
       }
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
+        gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
@@ -157,40 +155,40 @@ void stateMachine(void *parameter)
       {
         OperatingParameters.hvacOpMode = HEAT;
         gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, HIGH);
-        gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
         gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
+        gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
       }
       else if (currentTemp > autoMaxTemp)
       {
         OperatingParameters.hvacOpMode = COOL;
-        gpio_set_level((gpio_num_t)HVAC_COOL_PIN, HIGH);
-        gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
         gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
+        gpio_set_level((gpio_num_t)HVAC_COOL_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+        gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
       }
       else
       {
         OperatingParameters.hvacOpMode = IDLE;
-        gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
-        gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
+        gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+        gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
       }
     }
 
-    if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN_ONLY) && (OperatingParameters.hvacSetMode != OFF))
-    {
-      OperatingParameters.hvacOpMode = IDLE;
-      gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
-      gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
-      gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
-      gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
-      gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
-    }
+    // if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN_ONLY) && (OperatingParameters.hvacSetMode != OFF))
+    // {
+    //   OperatingParameters.hvacOpMode = IDLE;
+    //   gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
+    //   gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
+    //   gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+    //   gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
+    //   gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+    // }
 
     ld2410_loop();
 

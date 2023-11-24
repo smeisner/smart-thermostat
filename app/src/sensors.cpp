@@ -287,7 +287,10 @@ void updateAht(void *parameter)
       OperatingParameters.humidCurrent = sensorHumidity.get();
 
       ESP_LOGI(TAG, "Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)",
-             sensorTemp.get(), temperature, OperatingParameters.tempUnits, sensorHumidity.get(), humidity);
+             sensorTemp.get() + OperatingParameters.tempCorrection,
+             temperature, OperatingParameters.tempUnits,
+             sensorHumidity.get() + OperatingParameters.humidityCorrection,
+             humidity);
 #ifdef MQTT_ENABLED
       MqttUpdateStatusTopic();
 #endif
