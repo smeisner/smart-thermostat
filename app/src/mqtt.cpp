@@ -99,7 +99,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
             ESP_LOGI(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
             ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
-            if (strstr(event->topic, "/set/mode"))
+            if (strstr(event->topic, "/set/mode") != NULL)
             {
                 char m[event->data_len + 1];
                 strncpy (m, event->data, event->data_len);
@@ -107,9 +107,13 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 // Make first letter uppercase to match our string representation
                 m[0] = toupper(m[0]);
                 ESP_LOGI(TAG, "Looking up %s", m);
-                updateHvacMode (strToHvacMode(m));
+    			HVAC_MODE mode = strToHvacMode(m);
+			    if (mode == ERROR)
+                    ESP_LOGW(TAG, "Mode %s invalid", m);
+                else
+                    updateHvacMode (mode);
             }
-            if (strstr(event->topic, "/set/temp"))
+            if (strstr(event->topic, "/set/temp") != NULL)
             {
                 if (strlen(event->data) > 0 && atof(event->data) != 0)
                 {
@@ -118,9 +122,10 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 else
                 {
                     ESP_LOGE(TAG, "Received invalid string for set temp: \"%s\"", event->data);
+                    OperatingParameters.Errors.mqttProtocolErrors++;
                 }
             }
-            if (strstr(event->topic, "fan"))
+            if (strstr(event->topic, "fan") != NULL)
             {
                 if (strlen(event->data) > 0)
                 {
@@ -139,6 +144,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 else
                 {
                     ESP_LOGE(TAG, "Received invalid string for set mode: \"%s\"", event->data);
+                    OperatingParameters.Errors.mqttProtocolErrors++;
                 }
             }
             break;
@@ -151,6 +157,7 @@ void MqttPublish(const char *topic, const char *payload, bool retain)
     if (!OperatingParameters.MqttConnected)
     {
         ESP_LOGW(TAG, "Trying to MQTT publish while not connected");
+        OperatingParameters.Errors.mqttProtocolErrors++;
         return;
     }
     msg_id = esp_mqtt_client_publish(
@@ -233,6 +240,7 @@ void MqttHomeAssistantDiscovery()
     // if (!OperatingParameters.MqttEnabled || !OperatingParameters.MqttStarted)
     {
         ESP_LOGE(TAG, "MQTT not enabled or not connected!");
+        OperatingParameters.Errors.mqttConnectErrors++;
         return;
     }
 
@@ -343,7 +351,10 @@ void MqttHomeAssistantDiscovery()
             xTicksToWait);
 
         if (bits & MQTT_ERROR_BIT)
+        {
             ESP_LOGE(TAG, "Publish failed");
+            OperatingParameters.Errors.mqttProtocolErrors++;
+        }
 
 
 #if 0
@@ -388,7 +399,10 @@ void MqttHomeAssistantDiscovery()
             xTicksToWait);
 
         if (bits & MQTT_ERROR_BIT)
+        {
             ESP_LOGE(TAG, "Publish failed");
+            OperatingParameters.Errors.mqttProtocolErrors++;
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Binary Door
@@ -428,9 +442,14 @@ void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic)
     int msg_id;
     msg_id = esp_mqtt_client_subscribe(client, topic.c_str(), 1);
     if (msg_id < 0)
+    {
         ESP_LOGE (TAG, "Subscribe topic FAILED, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
+        OperatingParameters.Errors.mqttProtocolErrors++;
+    }
     else
+    {
         ESP_LOGI (TAG, "Subscribe topic successful, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
+    }
 }
 
 bool MqttConnect(void)
@@ -481,6 +500,7 @@ bool MqttConnect(void)
     if (client == NULL)
     {
         ESP_LOGE(TAG, "Failed to init client!");
+        OperatingParameters.Errors.mqttConnectErrors++;
         return false;
     }
     OperatingParameters.MqttClient = client;
@@ -494,6 +514,7 @@ bool MqttConnect(void)
         ESP_LOGE(TAG, "Failed to register client: 0x%x", err);
         if (err == ESP_ERR_NO_MEM) ESP_LOGE(TAG, "ESP_ERR_NO_MEM");
         if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+        OperatingParameters.Errors.mqttConnectErrors++;
         esp_mqtt_client_destroy(client);
         return false;
     }
@@ -504,6 +525,7 @@ bool MqttConnect(void)
         ESP_LOGE(TAG, "Failed to start client: 0x%x", err);
         if (err == ESP_FAIL) ESP_LOGE(TAG, "ESP_FAIL");
         if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+        OperatingParameters.Errors.mqttConnectErrors++;
         esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
         esp_mqtt_client_destroy(client);
         return false;
@@ -521,6 +543,7 @@ bool MqttConnect(void)
         ESP_LOGE (TAG, "MQTT Connect failed");
         // esp_mqtt_client_stop(client); // Commented out since connect never worked
         ESP_LOGW(TAG, "Removing MQTT data structures");
+        OperatingParameters.Errors.mqttConnectErrors++;
         esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
         esp_mqtt_client_destroy(client);
         return false;
@@ -565,11 +588,13 @@ void MqttInit()
     if (!OperatingParameters.MqttEnabled)
     {
         ESP_LOGW(TAG, "MQTT is not enabled!");
+        // No need to count this as an error
     }
 
     if (!wifiConnected())
     {
         ESP_LOGE(TAG, "Attempting to start MQTT when wifi connection down");
+        OperatingParameters.Errors.mqttConnectErrors++;
     }
 }
 

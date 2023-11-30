@@ -497,24 +497,33 @@ void getWifiCreds()
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
 
-bool eepromUpdateHvacSetTemp()
+bool eepromUpdateArbFloat(const char *key, float value)
 {
   nvs_handle_t my_handle;
   openNVS(&my_handle, NVS_TAG);
-  nvs_writeFloat(my_handle, "setTemp", OperatingParameters.tempSet);
+  nvs_writeFloat(my_handle, key, value);
   closeNVS(my_handle);
   return true;
+}
+
+bool eepromUpdateArbMode(const char *key, HVAC_MODE mode)
+{
+  nvs_handle_t my_handle;
+  openNVS(&my_handle, NVS_TAG);
+  nvs_writeMode(my_handle, key, mode);
+  closeNVS(my_handle);
+  return true;
+}
+
+bool eepromUpdateHvacSetTemp()
+{
+  return eepromUpdateArbFloat("setTemp", OperatingParameters.tempSet);
 }
 
 bool eepromUpdateHvacSetMode()
 {
-  nvs_handle_t my_handle;
-  openNVS(&my_handle, NVS_TAG);
-  nvs_writeMode(my_handle, "currMode", OperatingParameters.hvacOpMode);
-  closeNVS(my_handle);
-  return true;
+  return eepromUpdateArbMode("currMode", OperatingParameters.hvacOpMode);
 }
-
 ////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////
 //                                                                        //

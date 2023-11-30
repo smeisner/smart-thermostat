@@ -18,7 +18,7 @@
  * Notes:
  * - Currently, this implementation handles only 1 connected user. This
  *   means once someone is connected via telnet, they cannot be interrupted.
- *   If this feels like a potential security concern, that's because it is!
+ *   If this feels like a potential security concern, that's because it is (DoS)!
  *
  * History
  *   4-Nov-2023: Steve Meisner (steve@meisners.net) - Initial version
@@ -60,6 +60,7 @@ static char tag[] = "telnet";
 
 static vprintf_like_t OrigEsplogger = NULL;
 static bool telnetLoggerActive = false;
+static bool disconnectPending = false;
 
 // The global tnHandle ... since we are only processing ONE telnet
 // client at a time, this can be a global static.
@@ -169,6 +170,7 @@ static void telnetHandler(
 					ESP_LOGW(tag, "wifi detected down! Dropping telnet connection");
 					closesocket(telnetUserData->sockfd);
 					telnetUserData->sockfd = -1;
+					OperatingParameters.Errors.wifiErrors++;
 				}
 			}
 			else
@@ -180,11 +182,13 @@ static void telnetHandler(
 						// Shutdown the telnet logger, if active;
 						if (telnetLoggerActive == true)
 						{
+							telnetLoggerActive = false;
 							esp_log_set_vprintf(OrigEsplogger);
 						}
 						ESP_LOGE(tag, "send: %d (%s)", errno, strerror(errno));
 						closesocket(telnetUserData->sockfd);
 						telnetUserData->sockfd = -1;
+						OperatingParameters.Errors.telnetNetworkErrors++;
 					}
 				}
 			}
@@ -199,6 +203,7 @@ static void telnetHandler(
 					ESP_LOGW(tag, "wifi detected down! Ignoring telnet data");
 					closesocket(telnetUserData->sockfd);
 					telnetUserData->sockfd = -1;
+					OperatingParameters.Errors.wifiErrors++;
 				}
 			}
 			else
@@ -242,29 +247,77 @@ static void doTelnet(int partnerSocket)
 
   struct telnetUserData *pTelnetUserData = (struct telnetUserData *)malloc(sizeof(struct telnetUserData));
   pTelnetUserData->sockfd = partnerSocket;
+	disconnectPending = false;
 
   tnHandle = telnet_init(my_telopts, telnetHandler, 0, pTelnetUserData);
 
   uint8_t buffer[1024];
-  
+
+
+	struct timeval to;
+	to.tv_sec = 1;
+	to.tv_usec = 0;
+	if (setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to)) < 0)
+	{
+		ESP_LOGE(tag, "Unable to set read timeout on socket!");
+		// return false;
+	}
+
+
   while (/*wifiConnected() && */(pTelnetUserData->sockfd != -1))
   {
+		if ((disconnectPending) /*|| (!wifiConnected()) */)
+		{
+			ESP_LOGI(tag, "telnet disconect requested");
+			disconnectPending = false;
+			if (telnetLoggerActive == true)
+			{
+				telnetLoggerActive = false;
+				esp_log_set_vprintf(OrigEsplogger);
+			}
+			closesocket(pTelnetUserData->sockfd);
+			pTelnetUserData->sockfd = -1;
+			break;
+		}
   	//ESP_LOGD(tag, "waiting for data");
-		telnet_esp32_printf ("> ");
   	ssize_t len = recv(partnerSocket, (char *)buffer, sizeof(buffer), 0);
-  	if ((len == 0) || (len > sizeof(buffer))) {
+
+  	if ((len == 0) && (telnetLoggerActive == true))
+		{
+			ESP_LOGI(tag, "Terminating logging");
   		break;
   	}
+
+		if ((len > sizeof(buffer)) || (len < 0))//(len != EWOULDBLOCK))
+		{
+			// Got an error receiving data; just delay and then wait for more
+			vTaskDelay(pdMS_TO_TICKS(250));
+			continue;
+		}
+
 		if (/*wifiConnected() &&*/ (pTelnetUserData->sockfd != -1))
 		{
 			ESP_LOGD(tag, "received %d bytes", len);
+
+			// Disable timeout on socket to allow for interaction (like doing a config)
+			to.tv_sec = 0;
+			setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to));
+
+			// Process the received data
 			telnet_recv(tnHandle, (char *)buffer, len);
+
+			// Reenable the socket timeout option
+			to.tv_sec = 1;
+			setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to));
+
 		}
-		vTaskDelay(pdMS_TO_TICKS(15));
+		telnet_esp32_printf ("> ");
+		vTaskDelay(pdMS_TO_TICKS(50));
   }
 	// Shutdown the telnet logger, if active;
 	if (telnetLoggerActive == true)
 	{
+		telnetLoggerActive = false;
 		esp_log_set_vprintf(OrigEsplogger);
 	}
   ESP_LOGI(tag, "Telnet partner finished");
@@ -272,6 +325,12 @@ static void doTelnet(int partnerSocket)
   tnHandle = NULL;
 } // doTelnet
 
+
+void terminateTelnetSession()
+{
+  ESP_LOGI(tag, "Telnet session termination requested");
+	disconnectPending = true;
+}
 
 /**
  * Listen for telnet clients and handle them.
@@ -291,6 +350,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
 	if (rc < 0)
 	{
 		ESP_LOGE(tag, "bind: %d (%s)", errno, strerror(errno));
+		OperatingParameters.Errors.telnetNetworkErrors++;
 		return;
 	}
 
@@ -298,6 +358,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
 	if (rc < 0)
 	{
 		ESP_LOGE(tag, "listen: %d (%s)", errno, strerror(errno));
+		OperatingParameters.Errors.telnetNetworkErrors++;
 		return;
 	}
 
@@ -308,6 +369,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
 		if (rc < 0)
 		{
 			ESP_LOGE(tag, "accept: %d (%s)", errno, strerror(errno));
+			OperatingParameters.Errors.telnetNetworkErrors++;
 			return;
 		}
 		int partnerSocket = rc;
@@ -319,7 +381,26 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
 } // listenForNewClient
 
 
+void DisplayErrors()
+{
+	telnet_esp32_printf ("Current Error Counts:\n");
+	telnet_esp32_printf ("--------------------------------------------------------\n");
 
+	telnet_esp32_printf ("System errors: %d\n", OperatingParameters.Errors.systemErrors);
+	telnet_esp32_printf ("Hardware errors: %d\n", OperatingParameters.Errors.hardwareErrors);
+	telnet_esp32_printf ("Wifi errors: %d\n", OperatingParameters.Errors.wifiErrors);
+
+#ifdef MQTT_ENABLED
+	telnet_esp32_printf ("MQTT Connect errors: %d\n", OperatingParameters.Errors.mqttConnectErrors);
+	telnet_esp32_printf ("MQTT Protocol errors: %d\n", OperatingParameters.Errors.mqttProtocolErrors);
+#endif
+#ifdef MATTER_ENABLED
+	telnet_esp32_printf ("Matter Connect errors: %d\n", OperatingParameters.Errors.matterConnectErrors);
+#endif
+#ifdef TELNET_ENABLED
+	telnet_esp32_printf ("Telnet network errors: %d\n", OperatingParameters.Errors.telnetNetworkErrors);
+#endif
+}
 
 
 void DisplayStatus()
@@ -332,6 +413,16 @@ void DisplayStatus()
 
 	telnet_esp32_printf ("Device name: %s\n", OperatingParameters.DeviceName);
 	telnet_esp32_printf ("Friendly name: %s\n", OperatingParameters.FriendlyName);
+
+	{
+		int64_t uptime = millis();
+		telnet_esp32_printf ("Uptime: %d days, %02d:%02d:%02d\n",
+			(int)(uptime / (1000L * 60L * 60L * 24L)), 	// days
+			(int)(uptime / (1000L * 60L * 60L)) % 24,		// hours
+			(int)(uptime / (1000L * 60L)) % 60,				// mins
+			(int)(uptime / 1000L) % 60);							// seconds
+	}
+
 	telnet_esp32_printf ("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
 		OperatingParameters.mac[0],
 		OperatingParameters.mac[1],
@@ -376,15 +467,6 @@ void DisplayStatus()
 		OperatingParameters.humidityCorrection);
 	telnet_esp32_printf ("Target temp: %.1f %c\n", OperatingParameters.tempSet);
 	telnet_esp32_printf ("Swing temp: %.1f %c\n", OperatingParameters.tempSwing);
-
-	{
-		int64_t uptime = millis();
-		telnet_esp32_printf ("Uptime: %d days, %02d:%02d:%02d\n",
-			(int)(uptime / (1000L * 60L * 60L * 24L)), 	// days
-			(int)(uptime / (1000L * 60L * 60L)) % 24,		// hours
-			(int)(uptime / (1000L * 60L)) % 60,				// mins
-			(int)(uptime / 1000L) % 60);							// seconds
-	}
 
 	telnet_esp32_printf ("Light detected: %d\n", OperatingParameters.lightDetected);
 	telnet_esp32_printf ("Motion detected: %s\n", OperatingParameters.motionDetected ? "Yes" : "No");
@@ -605,6 +687,7 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
 	if (!wifiConnected())
 	{
 		ESP_LOGW(tag, "Wifi down! Aborting receive request!");
+		OperatingParameters.Errors.wifiErrors++;
 		return;
 	}
 	
@@ -624,20 +707,9 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
 			telnet_esp32_printf("  Monitor:     Monitor log output\n");
 			telnet_esp32_printf("  Status:      Dump status counters\n");
 			telnet_esp32_printf("  Error:       Dump error counters\n");
+			telnet_esp32_printf("  Quit:        Close telnet session\n");
 			telnet_esp32_printf("  Reboot:      Reboot the ESP32\n");
-			// telnet_esp32_printf("  Quit:        Close telnet connection\n");
 			break;
-		// case QUIT:
-		// 	telnet_esp32_printf ("Bye!\n");
-	  //   vTaskDelay(pdMS_TO_TICKS(1000));
-		// 	if ((telnetUserData) && (telnetUserData->sockfd != -1) && (telnetUserData->sockfd != NULL))
-		// 		closesocket(telnetUserData->sockfd);
-		// 	// telnetUserData->sockfd = -1;
-		// 	// telnet_free(tnHandle);
-			
-		// 	// tnHandle = NULL;
-		// 	// free(telnetUserData);
-		// 	break;
 		case CONFIG:
 			doConfiguration(sock);
 			break;
@@ -687,12 +759,17 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
 			break;
 		case ERROR_COUNTS:
 			telnet_esp32_printf ("Dump error stats\n");
-			// Add struct to count errors
+			DisplayErrors();
 			break;
 		case REBOOT:
 			telnet_esp32_printf ("Restarting the ESP32...\n");
 			vTaskDelay(pdMS_TO_TICKS(1500));
 			esp_restart();
+			break;
+		case QUIT:
+			telnet_esp32_printf ("Quiting telnet session\n");
+			ESP_LOGI (tag, "Telnet session terminated");
+			disconnectPending = true;
 			break;
 		case UNKNOWN:
 		default:

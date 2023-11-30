@@ -62,8 +62,9 @@ p{margin:0px;padding:0px}
 		<br>
 		<div id="firmwareVer"></div>
 		<div id="firmwareDt"></div>
-		<button onclick='window.location.href="/upload"'>Update Firmware</button>
-		<br><button onclick=pressButton('clearFirmware')>Clear Config</button><br>
+		<button onclick='window.location.href="/upload"'>Update Firmware</button><br>
+		<button onclick=pressButton('terminateTelnet')>Abort Telnet</button>
+		<button onclick=pressButton('clearFirmware')>Clear Config</button><br>
 	</div>
 </div><br><br><br>
 <footer>

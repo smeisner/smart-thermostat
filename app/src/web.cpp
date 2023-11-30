@@ -102,18 +102,34 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     updateHvacMode(FAN_ONLY);
   else if (!strncmp(content, "clear", BUTTON_CONTENT_SIZE))
     clearNVS();
+#ifdef TELNET_ENABLED
+  else if (!strncmp(content, "terminateTelnet", BUTTON_CONTENT_SIZE))
+    terminateTelnetSession();
+#endif
   else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable;
   else if (!strncmp(content, "hvacFanEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvacFanEnable = !OperatingParameters.hvacFanEnable;
   else if (!strncmp(content, "swingUp", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing + 0.1, 0.0, 6.0);
+    eepromUpdateArbFloat("setSwing", OperatingParameters.tempSwing);
+  }
   else if (!strncmp(content, "swingDown", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing - 0.1, 0.0, 6.0);
+    eepromUpdateArbFloat("setSwing", OperatingParameters.tempSwing);
+  }
   else if (!strncmp(content, "correctionUp", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -10.0, 10.0);
+    eepromUpdateArbFloat("setTempCorr", OperatingParameters.tempCorrection);
+  }
   else if (!strncmp(content, "correctionDown", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -10.0, 10.0);
+    eepromUpdateArbFloat("setTempCorr", OperatingParameters.tempCorrection);
+  }
   else if (!strncmp(content, "twoStageEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvac2StageHeatEnable = !OperatingParameters.hvac2StageHeatEnable;
   else if (!strncmp(content, "reverseEnable", BUTTON_CONTENT_SIZE))
@@ -141,7 +157,10 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     }
   }
   else
+  {
     ESP_LOGE(TAG, "Could not dispatch request \"%s\"", content);
+    OperatingParameters.Errors.systemErrors++;
+  }
 }
 
 #define min(x, y) ((x < y) ? x : y)
@@ -160,6 +179,7 @@ esp_err_t handleButton(httpd_req_t *req)
 #define CAT_IF_SPACE(xmlBuffer, other, space, request)          \
   if (space < 0) {                                              \
     ESP_LOGE(TAG, "XML buffer ran out of space. Aborting...");  \
+    OperatingParameters.Errors.systemErrors++;                  \
     return httpd_resp_send_500(request);                        \
   }                                                             \
   strcat(xmlBuffer, other);
@@ -332,5 +352,6 @@ void webStart()
   if (server == NULL)
   {
     ESP_LOGE (TAG, "** FAILED TO START WEB SERVER **");
+    OperatingParameters.Errors.systemErrors++;
   }
 }
