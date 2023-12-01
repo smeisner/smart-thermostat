@@ -28,6 +28,7 @@
 #include "tft.hpp"
 
 #define OFF_BRIGHTNESS 0
+#define MIN_BRIGHTNESS 5
 #define FULL_BRIGHTNESS 255
 
 static char thermostatModes[48] = {0};
@@ -39,6 +40,7 @@ uint16_t calData_2_8[8] = { 3839, 336, 3819, 3549, 893, 390, 718, 3387 };
 uint16_t calData_3_2[8] = { 3778, 359, 3786, 3803, 266, 347, 258, 3769 };
 uint16_t calData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 int64_t lastMotionDetected = 0;
+bool tftAwake = true;
 
 volatile bool tftMotionTrigger = false;
 
@@ -84,29 +86,56 @@ void tftHideDisplayItems()
   lv_obj_add_flag(ui_TempArc, LV_OBJ_FLAG_HIDDEN);
 }
 
+
+int sensorToScreenBrightness(int sensor)
+{
+  // THIS 4095 IS THE MAX BRIGHTNESS READING OF THE LIGHT SENSOR. IF THIS IS DEFINED IN A MACRO
+  // OR CONSTANT SOMEWHERE THAT WOULD BE MUCH BETTER!
+  int conversionFactor =  4095 / FULL_BRIGHTNESS;
+  return sensor / conversionFactor;
+}
+
+#define LIMIT_RANGE(x, min, max) (x < min ? min : (x > max ? max : x))
+#define ABS(x) (x < 0 ? -x : x)
+void tftAutoBrightness()
+{
+  int curBrightness = tft.getBrightness();
+  int convertedLightLevel = sensorToScreenBrightness(OperatingParameters.lightDetected);
+  int brightnessDiff = convertedLightLevel - curBrightness;
+
+  // if there is a large difference between the screen's current brightness
+  // and the value it should be according to the ambient brightness,
+  // take large adjustment steps. If there is a small difference, take small steps.
+  int adjustment = (ABS(brightnessDiff) > FULL_BRIGHTNESS / 16) ? 3 : 1;
+  if (curBrightness > convertedLightLevel)
+    curBrightness -= adjustment;
+  else if(curBrightness < convertedLightLevel)
+    curBrightness += adjustment;
+
+  curBrightness = LIMIT_RANGE(curBrightness, MIN_BRIGHTNESS, FULL_BRIGHTNESS);
+  tft.setBrightness(curBrightness);
+}
+#undef ABS
+#undef LIMIT_RANGE
+
 void tftWakeDisplay(bool beep)
 {
   if (beep)
     audioBeep();
   tftShowDisplayItems();
-  tft.setBrightness(FULL_BRIGHTNESS);
   tftEnableTouchTimer();
   tftUpdateTouchTimestamp();
+  tftAwake = true;
 }
 
 void tftWakeDisplayMotion()
 {
   if (!tftTouchTimerEnabled)
   {
-    float ratio = (float)(OperatingParameters.lightDetected) / 4095.0;
-    // float ratio = (float)(OperatingParameters.lightDetected) / 3150.0;  // Measured in mV (max = 3.15 V)
-    int brightness = (int)(ratio * (float)(FULL_BRIGHTNESS));
     tftShowDisplayItems();
-    ESP_LOGI(TAG, "Setting display to partial brightness: %d (%d%%)",
-      brightness, (int)(ratio*100.0));
-    tft.setBrightness(brightness);
     tftEnableTouchTimer();
     tftUpdateTouchTimestamp();
+    tftAwake = true;
   }
 }
 
@@ -118,6 +147,7 @@ void tftDimDisplay()
     tft.setBrightness(OFF_BRIGHTNESS);
     tftHideDisplayItems();
     tftDisableTouchTimer();
+    tftAwake = false;
   }
 }
 
@@ -131,6 +161,8 @@ void tftUpdateDisplay()
   static struct tm local_time;
   // static ulong last = 0;
 
+  if (tftAwake)
+    tftAutoBrightness();
   // updateTime() will return false if wifi is not connected. 
   // Otherwise pending on SNTP call will cause a stall.
   // if (!updateTime(&local_time))
