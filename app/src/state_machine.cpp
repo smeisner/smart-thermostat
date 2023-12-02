@@ -91,6 +91,7 @@ void stateMachine(void *parameter)
         gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+        gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
       }
       else
       {
@@ -142,6 +143,7 @@ void stateMachine(void *parameter)
         gpio_set_level((gpio_num_t)HVAC_COOL_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+        gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
       }
       else
       {
