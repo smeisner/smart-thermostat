@@ -533,6 +533,25 @@ void doConfiguration(int sock)
 	if ((len) && (len < sizeof(buffer)))
 	  OperatingParameters.thermostatSleepTime = atoi(buffer);
 
+	
+	telnet_esp32_printf ("Timezone [%s]: ", OperatingParameters.timezone);
+ 	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
+	if ((len) && (len < sizeof(buffer)))
+	{
+	  int i = 0;
+		while ((lwip_stricmp(gmt_timezones[i], (const char *)buffer) != 0) && (i < 24))
+			i++;
+		if (i < 24)
+		{
+			OperatingParameters.timezone_sel = i;
+	   	OperatingParameters.timezone = (char *)(gmt_timezones[OperatingParameters.timezone_sel]);
+		}
+		else
+		{
+			telnet_esp32_printf("Invalid timezone (example GMT+10)\n");
+		}
+	}
+
 	telnet_esp32_printf ("Touchscreen Beep [%s]: ", (OperatingParameters.thermostatBeepEnable) ? "Yes" : "No");
  	len = recv(sock, buffer, sizeof(buffer), 0); len -= 2; buffer[len] = '\0';
 	if ((len) && (len < sizeof(buffer)))
