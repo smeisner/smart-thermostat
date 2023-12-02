@@ -22,6 +22,7 @@
  *
  * History
  *   4-Nov-2023: Steve Meisner (steve@meisners.net) - Initial version
+ *   1-Dec-2023: Steve Meisner (steve@meisners.net) - Add remote telnet logging
  *
  */
 
@@ -71,6 +72,16 @@ static void (*receivedDataCallback)(int sock, uint8_t *buffer, size_t size);
 struct telnetUserData {
 	int sockfd;
 };
+
+void revertTelnetLogger()
+{
+	// Shutdown the telnet logger, if active;
+	if (telnetLoggerActive == true)
+	{
+		telnetLoggerActive = false;
+		esp_log_set_vprintf(OrigEsplogger);
+	}
+}
 
 /**
  * Convert a telnet event type to its string representation.
@@ -167,6 +178,7 @@ static void telnetHandler(
 			{
 				if (telnetUserData->sockfd != -1)
 				{
+					revertTelnetLogger();
 					ESP_LOGW(tag, "wifi detected down! Dropping telnet connection");
 					closesocket(telnetUserData->sockfd);
 					telnetUserData->sockfd = -1;
@@ -179,12 +191,7 @@ static void telnetHandler(
 				{
 					rc = send(telnetUserData->sockfd, event->data.buffer, event->data.size, 0);
 					if (rc < 0) {
-						// Shutdown the telnet logger, if active;
-						if (telnetLoggerActive == true)
-						{
-							telnetLoggerActive = false;
-							esp_log_set_vprintf(OrigEsplogger);
-						}
+						revertTelnetLogger();
 						ESP_LOGE(tag, "send: %d (%s)", errno, strerror(errno));
 						closesocket(telnetUserData->sockfd);
 						telnetUserData->sockfd = -1;
@@ -270,11 +277,7 @@ static void doTelnet(int partnerSocket)
 		{
 			ESP_LOGI(tag, "telnet disconect requested");
 			disconnectPending = false;
-			if (telnetLoggerActive == true)
-			{
-				telnetLoggerActive = false;
-				esp_log_set_vprintf(OrigEsplogger);
-			}
+			revertTelnetLogger();
 			closesocket(pTelnetUserData->sockfd);
 			pTelnetUserData->sockfd = -1;
 			break;
@@ -314,12 +317,7 @@ static void doTelnet(int partnerSocket)
 		telnet_esp32_printf ("> ");
 		vTaskDelay(pdMS_TO_TICKS(50));
   }
-	// Shutdown the telnet logger, if active;
-	if (telnetLoggerActive == true)
-	{
-		telnetLoggerActive = false;
-		esp_log_set_vprintf(OrigEsplogger);
-	}
+	revertTelnetLogger();
   ESP_LOGI(tag, "Telnet partner finished");
   telnet_free(tnHandle);
   tnHandle = NULL;
@@ -328,6 +326,7 @@ static void doTelnet(int partnerSocket)
 
 void terminateTelnetSession()
 {
+	revertTelnetLogger();
   ESP_LOGI(tag, "Telnet session termination requested");
 	disconnectPending = true;
 }
@@ -677,8 +676,7 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
 		if (telnetLoggerActive)
 		{
 			telnet_esp32_printf ("Log monitoring disabled\n");
-			telnetLoggerActive = false;
-			esp_log_set_vprintf(OrigEsplogger);
+			revertTelnetLogger();
 			ESP_LOGI (tag, "Log monitoring via telnet disabled");
 		}
 		return;

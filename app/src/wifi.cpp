@@ -20,6 +20,7 @@
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrite to use ESP-IDF
+ *   1-Dec-2023: Steve Meisner (steve@meisners.net) - Added support for telnet
  * 
  */
 
@@ -216,7 +217,13 @@ void WiFi_ScanSSID(void)
 static void event_handler(void* arg, esp_event_base_t event_base,
 								int32_t event_id, void* event_data)
 {
+  // Only execute the next call if telnet is not enabled. This is
+  // necessary since remote log monitoring could be enabled. If it
+  // is, and we are called back here due to wifi disconnect event,
+  // the next ESP_LOGx call will cause a panic.
+#ifndef TELNET_ENABLED
   ESP_LOGI(TAG, "event_handler()");
+#endif
 
   if (wifiScanActive)
   {
@@ -238,6 +245,11 @@ static void event_handler(void* arg, esp_event_base_t event_base,
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
+    // The next call has a side effect of disabling logging via telnet...
+#ifdef TELNET_ENABLED
+    terminateTelnetSession();
+#endif
+    /// ...making the next line safe.
     ESP_LOGI(TAG, "  event = STA_DISCONECTED - retry # %d (MAX %d)", s_retry_num, CONFIG_ESP_MAXIMUM_RETRY);
     WifiStatus.Connected = false;
     OperatingParameters.wifiConnected = false;
@@ -247,9 +259,9 @@ static void event_handler(void* arg, esp_event_base_t event_base,
       if (!OperatingParameters.MatterStarted)
       {
 #endif
-        esp_wifi_connect();
         s_retry_num++;
         ESP_LOGW(TAG, "  connect to the AP failed - retrying");
+        esp_wifi_connect();
 #ifdef MATTER_ENABLED
       }
 #endif
@@ -572,7 +584,7 @@ void WifiDeinit()
   if (WifiStatus.driver_started)
   {
     ESP_LOGD(TAG, "- Taking down network stack");
-    wifiDeregisterEventCallbacks();
+    // wifiDeregisterEventCallbacks();
     esp_netif_destroy_default_wifi(esp_netif_interface_sta);
     esp_event_loop_delete_default();
     esp_wifi_deinit();

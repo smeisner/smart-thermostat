@@ -291,13 +291,13 @@ void MqttHomeAssistantDiscovery()
         payload["act_tpl"] = "{{ value_json.CurrMode }}";
         // payload["stat_t"] = g_mqttStatusTopic + "/temperature";
         payload["curr_temp_t"] = "~";
-        payload["curr_temp_tpl"] = "{{ value_json.Temperature|float }}";
+        payload["curr_temp_tpl"] = "{{ value_json.Temperature|float|round(1) }}";
         payload["temp_stat_t"] = "~";
         payload["temp_stat_tpl"] = "{{ value_json.Setpoint }}";
         payload["mode_stat_t"] = "~";
         payload["mode_stat_tpl"] = "{{ value_json.Mode }}";
         payload["current_humidity_topic"] = "~";
-        payload["current_humidity_template"] = "{{ value_json.Humidity|float }}";
+        payload["current_humidity_template"] = "{{ value_json.Humidity|float|round(1) }}";
         if (OperatingParameters.hvacFanEnable)
         {
             payload["fan_mode_stat_t"] = "~";

@@ -25,7 +25,7 @@
 
 OPERATING_PARAMETERS OperatingParameters;
 extern int64_t lastTimeUpdate;
-int64_t lastWifiReconnect = 0;
+int64_t lastWifiReconnect = millis();
 #ifdef MQTT_ENABLED
 int64_t lastMqttReconnect = 0;
 #endif
