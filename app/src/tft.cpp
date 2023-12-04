@@ -21,13 +21,14 @@
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
  *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
- * 
+ *  04-Dec-2023: Michael Burke (michaelburke2000@gmail.com) - Add screen brightness auto-adjustment
  */
 
 #include "thermostat.hpp"
 #include "tft.hpp"
 
 #define OFF_BRIGHTNESS 0
+#define MIN_BRIGHTNESS 5
 #define FULL_BRIGHTNESS 255
 
 static char thermostatModes[48] = {0};
@@ -39,6 +40,7 @@ uint16_t calData_2_8[8] = { 3839, 336, 3819, 3549, 893, 390, 718, 3387 };
 uint16_t calData_3_2[8] = { 3778, 359, 3786, 3803, 266, 347, 258, 3769 };
 uint16_t calData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 int64_t lastMotionDetected = 0;
+bool tftAwake = true;
 
 volatile bool tftMotionTrigger = false;
 
@@ -84,29 +86,53 @@ void tftHideDisplayItems()
   lv_obj_add_flag(ui_TempArc, LV_OBJ_FLAG_HIDDEN);
 }
 
+
+int sensorToScreenBrightness(int sensor)
+{
+  // THIS 4095 IS THE MAX BRIGHTNESS READING OF THE LIGHT SENSOR.
+  int conversionFactor =  4095 / FULL_BRIGHTNESS;
+  return sensor / conversionFactor;
+}
+
+#define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
+#define BRIGHTNESS_STEP_SIZE 2
+void tftAutoBrightness()
+{
+  int curBrightness = tft.getBrightness();
+  int convertedLightLevel = sensorToScreenBrightness(OperatingParameters.lightDetected);
+  int adjustment;
+  // Screen will only adjust brightness if difference between intended and current brightnesses is large enough.
+  // (this difference threshold is arbitrarily chosen to be FULL_BRIGHTNESS >> 5, or 1/32nd of the range of
+  // possible brightnesses)
+  // Also adjust brightness if screen is currently brightness 0 (just now waking up from sleep). Without this
+  // `OR`, the screen won't turn back on in very low ambient light.
+  if ((abs(convertedLightLevel - curBrightness) > FULL_BRIGHTNESS >> 5) || curBrightness == 0)
+    adjustment = BRIGHTNESS_STEP_SIZE;
+  else
+    return;
+  adjustment = curBrightness > convertedLightLevel ? adjustment * -1 : adjustment;
+  tft.setBrightness(CLAMP(curBrightness + adjustment, MIN_BRIGHTNESS, FULL_BRIGHTNESS));
+}
+#undef CLAMP
+
 void tftWakeDisplay(bool beep)
 {
   if (beep)
     audioBeep();
   tftShowDisplayItems();
-  tft.setBrightness(FULL_BRIGHTNESS);
   tftEnableTouchTimer();
   tftUpdateTouchTimestamp();
+  tftAwake = true;
 }
 
 void tftWakeDisplayMotion()
 {
   if (!tftTouchTimerEnabled)
   {
-    float ratio = (float)(OperatingParameters.lightDetected) / 4095.0;
-    // float ratio = (float)(OperatingParameters.lightDetected) / 3150.0;  // Measured in mV (max = 3.15 V)
-    int brightness = (int)(ratio * (float)(FULL_BRIGHTNESS));
     tftShowDisplayItems();
-    ESP_LOGI(TAG, "Setting display to partial brightness: %d (%d%%)",
-      brightness, (int)(ratio*100.0));
-    tft.setBrightness(brightness);
     tftEnableTouchTimer();
     tftUpdateTouchTimestamp();
+    tftAwake = true;
   }
 }
 
@@ -118,6 +144,7 @@ void tftDimDisplay()
     tft.setBrightness(OFF_BRIGHTNESS);
     tftHideDisplayItems();
     tftDisableTouchTimer();
+    tftAwake = false;
   }
 }
 
@@ -131,6 +158,8 @@ void tftUpdateDisplay()
   static struct tm local_time;
   // static ulong last = 0;
 
+  if (tftAwake)
+    tftAutoBrightness();
   // updateTime() will return false if wifi is not connected. 
   // Otherwise pending on SNTP call will cause a stall.
   // if (!updateTime(&local_time))
