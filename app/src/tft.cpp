@@ -21,7 +21,7 @@
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
  *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
- * 
+ *  04-Dec-2023: Michael Burke (michaelburke2000@gmail.com) - Add screen brightness auto-adjustment
  */
 
 #include "thermostat.hpp"
@@ -89,34 +89,31 @@ void tftHideDisplayItems()
 
 int sensorToScreenBrightness(int sensor)
 {
-  // THIS 4095 IS THE MAX BRIGHTNESS READING OF THE LIGHT SENSOR. IF THIS IS DEFINED IN A MACRO
-  // OR CONSTANT SOMEWHERE THAT WOULD BE MUCH BETTER!
+  // THIS 4095 IS THE MAX BRIGHTNESS READING OF THE LIGHT SENSOR.
   int conversionFactor =  4095 / FULL_BRIGHTNESS;
   return sensor / conversionFactor;
 }
 
-#define LIMIT_RANGE(x, min, max) (x < min ? min : (x > max ? max : x))
-#define ABS(x) (x < 0 ? -x : x)
+#define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
+#define BRIGHTNESS_STEP_SIZE 2
 void tftAutoBrightness()
 {
   int curBrightness = tft.getBrightness();
   int convertedLightLevel = sensorToScreenBrightness(OperatingParameters.lightDetected);
-  int brightnessDiff = convertedLightLevel - curBrightness;
-
-  // if there is a large difference between the screen's current brightness
-  // and the value it should be according to the ambient brightness,
-  // take large adjustment steps. If there is a small difference, take small steps.
-  int adjustment = (ABS(brightnessDiff) > FULL_BRIGHTNESS / 16) ? 3 : 1;
-  if (curBrightness > convertedLightLevel)
-    curBrightness -= adjustment;
-  else if(curBrightness < convertedLightLevel)
-    curBrightness += adjustment;
-
-  curBrightness = LIMIT_RANGE(curBrightness, MIN_BRIGHTNESS, FULL_BRIGHTNESS);
-  tft.setBrightness(curBrightness);
+  int adjustment;
+  // Screen will only adjust brightness if difference between intended and current brightnesses is large enough.
+  // (this difference threshold is arbitrarily chosen to be FULL_BRIGHTNESS >> 5, or 1/32nd of the range of
+  // possible brightnesses)
+  // Also adjust brightness if screen is currently brightness 0 (just now waking up from sleep). Without this
+  // `OR`, the screen won't turn back on in very low ambient light.
+  if ((abs(convertedLightLevel - curBrightness) > FULL_BRIGHTNESS >> 5) || curBrightness == 0)
+    adjustment = BRIGHTNESS_STEP_SIZE;
+  else
+    return;
+  adjustment = curBrightness > convertedLightLevel ? adjustment * -1 : adjustment;
+  tft.setBrightness(CLAMP(curBrightness + adjustment, MIN_BRIGHTNESS, FULL_BRIGHTNESS));
 }
-#undef ABS
-#undef LIMIT_RANGE
+#undef CLAMP
 
 void tftWakeDisplay(bool beep)
 {
