@@ -77,6 +77,9 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
             OperatingParameters.MqttConnected = false;
             xEventGroupSetBits(s_mqtt_event_group, MQTT_EVENT_DISCONNECTED_BIT);
+#ifdef TELNET_ENABLED
+            terminateTelnetSession();
+#endif
             break;
         case MQTT_EVENT_SUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);

@@ -539,7 +539,7 @@ void doConfiguration(int sock)
 	if ((len) && (len < sizeof(buffer)))
 	{
 	  int i = 0;
-		while ((lwip_stricmp(gmt_timezones[i], (const char *)buffer) != 0) && (i < 24))
+		while ((strcmp(gmt_timezones[i], (const char *)buffer) != 0) && (i < 24))
 			i++;
 		if (i < 24)
 		{
@@ -766,10 +766,17 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
 		}
 			break;
 		case MONITOR_LOG:
-			telnet_esp32_printf ("Enable log monitoring (CR to exit)\n");
-			ESP_LOGI (tag, "Log monitoring via telnet enabled");
-			telnetLoggerActive = true;
-			OrigEsplogger = esp_log_set_vprintf(telnetLogger);
+			if (telnetLoggerActive == false)
+			{
+				telnet_esp32_printf ("Enable log monitoring (CR to exit)\n");
+				ESP_LOGI (tag, "Log monitoring via telnet enabled");
+				telnetLoggerActive = true;
+				OrigEsplogger = esp_log_set_vprintf(telnetLogger);
+			}
+			else
+			{
+				telnet_esp32_printf ("Error: log monitoring already active\n");
+			}
 			break;
 		case STATUS:
 			DisplayStatus();
