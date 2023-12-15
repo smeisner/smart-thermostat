@@ -29,6 +29,7 @@ int64_t lastWifiReconnect = millis();
 #ifdef MQTT_ENABLED
 int64_t lastMqttReconnect = 0;
 #endif
+static bool MqttConnectCalled = false;
 
 void stateMachine(void *parameter)
 {
@@ -207,7 +208,11 @@ void stateMachine(void *parameter)
       {
         lastMqttReconnect = millis();
         //@@@ Should be a "reconnect"
-        MqttConnect();
+        if (!MqttConnectCalled)
+        {
+          MqttConnectCalled = true;
+          MqttConnect();
+        }
       }
     }
 #endif

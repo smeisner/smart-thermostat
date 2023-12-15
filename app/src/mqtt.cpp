@@ -11,10 +11,14 @@
  * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
  * 
  * Notes:
+ * 
+ * - This module still requires a good deal of code review & cleanup
+ * - Still need to add motion & light information as MQTT shared sensors
  *
  * History
  *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  16-Oct-2023: Steve Meisner (steve@meisners.net) - Add support for friendly name & many operational improvements
+ *  15-Dec-2023: Steve Meisner (steve@meisners.net) - Enable auto reconnect
  *
  */
 
@@ -37,6 +41,8 @@ const char*         g_manufacturer = "Steve Meisner";                         //
 std::string         g_deviceName; // = OperatingParameters.DeviceName;            // Device Name
 std::string         g_friendlyName;
 std::string         g_mqttStatusTopic; // = "SmartThermostat/" + g_deviceName;    // MQTT Topic
+
+void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic);
 
 struct CustomWriter {
   std::string str;
@@ -72,6 +78,9 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             OperatingParameters.MqttConnected = true;
             xEventGroupSetBits(s_mqtt_event_group, MQTT_EVENT_CONNECTED_BIT);
+            // Resubscribe to topics when connection (re) established
+            ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName.c_str());
+            MqttSubscribeTopic(client, g_deviceName + "/set/#");
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
@@ -491,7 +500,7 @@ bool MqttConnect(void)
     // mqtt_cfg.credentials.authentication.password = "mqtt";
     mqtt_cfg.credentials.authentication.password = OperatingParameters.MqttBrokerPassword;
 
-    mqtt_cfg.network.disable_auto_reconnect = true;
+    // mqtt_cfg.network.disable_auto_reconnect = true;
 
     //  = {
     //     .uri = "mqtt://iot.eclipse.org",
@@ -554,8 +563,8 @@ bool MqttConnect(void)
 
     if (bits & MQTT_EVENT_CONNECTED_BIT)
     {
-        ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName.c_str());
-        MqttSubscribeTopic(client, g_deviceName + "/set/#");
+        // ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName.c_str());
+        // MqttSubscribeTopic(client, g_deviceName + "/set/#");
 
         // Send discovery packet to let all listeners know we have arrived
         MqttHomeAssistantDiscovery();
