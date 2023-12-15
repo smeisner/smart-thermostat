@@ -21,6 +21,23 @@
 //     Shared data structures
 /////////////////////////////////////////////////////////////////////
 
+typedef struct
+{
+    uint16_t systemErrors;
+    uint16_t hardwareErrors;
+    uint16_t wifiErrors;
+#ifdef MQTT_ENABLED
+    uint16_t mqttConnectErrors;
+    uint16_t mqttProtocolErrors;
+#endif
+#ifdef MATTER_ENABLED
+    uint16_t matterConnectErrors;
+#endif
+#ifdef TELNET_ENABLED
+    uint16_t telnetNetworkErrors;
+#endif
+} ERRORS;
+
 typedef enum
 {
     OFF = 0,
@@ -36,6 +53,7 @@ typedef enum
 
 typedef struct
 {
+    ERRORS Errors;
     // FriendlyName and DeviceName must be
     // the same size due to copy operation
     // in ui_events.cpp, saveDeviceName()
@@ -156,6 +174,11 @@ void MqttUpdateStatusTopic();
 void MqttHomeAssistantDiscovery();
 #endif
 
+#ifdef TELNET_ENABLED
+esp_err_t telnetStart();
+void terminateTelnetSession();
+#endif
+
 // State Machine
 void stateCreateTask();
 extern int64_t lastWifiReconnect;
@@ -167,6 +190,9 @@ bool eepromUpdateHvacSetTemp();
 bool eepromUpdateHvacSetMode();
 void setWifiCreds();
 void updateThermostatParams();
+
+bool eepromUpdateArbFloat(const char *key, float value);
+bool eepromUpdateArbMode(const char *key, HVAC_MODE mode);
 
 // HTTP Server
 void webStart();

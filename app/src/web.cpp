@@ -49,7 +49,7 @@ static const char *TAG = "WEB";
 static char html[2200];
 static char xml[800];
 
-void doTempUp(void)
+float doTempUp(void)
 {
   if (OperatingParameters.tempUnits == 'C')
   {
@@ -59,9 +59,10 @@ void doTempUp(void)
     OperatingParameters.tempSet += 1.0;
     updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
+  return OperatingParameters.tempSet;
 }
 
-void doTempDown(void)
+float doTempDown(void)
 {
   if (OperatingParameters.tempUnits == 'C')
   {
@@ -71,6 +72,7 @@ void doTempDown(void)
     OperatingParameters.tempSet -= 1.0;
     updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
   }
+  return OperatingParameters.tempSet;
 }
 
 float enforceRange(float value, float min, float max) {
@@ -100,18 +102,34 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     updateHvacMode(FAN_ONLY);
   else if (!strncmp(content, "clear", BUTTON_CONTENT_SIZE))
     clearNVS();
+#ifdef TELNET_ENABLED
+  else if (!strncmp(content, "terminateTelnet", BUTTON_CONTENT_SIZE))
+    terminateTelnetSession();
+#endif
   else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable;
   else if (!strncmp(content, "hvacFanEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvacFanEnable = !OperatingParameters.hvacFanEnable;
   else if (!strncmp(content, "swingUp", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing + 0.1, 0.0, 6.0);
+    eepromUpdateArbFloat("setSwing", OperatingParameters.tempSwing);
+  }
   else if (!strncmp(content, "swingDown", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing - 0.1, 0.0, 6.0);
+    eepromUpdateArbFloat("setSwing", OperatingParameters.tempSwing);
+  }
   else if (!strncmp(content, "correctionUp", BUTTON_CONTENT_SIZE))
-    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -10.0, 1.0);
+  {
+    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection + 0.1, -10.0, 10.0);
+    eepromUpdateArbFloat("setTempCorr", OperatingParameters.tempCorrection);
+  }
   else if (!strncmp(content, "correctionDown", BUTTON_CONTENT_SIZE))
-    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -10.0, 1.0);
+  {
+    OperatingParameters.tempCorrection = enforceRange(OperatingParameters.tempCorrection - 0.1, -10.0, 10.0);
+    eepromUpdateArbFloat("setTempCorr", OperatingParameters.tempCorrection);
+  }
   else if (!strncmp(content, "twoStageEnable", BUTTON_CONTENT_SIZE))
     OperatingParameters.hvac2StageHeatEnable = !OperatingParameters.hvac2StageHeatEnable;
   else if (!strncmp(content, "reverseEnable", BUTTON_CONTENT_SIZE))
@@ -139,7 +157,10 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     }
   }
   else
-    ESP_LOGI(TAG, "Could not dispatch request \"%s\"", content);
+  {
+    ESP_LOGE(TAG, "Could not dispatch request \"%s\"", content);
+    OperatingParameters.Errors.systemErrors++;
+  }
 }
 
 #define min(x, y) ((x < y) ? x : y)
@@ -157,7 +178,8 @@ esp_err_t handleButton(httpd_req_t *req)
 
 #define CAT_IF_SPACE(xmlBuffer, other, space, request)          \
   if (space < 0) {                                              \
-    ESP_LOGI(TAG, "XML buffer ran out of space. Aborting...");  \
+    ESP_LOGE(TAG, "XML buffer ran out of space. Aborting...");  \
+    OperatingParameters.Errors.systemErrors++;                  \
     return httpd_resp_send_500(request);                        \
   }                                                             \
   strcat(xmlBuffer, other);
@@ -197,11 +219,11 @@ esp_err_t handleXML(httpd_req_t *req)
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   xmlSpace -= snprintf(buf, sizeof(buf), "<address>%s</address>\n", wifiAddress());
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareVer>%s</firmwareVer>\n", VERSION_STRING);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareVer>%s</firmwareVer>\n", VersionString);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareDt>%s</firmwareDt>\n", VERSION_BUILD_DATE_TIME);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareDt>%s</firmwareDt>\n", VersionBuildDateTime);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<copyright>%s</copyright>\n", VERSION_COPYRIGHT);
+  xmlSpace -= snprintf(buf, sizeof(buf), "<copyright>%s</copyright>\n", VersionCopyright);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   xmlSpace -= snprintf(buf, sizeof(buf), "<hvacCoolEnable>%d</hvacCoolEnable>\n", OperatingParameters.hvacCoolEnable);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
@@ -243,7 +265,7 @@ esp_err_t fwUpdate(httpd_req_t *req)
             ota_partition->subtype, ota_partition->address);
 	ESP_ERROR_CHECK(esp_ota_begin(ota_partition, OTA_SIZE_UNKNOWN, &ota_handle));
 
-  ESP_LOGI (TAG, "Firmware size: %i\n", remaining);
+  ESP_LOGI (TAG, "Firmware size: %i", remaining);
 
 	while (remaining > 0)
   {
@@ -324,10 +346,12 @@ void webStart()
     httpd_register_uri_handler(server, &uri_xml);
     httpd_register_uri_handler(server, &uri_button);
     httpd_register_uri_handler(server, &uri_upload);
+    httpd_register_uri_handler(server, &uri_update);
   }
 
   if (server == NULL)
   {
     ESP_LOGE (TAG, "** FAILED TO START WEB SERVER **");
+    OperatingParameters.Errors.systemErrors++;
   }
 }

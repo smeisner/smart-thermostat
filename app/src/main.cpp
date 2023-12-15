@@ -24,7 +24,13 @@
 
 #include "thermostat.hpp"
 #include "esp_timer.h"
+#include "version.h"
 #define TAG "Main"
+
+// Build version strings for other modules to use
+const char *VersionString = VERSION_STRING;
+const char *VersionCopyright = VERSION_COPYRIGHT;
+const char *VersionBuildDateTime = VERSION_BUILD_DATE_TIME;
 
 int64_t millis() { return esp_timer_get_time() / 1000;}
 
@@ -82,6 +88,11 @@ void app_main()
   // Start web server
   ESP_LOGI (TAG, "Starting web server");
   webStart();
+
+#ifdef TELNET_ENABLED
+  // Start telnet server
+  telnetStart();
+#endif
 
   // Play the startup sound
   audioStartupBeep();

@@ -174,8 +174,11 @@ bool ld2410_init()
         radar.firmware_minor_version,
         radar.firmware_bugfix_version
         );
-    } else {
+    }
+    else
+    {
       ESP_LOGE(TAG, "LD2410: Failed to read firmware version\n");
+      OperatingParameters.Errors.hardwareErrors++;
     }
 
     if (radar.requestCurrentConfiguration())
@@ -205,15 +208,32 @@ bool ld2410_init()
     // limited to 0 (0.75m). Use this to also change the inactivity timer.
     //
     //bool setMaxValues(uint16_t moving, uint16_t stationary, uint16_t inactivityTimer);
-    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000))) ESP_LOGI(TAG, "LD2410: Max gate values set"); else ESP_LOGE(TAG, "LD2410: FAILED to set max gate values");
+    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000)))
+    {
+      ESP_LOGI(TAG, "LD2410: Max gate values set");
+    }
+    else
+    {
+      ESP_LOGE(TAG, "LD2410: FAILED to set max gate values");
+      OperatingParameters.Errors.hardwareErrors++;
+    }
     //
     // Now request a restart to enable all the setting specified above
     //
-    if (radar.requestRestart()) ESP_LOGW(TAG, "LD2410: Restart requested"); else ESP_LOGE(TAG, "LD2410: FAILED requesting restart");
+    if (radar.requestRestart()) 
+    {
+      ESP_LOGW(TAG, "LD2410: Restart requested");
+    }
+    else
+    {
+      ESP_LOGE(TAG, "LD2410: FAILED requesting restart");
+      OperatingParameters.Errors.hardwareErrors++;
+    }
   }
   else
   {
     ESP_LOGE(TAG, "LD2410: Sensor not connected");
+    OperatingParameters.Errors.hardwareErrors++;
     rc = false;
   }
   return rc;
@@ -230,11 +250,11 @@ void ld2410_loop()
     last_ld2410_Reading = millis();
     if (radar.presenceDetected())
     {
-      ESP_LOGD (TAG, "LD2410: Motion detected");
+      ESP_LOGD (TAG, "LD2410: Presence detected");
       if (radar.stationaryTargetDetected())
-        ESP_LOGI (TAG, "LD2410: Stationary target: %d in", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
+        ESP_LOGD (TAG, "LD2410: Stationary target: %d in", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
       if (radar.movingTargetDetected())
-        ESP_LOGI (TAG, "LD2410: Moving target: %d in", (int)((float)(radar.movingTargetDistance()) / 2.54));
+        ESP_LOGD (TAG, "LD2410: Moving target: %d in", (int)((float)(radar.movingTargetDistance()) / 2.54));
     }
   }
 }
@@ -266,9 +286,14 @@ void updateAht(void *parameter)
   bool calibrated;
   ESP_ERROR_CHECK(aht_get_status(&dev, NULL, &calibrated));
   if (calibrated)
+  {
     ESP_LOGI(TAG, "AHT Sensor calibrated");
+  }
   else
+  {
     ESP_LOGW(TAG, "AHT Sensor not calibrated!");
+    OperatingParameters.Errors.hardwareErrors++;
+  }
 
   while (1)
   {
@@ -287,13 +312,19 @@ void updateAht(void *parameter)
       OperatingParameters.humidCurrent = sensorHumidity.get();
 
       ESP_LOGI(TAG, "Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)",
-             sensorTemp.get(), temperature, OperatingParameters.tempUnits, sensorHumidity.get(), humidity);
+             sensorTemp.get() + OperatingParameters.tempCorrection,
+             temperature, OperatingParameters.tempUnits,
+             sensorHumidity.get() + OperatingParameters.humidityCorrection,
+             humidity);
 #ifdef MQTT_ENABLED
       MqttUpdateStatusTopic();
 #endif
     }
     else
+    {
       ESP_LOGE(TAG, "Error reading data: %d (%s)", res, esp_err_to_name(res));
+      OperatingParameters.Errors.hardwareErrors++;
+    }
 
     vTaskDelay(pdMS_TO_TICKS(10000));
   }
@@ -351,6 +382,7 @@ void updateTimezone()
   if (!tz)
   {
     ESP_LOGE(TAG, "Invalid Timezone: %s", OperatingParameters.timezone);
+    OperatingParameters.Errors.systemErrors++;
     return;
   }
   setenv("TZ", tz, 1);

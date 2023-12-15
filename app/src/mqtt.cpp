@@ -11,10 +11,14 @@
  * Copyright (c) 2023 Steve Meisner (steve@meisners.net)
  * 
  * Notes:
+ * 
+ * - This module still requires a good deal of code review & cleanup
+ * - Still need to add motion & light information as MQTT shared sensors
  *
  * History
  *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  16-Oct-2023: Steve Meisner (steve@meisners.net) - Add support for friendly name & many operational improvements
+ *  15-Dec-2023: Steve Meisner (steve@meisners.net) - Enable auto reconnect
  *
  */
 
@@ -32,11 +36,13 @@ static const char *TAG = "MQTT";
 
 // Variable used for MQTT Discovery
 const char*         g_deviceModel = "Truly Smart Thermostat";                 // Hardware Model
-const char*         g_swVersion = VERSION_STRING;                             // Firmware Version
+const char*         g_swVersion = VersionString;                             // Firmware Version
 const char*         g_manufacturer = "Steve Meisner";                         // Manufacturer Name
 std::string         g_deviceName; // = OperatingParameters.DeviceName;            // Device Name
 std::string         g_friendlyName;
 std::string         g_mqttStatusTopic; // = "SmartThermostat/" + g_deviceName;    // MQTT Topic
+
+void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic);
 
 struct CustomWriter {
   std::string str;
@@ -72,11 +78,17 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
             ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             OperatingParameters.MqttConnected = true;
             xEventGroupSetBits(s_mqtt_event_group, MQTT_EVENT_CONNECTED_BIT);
+            // Resubscribe to topics when connection (re) established
+            ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName.c_str());
+            MqttSubscribeTopic(client, g_deviceName + "/set/#");
             break;
         case MQTT_EVENT_DISCONNECTED:
             ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
             OperatingParameters.MqttConnected = false;
             xEventGroupSetBits(s_mqtt_event_group, MQTT_EVENT_DISCONNECTED_BIT);
+#ifdef TELNET_ENABLED
+            terminateTelnetSession();
+#endif
             break;
         case MQTT_EVENT_SUBSCRIBED:
             ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
@@ -99,7 +111,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
             ESP_LOGI(TAG, "MQTT_EVENT_DATA");
             ESP_LOGI(TAG, "TOPIC=%.*s", event->topic_len, event->topic);
             ESP_LOGI(TAG, "DATA=%.*s", event->data_len, event->data);
-            if (strstr(event->topic, "mode"))
+            if (strstr(event->topic, "/set/mode") != NULL)
             {
                 char m[event->data_len + 1];
                 strncpy (m, event->data, event->data_len);
@@ -107,9 +119,13 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 // Make first letter uppercase to match our string representation
                 m[0] = toupper(m[0]);
                 ESP_LOGI(TAG, "Looking up %s", m);
-                updateHvacMode (strToHvacMode(m));
+    			HVAC_MODE mode = strToHvacMode(m);
+			    if (mode == ERROR)
+                    ESP_LOGW(TAG, "Mode %s invalid", m);
+                else
+                    updateHvacMode (mode);
             }
-            if (strstr(event->topic, "temp"))
+            if (strstr(event->topic, "/set/temp") != NULL)
             {
                 if (strlen(event->data) > 0 && atof(event->data) != 0)
                 {
@@ -118,9 +134,10 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 else
                 {
                     ESP_LOGE(TAG, "Received invalid string for set temp: \"%s\"", event->data);
+                    OperatingParameters.Errors.mqttProtocolErrors++;
                 }
             }
-            if (strstr(event->topic, "fan"))
+            if (strstr(event->topic, "fan") != NULL)
             {
                 if (strlen(event->data) > 0)
                 {
@@ -139,6 +156,7 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
                 else
                 {
                     ESP_LOGE(TAG, "Received invalid string for set mode: \"%s\"", event->data);
+                    OperatingParameters.Errors.mqttProtocolErrors++;
                 }
             }
             break;
@@ -151,6 +169,7 @@ void MqttPublish(const char *topic, const char *payload, bool retain)
     if (!OperatingParameters.MqttConnected)
     {
         ESP_LOGW(TAG, "Trying to MQTT publish while not connected");
+        OperatingParameters.Errors.mqttProtocolErrors++;
         return;
     }
     msg_id = esp_mqtt_client_publish(
@@ -177,16 +196,19 @@ void MqttUpdateStatusTopic()
     std::string curr_mode = hvacModeToMqttCurrMode(OperatingParameters.hvacOpMode);
     StaticJsonDocument<200> payload;
     // payload["inputstatus"] = "ON";
-    std::string hum(16, '\0');
-    auto written = std::snprintf(&hum[0], hum.size(), "%.2f", (OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection));
-    hum.resize(written);
-    payload["Humidity"] = hum;
-    // payload["Humidity"] = OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection;
+
     std::string temp(16, '\0');
-    written = std::snprintf(&temp[0], temp.size(), "%.2f", (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection));
+    auto written = std::snprintf(&temp[0], temp.size(), "%.2f", (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection));
     temp.resize(written);
     payload["Temperature"] = temp;
     // payload["Temperature"] = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;
+
+    std::string hum(16, '\0');
+    written = std::snprintf(&hum[0], hum.size(), "%.2f", (OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection));
+    hum.resize(written);
+    payload["Humidity"] = hum;
+    // payload["Humidity"] = OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection;
+
     //@@@ Should the following line be part of an "else" for the next "if" statement???
     payload["Setpoint"] = OperatingParameters.tempSet;
 
@@ -230,6 +252,7 @@ void MqttHomeAssistantDiscovery()
     // if (!OperatingParameters.MqttEnabled || !OperatingParameters.MqttStarted)
     {
         ESP_LOGE(TAG, "MQTT not enabled or not connected!");
+        OperatingParameters.Errors.mqttConnectErrors++;
         return;
     }
 
@@ -280,13 +303,13 @@ void MqttHomeAssistantDiscovery()
         payload["act_tpl"] = "{{ value_json.CurrMode }}";
         // payload["stat_t"] = g_mqttStatusTopic + "/temperature";
         payload["curr_temp_t"] = "~";
-        payload["curr_temp_tpl"] = "{{ value_json.Temperature|float }}";
+        payload["curr_temp_tpl"] = "{{ value_json.Temperature|float|round(1) }}";
         payload["temp_stat_t"] = "~";
         payload["temp_stat_tpl"] = "{{ value_json.Setpoint }}";
         payload["mode_stat_t"] = "~";
         payload["mode_stat_tpl"] = "{{ value_json.Mode }}";
         payload["current_humidity_topic"] = "~";
-        payload["current_humidity_template"] = "{{ value_json.Humidity|float }}";
+        payload["current_humidity_template"] = "{{ value_json.Humidity|float|round(1) }}";
         if (OperatingParameters.hvacFanEnable)
         {
             payload["fan_mode_stat_t"] = "~";
@@ -340,7 +363,10 @@ void MqttHomeAssistantDiscovery()
             xTicksToWait);
 
         if (bits & MQTT_ERROR_BIT)
+        {
             ESP_LOGE(TAG, "Publish failed");
+            OperatingParameters.Errors.mqttProtocolErrors++;
+        }
 
 
 #if 0
@@ -385,7 +411,10 @@ void MqttHomeAssistantDiscovery()
             xTicksToWait);
 
         if (bits & MQTT_ERROR_BIT)
+        {
             ESP_LOGE(TAG, "Publish failed");
+            OperatingParameters.Errors.mqttProtocolErrors++;
+        }
 
         ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // Binary Door
@@ -425,9 +454,14 @@ void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic)
     int msg_id;
     msg_id = esp_mqtt_client_subscribe(client, topic.c_str(), 1);
     if (msg_id < 0)
+    {
         ESP_LOGE (TAG, "Subscribe topic FAILED, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
+        OperatingParameters.Errors.mqttProtocolErrors++;
+    }
     else
+    {
         ESP_LOGI (TAG, "Subscribe topic successful, Topic=%s,  msg_id=%d", topic.c_str(), msg_id);
+    }
 }
 
 bool MqttConnect(void)
@@ -465,7 +499,8 @@ bool MqttConnect(void)
     mqtt_cfg.credentials.set_null_client_id = true;
     // mqtt_cfg.credentials.authentication.password = "mqtt";
     mqtt_cfg.credentials.authentication.password = OperatingParameters.MqttBrokerPassword;
-    
+
+    // mqtt_cfg.network.disable_auto_reconnect = true;
 
     //  = {
     //     .uri = "mqtt://iot.eclipse.org",
@@ -477,6 +512,7 @@ bool MqttConnect(void)
     if (client == NULL)
     {
         ESP_LOGE(TAG, "Failed to init client!");
+        OperatingParameters.Errors.mqttConnectErrors++;
         return false;
     }
     OperatingParameters.MqttClient = client;
@@ -490,6 +526,7 @@ bool MqttConnect(void)
         ESP_LOGE(TAG, "Failed to register client: 0x%x", err);
         if (err == ESP_ERR_NO_MEM) ESP_LOGE(TAG, "ESP_ERR_NO_MEM");
         if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+        OperatingParameters.Errors.mqttConnectErrors++;
         esp_mqtt_client_destroy(client);
         return false;
     }
@@ -500,6 +537,7 @@ bool MqttConnect(void)
         ESP_LOGE(TAG, "Failed to start client: 0x%x", err);
         if (err == ESP_FAIL) ESP_LOGE(TAG, "ESP_FAIL");
         if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+        OperatingParameters.Errors.mqttConnectErrors++;
         esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
         esp_mqtt_client_destroy(client);
         return false;
@@ -517,6 +555,7 @@ bool MqttConnect(void)
         ESP_LOGE (TAG, "MQTT Connect failed");
         // esp_mqtt_client_stop(client); // Commented out since connect never worked
         ESP_LOGW(TAG, "Removing MQTT data structures");
+        OperatingParameters.Errors.mqttConnectErrors++;
         esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
         esp_mqtt_client_destroy(client);
         return false;
@@ -524,8 +563,8 @@ bool MqttConnect(void)
 
     if (bits & MQTT_EVENT_CONNECTED_BIT)
     {
-        ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName);
-        MqttSubscribeTopic(client, g_deviceName + "/set/#");
+        // ESP_LOGI(TAG, "Subscribing to topic %s/set/#", g_deviceName.c_str());
+        // MqttSubscribeTopic(client, g_deviceName + "/set/#");
 
         // Send discovery packet to let all listeners know we have arrived
         MqttHomeAssistantDiscovery();
@@ -548,26 +587,27 @@ void MqttInit()
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
 
-    if (!OperatingParameters.MqttEnabled)
-    {
-        ESP_LOGW(TAG, "MQTT is not enabled!");
-        return;
-    }
-
     /* Initialize event group */
     s_mqtt_event_group = xEventGroupCreate();
 
     ESP_LOGI(TAG, "MQTT Startup...");
-    if (!wifiConnected())
-    {
-        ESP_LOGE(TAG, "Attempting to start MQTT when wifi connection down");
-        return;
-    }
 
     g_deviceName = OperatingParameters.DeviceName;
     g_friendlyName = OperatingParameters.FriendlyName;
     g_mqttStatusTopic = g_deviceName + "/status";
     OperatingParameters.MqttConnected = false;
+
+    if (!OperatingParameters.MqttEnabled)
+    {
+        ESP_LOGW(TAG, "MQTT is not enabled!");
+        // No need to count this as an error
+    }
+
+    if (!wifiConnected())
+    {
+        ESP_LOGE(TAG, "Attempting to start MQTT when wifi connection down");
+        OperatingParameters.Errors.mqttConnectErrors++;
+    }
 }
 
 #endif  // #ifdef MQTT_ENABLED
