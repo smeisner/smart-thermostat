@@ -6,7 +6,7 @@ Main features are:
 * Can be integrated into a home automation system (such as Home Assistant)
 * Cloud connection not required
 * Wifi connected
-* Bluetooth LE connected (required for initial setup)
+* Initial setup (e.g., wifi credentials) configured via touch screen interface
 * Will act similarly to a person's preferences when it comes to HVAC. For example:
     * the temperature set should be dependent upon local forecast
     * If the outside temp is close to the set thermostat temp, suggest opening a window
@@ -23,6 +23,17 @@ Main features are:
 Basic layout of thermostat:
 
 <img src="./assets/Block%20Diagram.drawio.png">
+
+
+# December 18, 2023 Changes to MQTT and addition of telnet support
+
+Version 0.7.2 adds support for telnet and soft back light bring up (more on that later). It also fixes a handful of bugs and reliability (especially around MQT) has been dramatically increased.
+
+Prior to this release, the backlight would come on immediately with "full brightness" (depending on the ambient light level). Now, the logic has been updated to bring the back light up slowly to match the current room light level. Also the backlight will continue to match the detected light, so if you turn the room light on, it will match.
+
+Auto reconnect in the ESP MQTT module has been enabled. Ths eliminates the responsibility for smart-thermostat to re-establish an MQTT connection if it is lost. Trying to do this manually led to race conditions and some incorrect logic assumptions. Now the built in module (from Esspressif) handles it ... and it is incredibly reliable!
+
+Telnet support has been added! There is no credential checking mechanism, but this is not a high security device. It could be added later by a contributor if wanted. Via telnet, a user can reconfigure the stat, monitoring th elogging output, reboot and check on stats & error counts.
 
 # October 4, 2023 addition of Matter support
 
@@ -184,7 +195,7 @@ V2 task list:
 * [x] Design 3D printed case (Polycase may be good supplier or JLCPCB)
 * [ ] Implement Matter
 * [ ] Develop Home Assistant integration (maybe via Matter?)
-* [ ] Add MQTT/HA communications (publish and subscriber support)
+* [x] Add MQTT/HA communications (publish and subscriber support)
 
 Maybe:
 
@@ -207,7 +218,7 @@ General to-do:
 <br>
 
 * Interrupt: Motion
-* When: RCWL-0516 senses motion; asserts line HI
+* When: LD2410 senses motion; asserts line HI
 <br>
 
 * Task: aht
@@ -250,10 +261,9 @@ General to-do:
 * [x] Wifi
 * [x] Web server
 * [ ] Matter over wifi
-* [ ] Telnet
-* [ ] Bluetooth
-* [ ] Add air quality monitoring device
+* [x] Telnet
 * [x] OTA updates
+* [ ] Add air quality monitoring device -- Maybe a future feature
 
 #### Parameters set by user:
 
