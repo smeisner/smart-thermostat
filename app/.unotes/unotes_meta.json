@@ -62,6 +62,12 @@
       "isOrdered": true,
       "folders": {},
       "files": {}
+    },
+    "components": {
+      "name": "components",
+      "isOrdered": true,
+      "folders": {},
+      "files": {}
     }
   },
   "files": {}

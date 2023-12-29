@@ -54,7 +54,12 @@ void tftDisableTouchTimer()
 {
   ESP_LOGI(TAG, "Disabling touch/motion timer");
   tftTouchTimerEnabled = false;
+#ifdef MQTT_ENABLED
+  // Stay in synch with display
+  MqttMotionUpdate(OperatingParameters.motionDetected);
+#endif
 }
+
 void tftEnableTouchTimer()
 {
   ESP_LOGI(TAG, "Enabling touch/motion timer");
@@ -450,6 +455,9 @@ void tftPump(void * parameter)
       lastMotionDetected = millis();
       OperatingParameters.motionDetected = true;
       tftWakeDisplayMotion();
+#ifdef MQTT_ENABLED
+      MqttMotionUpdate(OperatingParameters.motionDetected);
+#endif
     }
   }
 
@@ -463,6 +471,10 @@ void tftPump(void * parameter)
     {
       ESP_LOGI (TAG, "Motion detection timeout");
       OperatingParameters.motionDetected = false;
+#ifdef MQTT_ENABLED
+      // Stay in synch with OperatingParameter
+      //@@@MqttMotionUpdate(OperatingParameters.motionDetected);
+#endif
     }
   }
 
