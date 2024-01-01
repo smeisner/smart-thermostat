@@ -56,7 +56,8 @@ void tftDisableTouchTimer()
   tftTouchTimerEnabled = false;
 #ifdef MQTT_ENABLED
   // Stay in synch with display
-  MqttMotionUpdate(OperatingParameters.motionDetected);
+  if (OperatingParameters.MqttConnected)
+    MqttMotionUpdate(OperatingParameters.motionDetected);
 #endif
 }
 
@@ -456,7 +457,8 @@ void tftPump(void * parameter)
       OperatingParameters.motionDetected = true;
       tftWakeDisplayMotion();
 #ifdef MQTT_ENABLED
-      MqttMotionUpdate(OperatingParameters.motionDetected);
+      if (OperatingParameters.MqttConnected)
+        MqttMotionUpdate(OperatingParameters.motionDetected);
 #endif
     }
   }
@@ -473,7 +475,8 @@ void tftPump(void * parameter)
       OperatingParameters.motionDetected = false;
 #ifdef MQTT_ENABLED
       // Stay in synch with OperatingParameter
-      //@@@MqttMotionUpdate(OperatingParameters.motionDetected);
+      //@@@if (OperatingParameters.MqttConnected)
+        //@@@MqttMotionUpdate(OperatingParameters.motionDetected);
 #endif
     }
   }
