@@ -410,6 +410,9 @@ void MqttSensorDiscovery()
         ESP_LOGE(TAG, "Sensor Publish failed");
         OperatingParameters.Errors.mqttProtocolErrors++;
     }
+
+    // Send initial motion state since there may be no motion for some time
+    MqttMotionUpdate(false);
 }
 
 void MqttHomeAssistantDiscovery()
