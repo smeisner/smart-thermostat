@@ -322,7 +322,6 @@ void SaveConfigSettings(lv_event_t * e)
   {
     //@@@ Disable all HVAC activity before restarting
     printf ("MQTT enablement changed!\n");
-//@@@    wifiSwitchMatterMode();
     if (!OperatingParameters.MqttEnabled)
     {
       _ui_screen_change(&ui_ThermostatRestart, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0, &ui_ThermostatRestart_screen_init);
@@ -542,6 +541,7 @@ void tftCountdown(lv_event_t * e)
 
 void loadMqttSettings(lv_event_t * e)
 {
+#ifdef MQTT_ENABLED
   lv_textarea_set_text(ui_MqttHostname, OperatingParameters.MqttBrokerHost);
   lv_textarea_set_text(ui_MqttUsername, OperatingParameters.MqttBrokerUsername);
   lv_textarea_set_text(ui_MqttPassword, OperatingParameters.MqttBrokerPassword);
@@ -550,11 +550,12 @@ void loadMqttSettings(lv_event_t * e)
   printf ("  MQTT Broker: %s\n", OperatingParameters.MqttBrokerHost);
   printf ("  MQTT Username: %s\n", OperatingParameters.MqttBrokerUsername);
   printf ("  MQTT Password: %s\n", OperatingParameters.MqttBrokerPassword);
-
+#endif
 }
 
 void saveMqttSettings(lv_event_t * e)
 {
+#ifdef MQTT_ENABLED
   strcpy (OperatingParameters.MqttBrokerHost, lv_textarea_get_text(ui_MqttHostname));
   strcpy (OperatingParameters.MqttBrokerUsername, lv_textarea_get_text(ui_MqttUsername));
   strcpy (OperatingParameters.MqttBrokerPassword, lv_textarea_get_text(ui_MqttPassword));
@@ -565,6 +566,7 @@ void saveMqttSettings(lv_event_t * e)
   printf ("  MQTT Broker: %s\n", OperatingParameters.MqttBrokerHost);
   printf ("  MQTT Username: %s\n", OperatingParameters.MqttBrokerUsername);
   printf ("  MQTT Password: %s\n", OperatingParameters.MqttBrokerPassword);
+#endif
 }
 
 void loadDeviceName(lv_event_t * e)

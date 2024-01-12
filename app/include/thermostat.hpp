@@ -171,6 +171,7 @@ bool MatterInit();
 void MqttInit();
 bool MqttConnect();
 void MqttUpdateStatusTopic();
+void MqttMotionUpdate(bool);
 void MqttHomeAssistantDiscovery();
 #endif
 
