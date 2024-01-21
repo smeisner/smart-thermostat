@@ -67,6 +67,9 @@ static bool disconnectPending = false;
 // client at a time, this can be a global static.
 static telnet_t *tnHandle;
 
+// Task handle for the telnet service task
+static TaskHandle_t telnetTaskHandle = NULL;
+
 static void (*receivedDataCallback)(int sock, uint8_t *buffer, size_t size);
 
 struct telnetUserData {
@@ -324,13 +327,7 @@ static void doTelnet(int partnerSocket)
 } // doTelnet
 
 
-void terminateTelnetSession()
-{
-	revertTelnetLogger();
-  ESP_LOGI(tag, "Telnet session termination requested");
-	disconnectPending = true;
-}
-
+int serverSocket;
 /**
  * Listen for telnet clients and handle them.
  */
@@ -338,7 +335,10 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
 {
 	//ESP_LOGD(tag, ">> telnet_listenForClients");
 	receivedDataCallback = callbackParam;
-	int serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	BaseType_t xTrueValue = pdTRUE;
+	setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (void *)&xTrueValue, sizeof(xTrueValue));
 
 	struct sockaddr_in serverAddr;
 	serverAddr.sin_family = AF_INET;
@@ -379,6 +379,70 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
 	}
 } // listenForNewClient
 
+void telnet_esp32_CloseSocket()
+{
+	if (serverSocket == NULL)
+	{
+		return;
+	}
+
+	int rc = closesocket(serverSocket);
+	if (rc < 0)
+	{
+		ESP_LOGE(tag, "closesocket: %d (%s)", errno, strerror(errno));
+		OperatingParameters.Errors.telnetNetworkErrors++;
+		return;
+	}
+
+}
+
+void terminateTelnetSession()
+{
+	// On first invocation, this routine will only close the
+	// active telnet session, if there is one...then return. On
+	// the next invocation, since the first closed the active
+	// session, the task that handles incoming connect requests
+	// will be terminated and restarted.
+
+  ESP_LOGI(tag, "Telnet session termination requested");
+
+	if ((tnHandle == NULL) && (telnetTaskHandle == NULL))
+	{
+		ESP_LOGW(tag, "No action taken - no telnet connection and telnet task not started");
+		return;
+	}
+
+	if (tnHandle != NULL)
+	{
+		ESP_LOGW(tag, "Active telnet session -- waiting for it to terminate");
+
+		revertTelnetLogger();
+
+		// Set the flag to start exiting telnet task
+		disconnectPending = true;
+		while (tnHandle != NULL)
+			vTaskDelay(pdMS_TO_TICKS(50));
+		
+		// First step completed; Stop active telnet session.
+		// On a subsequent call, the socket will be closed and task restarted
+		return;
+	}
+
+	// Close the listener socket
+	telnet_esp32_CloseSocket();
+
+	// telnet session is now aborted and listening socket is closed. Now restart the task.
+	if (telnetTaskHandle != NULL)
+	{
+		ESP_LOGD(tag, "Active telnet sessions stopped and socket closed. Now stopping telnet RTOS task.");
+		vTaskDelete(telnetTaskHandle);
+		telnetTaskHandle = NULL;
+	}
+
+	ESP_LOGI(tag, "Starting new telnet service instance");	
+	vTaskDelay(pdMS_TO_TICKS(125));
+	telnetStart();
+}
 
 void DisplayErrors()
 {
@@ -821,7 +885,7 @@ esp_err_t telnetStart()
       8048,
       NULL,
       tskIDLE_PRIORITY,
-      0
+      &telnetTaskHandle
   );
   return ESP_OK;
 }
