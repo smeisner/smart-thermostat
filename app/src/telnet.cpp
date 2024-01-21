@@ -334,114 +334,114 @@ int serverSocket;
  */
 void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buffer, size_t size))
 {
-  // ESP_LOGD(tag, ">> telnet_listenForClients");
-  receivedDataCallback = callbackParam;
-  serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	//ESP_LOGD(tag, ">> telnet_listenForClients");
+	receivedDataCallback = callbackParam;
+	serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
-  BaseType_t xTrueValue = pdTRUE;
-  setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (void *)&xTrueValue, sizeof(xTrueValue));
+	BaseType_t xTrueValue = pdTRUE;
+	setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (void *)&xTrueValue, sizeof(xTrueValue));
 
-  struct sockaddr_in serverAddr;
-  serverAddr.sin_family = AF_INET;
-  serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  serverAddr.sin_port = htons(23);
+	struct sockaddr_in serverAddr;
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+	serverAddr.sin_port = htons(23);
 
-  int rc = bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
-  if (rc < 0)
-  {
-    ESP_LOGE(tag, "bind: %d (%s)", errno, strerror(errno));
-    OperatingParameters.Errors.telnetNetworkErrors++;
-    return;
-  }
+	int rc = bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+	if (rc < 0)
+	{
+		ESP_LOGE(tag, "bind: %d (%s)", errno, strerror(errno));
+		OperatingParameters.Errors.telnetNetworkErrors++;
+		return;
+	}
 
-  rc = listen(serverSocket, 5);
-  if (rc < 0)
-  {
-    ESP_LOGE(tag, "listen: %d (%s)", errno, strerror(errno));
-    OperatingParameters.Errors.telnetNetworkErrors++;
-    return;
-  }
+	rc = listen(serverSocket, 5);
+	if (rc < 0)
+	{
+		ESP_LOGE(tag, "listen: %d (%s)", errno, strerror(errno));
+		OperatingParameters.Errors.telnetNetworkErrors++;
+		return;
+	}
 
-  while (1)
-  {
-    socklen_t len = sizeof(serverAddr);
-    rc = accept(serverSocket, (struct sockaddr *)&serverAddr, &len);
-    if (rc < 0)
-    {
-      ESP_LOGE(tag, "accept: %d (%s)", errno, strerror(errno));
-      OperatingParameters.Errors.telnetNetworkErrors++;
-      return;
-    }
-    int partnerSocket = rc;
+	while(1)
+	{
+		socklen_t len = sizeof(serverAddr);
+		rc = accept(serverSocket, (struct sockaddr *)&serverAddr, &len);
+		if (rc < 0)
+		{
+			ESP_LOGE(tag, "accept: %d (%s)", errno, strerror(errno));
+			OperatingParameters.Errors.telnetNetworkErrors++;
+			return;
+		}
+		int partnerSocket = rc;
 
-    ESP_LOGI(tag, "We have a new client connection!");
-    // This call is blocking, so only 1 telnet session at a time!
-    doTelnet(partnerSocket);
-  }
+		ESP_LOGI(tag, "We have a new client connection!");
+		// This call is blocking, so only 1 telnet session at a time!
+		doTelnet(partnerSocket);
+	}
 } // listenForNewClient
 
 void telnet_esp32_CloseSocket()
 {
-  if (serverSocket == NULL)
-  {
-    return;
-  }
+	if (serverSocket == NULL)
+	{
+		return;
+	}
 
-  int rc = closesocket(serverSocket);
-  if (rc < 0)
-  {
-    ESP_LOGE(tag, "closesocket: %d (%s)", errno, strerror(errno));
-    OperatingParameters.Errors.telnetNetworkErrors++;
-    return;
-  }
+	int rc = closesocket(serverSocket);
+	if (rc < 0)
+	{
+		ESP_LOGE(tag, "closesocket: %d (%s)", errno, strerror(errno));
+		OperatingParameters.Errors.telnetNetworkErrors++;
+		return;
+	}
 }
 
 void terminateTelnetSession()
 {
-  // On first invocation, this routine will only close the
-  // active telnet session, if there is one...then return. On
-  // the next invocation, since the first closed the active
-  // session, the task that handles incoming connect requests
-  // will be terminated and restarted.
+	// On first invocation, this routine will only close the
+	// active telnet session, if there is one...then return. On
+	// the next invocation, since the first closed the active
+	// session, the task that handles incoming connect requests
+	// will be terminated and restarted.
 
   ESP_LOGI(tag, "Telnet session termination requested");
 
-  if ((tnHandle == NULL) && (telnetTaskHandle == NULL))
-  {
-    ESP_LOGW(tag, "No action taken - no telnet connection and telnet task not started");
-    return;
-  }
+	if ((tnHandle == NULL) && (telnetTaskHandle == NULL))
+	{
+		ESP_LOGW(tag, "No action taken - no telnet connection and telnet task not started");
+		return;
+	}
 
-  if (tnHandle != NULL)
-  {
-    ESP_LOGW(tag, "Active telnet session -- waiting for it to terminate");
+	if (tnHandle != NULL)
+	{
+		ESP_LOGW(tag, "Active telnet session -- waiting for it to terminate");
 
-    revertTelnetLogger();
+		revertTelnetLogger();
 
-    // Set the flag to start exiting telnet task
-    disconnectPending = true;
-    while (tnHandle != NULL)
-      vTaskDelay(pdMS_TO_TICKS(50));
+		// Set the flag to start exiting telnet task
+		disconnectPending = true;
+		while (tnHandle != NULL)
+			vTaskDelay(pdMS_TO_TICKS(50));
+		
+		// First step completed; Stop active telnet session.
+		// On a subsequent call, the socket will be closed and task restarted
+		return;
+	}
 
-    // First step completed; Stop active telnet session.
-    // On a subsequent call, the socket will be closed and task restarted
-    return;
-  }
+	// Close the listener socket
+	telnet_esp32_CloseSocket();
 
-  // Close the listener socket
-  telnet_esp32_CloseSocket();
+	// telnet session is now aborted and listening socket is closed. Now restart the task.
+	if (telnetTaskHandle != NULL)
+	{
+		ESP_LOGD(tag, "Active telnet sessions stopped and socket closed. Now stopping telnet RTOS task.");
+		vTaskDelete(telnetTaskHandle);
+		telnetTaskHandle = NULL;
+	}
 
-  // telnet session is now aborted and listening socket is closed. Now restart the task.
-  if (telnetTaskHandle != NULL)
-  {
-    ESP_LOGD(tag, "Active telnet sessions stopped and socket closed. Now stopping telnet RTOS task.");
-    vTaskDelete(telnetTaskHandle);
-    telnetTaskHandle = NULL;
-  }
-
-  ESP_LOGI(tag, "Starting new telnet service instance");
-  vTaskDelay(pdMS_TO_TICKS(125));
-  telnetStart();
+	ESP_LOGI(tag, "Starting new telnet service instance");	
+	vTaskDelay(pdMS_TO_TICKS(125));
+	telnetStart();
 }
 
 void DisplayErrors()
