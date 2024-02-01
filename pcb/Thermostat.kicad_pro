@@ -33,9 +33,9 @@
         "other_text_thickness": 0.15,
         "other_text_upright": false,
         "pads": {
-          "drill": 0.2,
-          "height": 0.4,
-          "width": 0.4
+          "drill": 0.4,
+          "height": 0.6,
+          "width": 0.6
         },
         "silk_line_width": 0.15,
         "silk_text_italic": false,
@@ -44,7 +44,7 @@
         "silk_text_thickness": 0.15,
         "silk_text_upright": false,
         "zones": {
-          "45_degree_only": false,
+          "45_degree_only": true,
           "min_clearance": 0.0
         }
       },
@@ -403,7 +403,6 @@
         "nets": [
           "C",
           "G",
-          "Net-(D3-Pad2)",
           "O{slash}B",
           "RC",
           "RH",
@@ -427,9 +426,7 @@
         "microvia_diameter": 0.3,
         "microvia_drill": 0.1,
         "name": "USB",
-        "nets": [
-          "Net-(J9-PadA5)"
-        ],
+        "nets": [],
         "pcb_color": "rgba(0, 0, 0, 0.000)",
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.25,
@@ -448,7 +445,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "specctra_dsn": "",
+      "specctra_dsn": "Thermostat.dsn.txt",
       "step": "Thermostat V0.5.2.step",
       "vrml": ""
     },
@@ -498,8 +495,20 @@
       ""
     ],
     [
-      "25a5abbc-6058-4e54-92d9-f2c655a065fe",
+      "059cb07a-9394-49cb-9bd5-98378095e2b4",
       "Processor"
+    ],
+    [
+      "feb45bc2-594f-4542-9dc7-f7540a7d687f",
+      "Power Supply & Accessories"
+    ],
+    [
+      "50b1ad93-8ea3-4ccd-bd39-47e77fb36e46",
+      "HVAC Relays"
+    ],
+    [
+      "214339f3-f887-4a7f-bd27-1751c02d7413",
+      "Unused Components"
     ]
   ],
   "text_variables": {}
