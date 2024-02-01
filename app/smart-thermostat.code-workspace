@@ -67,6 +67,8 @@
 			"thread": "cpp",
 			"cinttypes": "cpp",
 			"typeinfo": "cpp"
-		}
+		},
+    "editor.tabSize": 2,
+    "editor.detectIndentation": false
 	}
 }

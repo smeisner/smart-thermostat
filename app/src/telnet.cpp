@@ -328,7 +328,7 @@ static void doTelnet(int partnerSocket)
   tnHandle = NULL;
 } // doTelnet
 
-int serverSocket;
+int serverSocket=0;
 /**
  * Listen for telnet clients and handle them.
  */
@@ -382,7 +382,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
 
 void telnet_esp32_CloseSocket()
 {
-	if (serverSocket == NULL)
+	if (serverSocket == 0)
 	{
 		return;
 	}
@@ -422,7 +422,7 @@ void terminateTelnetSession()
 		disconnectPending = true;
 		while (tnHandle != NULL)
 			vTaskDelay(pdMS_TO_TICKS(50));
-		
+
 		// First step completed; Stop active telnet session.
 		// On a subsequent call, the socket will be closed and task restarted
 		return;
@@ -439,7 +439,7 @@ void terminateTelnetSession()
 		telnetTaskHandle = NULL;
 	}
 
-	ESP_LOGI(tag, "Starting new telnet service instance");	
+	ESP_LOGI(tag, "Starting new telnet service instance");
 	vTaskDelay(pdMS_TO_TICKS(125));
 	telnetStart();
 }
