@@ -281,7 +281,13 @@ void updateAht(void *parameter)
   dev.type = AHT_TYPE_AHT20;
 
   ESP_ERROR_CHECK(aht_init_desc(&dev, AHT_I2C_ADDRESS_GND, (i2c_port_t)0, (gpio_num_t)SDA_PIN, (gpio_num_t)SCL_PIN));
-  ESP_ERROR_CHECK(aht_init(&dev));
+  esp_err_t res = aht_init(&dev);
+  if (res != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to initialize AHT device");
+    OperatingParameters.Errors.hardwareErrors++;
+    vTaskDelete(NULL);
+  }
 
   bool calibrated;
   ESP_ERROR_CHECK(aht_get_status(&dev, NULL, &calibrated));

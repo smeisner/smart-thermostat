@@ -53,14 +53,14 @@
 #define TFT_MISO_PIN 21
 #define TOUCH_CS_PIN 47
 #define TOUCH_IRQ_PIN 48
-#define SCL_PIN 35 // 28 // GPIO35
-#define SDA_PIN 36 // 29 // GPIO36
+#define SCL_PIN 35
+#define SDA_PIN 36
 #define LED_FAN_PIN 37
 #define LED_HEAT_PIN 38
-#define SWD_TCK_PIN 39
-#define SWD_TDO_PIN 40 //@@@ ???
-#define SWD_TDI_PIN 41
-#define SWD_TMS_PIN 42
+#define HVAC_STAGE2_PIN 39
+#define GPIO40 40 //@@@ Not used
+#define GPIO41 41 //@@@ Not used
+#define GPIO42 42 //@@@ Not used
 #define LED_COOL_PIN 2
 
 // #define SCL 35 //28

@@ -60,6 +60,7 @@ void hvacStateUpdate()
     gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
     gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
     gpio_set_level((gpio_num_t)HVAC_FAN_PIN, LOW);
+    gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
     gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
     gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
     gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -73,6 +74,7 @@ void hvacStateUpdate()
     gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
     gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
     gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
+    gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
     gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
     gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
     gpio_set_level((gpio_num_t)LED_FAN_PIN, HIGH);
@@ -88,6 +90,7 @@ void hvacStateUpdate()
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, HIGH);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
+      gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
       gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -105,6 +108,7 @@ void hvacStateUpdate()
         gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
         gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)HVAC_FAN_PIN, LOW);
+        gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
         gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
         gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -128,6 +132,7 @@ void hvacStateUpdate()
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, HIGH);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
+      gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
       gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -141,6 +146,7 @@ void hvacStateUpdate()
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, LOW);
+      gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
       gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -157,6 +163,7 @@ void hvacStateUpdate()
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, HIGH);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
+      gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -170,6 +177,7 @@ void hvacStateUpdate()
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, LOW);
+      gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
@@ -186,6 +194,7 @@ void hvacStateUpdate()
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, HIGH);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
+      gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
       gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -199,6 +208,7 @@ void hvacStateUpdate()
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, HIGH);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, HIGH);
+      gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -212,6 +222,7 @@ void hvacStateUpdate()
       gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)HVAC_FAN_PIN, LOW);
+      gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
       gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
       gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
@@ -223,6 +234,7 @@ void hvacStateUpdate()
   //   OperatingParameters.hvacOpMode = IDLE;
   //   gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
   //   gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
+  //   gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
   //   gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
   //   gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
   //   gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);

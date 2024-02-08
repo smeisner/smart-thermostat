@@ -136,6 +136,11 @@ void initRelays()
   gpio_set_direction((gpio_num_t)HVAC_RVALV_PIN, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)HVAC_RVALV_PIN, LOW);
   // gpio_reset_pin((gpio_num_t)HVAC_RVALV_PIN);
+
+  gpio_set_direction((gpio_num_t)HVAC_STAGE2_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW);
+  // gpio_reset_pin((gpio_num_t)HVAC_STAGE2_PIN);
+
 }
 
 
@@ -149,13 +154,15 @@ void indicatorsInit()
   gpio_set_direction((gpio_num_t)LED_COOL_PIN, GPIO_MODE_OUTPUT);
   gpio_set_direction((gpio_num_t)LED_FAN_PIN, GPIO_MODE_OUTPUT);
 
-  gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
-  vTaskDelay(pdMS_TO_TICKS(750));
-  gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+  // Change LED startup dance to be Blue, Green, Red
+  // since that's their physical order on the PCB.
   gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
   vTaskDelay(pdMS_TO_TICKS(750));
   gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
   gpio_set_level((gpio_num_t)LED_FAN_PIN, HIGH);
   vTaskDelay(pdMS_TO_TICKS(750));
   gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+  gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
+  vTaskDelay(pdMS_TO_TICKS(750));
+  gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
 }
