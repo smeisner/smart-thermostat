@@ -2,71 +2,85 @@
 
 > NOTE: These steps have not been fully verified or validated yet. Please add any modifications to them!!
 
-So far, all dev has been done on Debian 11 (Bullseye)
+Tested on Debian 11 (Bullseye) and 12 (Bookworm)
 
 ## Steps to build environment:
 
 1. Of sourse, update the system first:
-    * `sudo apt update --allow-releaseinfo-change && sudo apt upgrade`
-2. Install the following packages
-    a. git
-    b. curl
-    c. python3-pip
-3. Now start building up the dev environment:
-    a. VS Code from .deb [see hints below]
-    b. PlatformIO extension [see hints below]
-    c. Add `pio` to the path: `echo "export PATH=\$PATH:/home/$USER/.platformio/penv/bin" >> ~/.profile`
-4. Install the udev rules found in the ESP-IDF:
-    * `~/.platformio/penv/lib/python3.9/site-packages/platformio/assets/system/99-platformio-udev.rules`
-    * [PlatformIO doc for 99-platformio-udev.rules](https://docs.platformio.org/en/stable/core/installation/udev-rules.html)
-    * Alternative:
-    * `curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/system/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules`
-    * Be sure to restart udev: `sudo service udev restart`
+
+`sudo apt update --allow-releaseinfo-change && sudo apt upgrade`
+
+2. Install the prerequisite packages
+  * git
+  * curl
+  * wget
+  * python3-pip
+  * python3.11-venv
+  * apt-transport-https
+  * gpg
+
+`sudo apt install git curl wget python3-pip python3.11-venv apt-transport-https gpg`
+
+3. Build the dev environment:
+
+Install Visual Studio Code<br>
+The following info was mostly got from https://code.visualstudio.com/docs/setup/linux
+
+```
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
+rm -f packages.microsoft.gpg
+```
+
+The above will add the repository key locally. Next we need to install the VS Code package itself:<br>
+
+`sudo apt install code`
+
+Now install PlatformIO:<br>
+
+`curl -fsSL -o get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py`
+
+Add `pio` to the path:<br>
+
+`echo "export PATH=\$PATH:/home/$USER/.platformio/penv/bin" >> ~/.profile`
+
+4. Install the udev rules found in the ESP-IDF
+
+This will allow for recognizing the ESP32 USB JTAG device correctly.<br>
+Source: [PlatformIO doc for 99-platformio-udev.rules](https://docs.platformio.org/en/stable/core/installation/udev-rules.html)
+
+  * `curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/system/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules`
+  * Restart udev: `sudo service udev restart`
+
 5. Add user to the proper groups
-    * `sudo usermod -a -G dialout $USER`
-    * `sudo usermod -a -G plugdev $USER`
+  * `sudo usermod -a -G dialout $USER`
+  * `sudo usermod -a -G plugdev $USER`
+
 6. Clone the thermostat repo
-    a. `git clone https://github.com/smeisner/smart-thermostat`
-7. Plug in an ESP32-S3 based thermostat and try a build / flash!!
+  * `git clone https://github.com/smeisner/smart-thermostat`
 
-## Hints for setup & install
-
-* Set up git properly to do pulls & commits
-* Be sure sym link for python invokes python3 (I am using 3.9). Check "`which python`".
-* The file wifi-credentials.h is missing and is currently required to build. Temporarily, it contains the SSID & passpharse to start wifi with. For now, manually create it. Eventually it will be kept in the NVS.
-
-```
-const char *hostname = "thermostat";
-const char *wifiSsid = "your-ssid";
-const char *wifiPass = "your-passphrase";
-```
-
-* Install VS Code
-    * Manually via copying .deb file
-        * [Download .deb file] [`wget https://code\.visualstudio\.com/sha/download?build=stable&os=linux\-deb\-x64\`]
-        * Install it: `sudo apt install ./code\_1.79.0-1686149120\_amd64.deb`
-    * [Recommended] Add repo to apt sources.list and install with apt. Add the following to `/etc/apt/sources.list.d/vscode.list`.
-        * Then, `sudo apt update && sudo apt install code`
-
-```
-### THIS FILE IS AUTOMATICALLY CONFIGURED ###
-# You may comment out this entry, but any other modifications may be lost.
-deb [arch=amd64,arm64,armhf] http://packages.microsoft.com/repos/code stable main
-```
-
-* Installing PlatformIO
-    * This will also install the ESP-IDF.
-    * [A Quick script-based method can be found here](https://docs.platformio.org/en/stable/core/installation/methods/installer-script.html)
-    * The "Super-Quick (macOS / Linux)" method worked fine for me
-
-In the cloned repo, go into the 'app' folder and open the VS Code workspace smart-thermostat.code-workspace With the included platformio.ini and the board definition files, you should be able to compile and flash to an ESP32-S3.
+In the cloned repo, go into the 'app' folder and open the VS Code workspace smart-thermostat.code-workspace. With the included platformio.ini and the board definition files, you should be able to compile and flash to an ESP32-S3:
 
 ```
 code smart-thermostat.code-workspace
 ```
 
+If the above fails to launch VSCode, go to the system menu and select Visual Studio Code under Development. Then File, Open Workspace from File and navigate to the `smart-thermostat.code-workspace` file in the `app` folder.
+
+In VS Code install the PlatformIO IDE extension (you should be prompted to add it). This will lead to installing many packages the first time.ny packag needed by PlatformIO and the project will be installed. Once you see `Project has been successfully updated!`, all extra packages have been installed.
+
+7. Plug in an ESP32-S3 based thermostat and try a build / flash via VSCode / PlatformIO!!
+
+
+## Hints for setup & install
+
+* Set up git properly to do pulls & commits
+* Be sure sym link for python invokes python3 (I am using 3.9). Check "`which python`".
+
+
 Notes:
-a. Any PSRAM will be disabled. This is due to a pin conflict on the MCU.
+a. Any PSRAM will be disabled. This is due to a pin conflicts on the MCU.
 b. At least 8MB is required on the ESP32-S3 SOC. Adjust the board\_build.partitions in the platformio.ini as necessary.
 
 ### Components / Libraries used
