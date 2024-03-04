@@ -76,6 +76,10 @@ In VS Code install the PlatformIO IDE extension (you should be prompted to add i
 ## Hints for setup & install
 
 * Set up git properly to do pulls & commits
+```
+$ git config --global user.name "John Doe"
+$ git config --global user.email johndoe@example.com
+```
 * Be sure sym link for python invokes python3 (I am using 3.9). Check "`which python`".
 
 
