@@ -41,8 +41,10 @@ The above will add the repository key locally. Next we need to install the VS Co
 
 Now install PlatformIO:<br>
 
-`curl -fsSL -o get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py`
-`python3 get-platformio.py`
+```
+curl -fsSL -o get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py`  
+python3 get-platformio.py
+```
 
 Add `pio` to the path:<br>
 
