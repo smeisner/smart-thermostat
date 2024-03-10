@@ -32,6 +32,8 @@ sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/
 sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
 rm -f packages.microsoft.gpg
 ```
+Add the VS Code repository to the cache:
+`sudo apt update`
 
 The above will add the repository key locally. Next we need to install the VS Code package itself:<br>
 
@@ -40,6 +42,7 @@ The above will add the repository key locally. Next we need to install the VS Co
 Now install PlatformIO:<br>
 
 `curl -fsSL -o get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py`
+`python3 get-platformio.py`
 
 Add `pio` to the path:<br>
 
@@ -56,6 +59,8 @@ Source: [PlatformIO doc for 99-platformio-udev.rules](https://docs.platformio.or
 5. Add user to the proper groups
   * `sudo usermod -a -G dialout $USER`
   * `sudo usermod -a -G plugdev $USER`
+
+NB: You must logout and back in again for this to take effect!! Otherwise, you will fail to write firmware imagesd to the device.
 
 6. Clone the thermostat repo
   * `git clone https://github.com/smeisner/smart-thermostat`
