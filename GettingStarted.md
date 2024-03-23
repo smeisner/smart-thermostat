@@ -4,6 +4,12 @@
 
 Tested on Debian 11 (Bullseye) and 12 (Bookworm)
 
+## Release Notes
+
+* NB #1: The v0.5.2 prototype boards have an odd connectivity issue with the USB ports. If you see 'oddness', flip the cable around and try that. It should work since all prototypes are tested before leaving my workbench.
+
+* NB #2: There was an error on the v0.5.2 protos; the top right corner has 3 test points; GND, 5V and 3V3. I misconfigured the net connection for the 3v3 and it ended up not being connected. So don't use it to test...it's not connected.
+
 ## Steps to build environment:
 
 1. Of sourse, update the system first:
