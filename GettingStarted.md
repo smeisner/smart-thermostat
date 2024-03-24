@@ -10,6 +10,8 @@ Tested on Debian 11 (Bullseye) and 12 (Bookworm)
 
 * NB #2: There was an error on the v0.5.2 protos; the top right corner has 3 test points; GND, 5V and 3V3. I misconfigured the net connection for the 3v3 and it ended up not being connected. So don't use it to test...it's not connected.
 
+* NB #3: If the board has been powered off for a bit, it starts up in boot mode when power is applied. Therefore, the reset button must be pushed. I am guessing this is a power-up problem...if anyone can suggest a PCB change, I will include it in the next run!
+
 ## Steps to build environment:
 
 1. Of sourse, update the system first:
@@ -117,8 +119,10 @@ SquareLine Studio is used to design and develop the lvgl menuing system & screen
 
 ***
 
-The board includes a SWD port, but so far using the built in USB controller in the S3 has worked fine. This is also true for flashing new code over the USB port. The device will show up on the USB bus usually as `/dev/ttyACM0`
+The board includes a SWD port, but so far using the built in USB controller in the S3 has worked fine. This is also true for flashing new code over the USB port. The device will show up on the USB bus usually as `/dev/ttyACM0` which is the JTAG interface of the ESP32.
 
+The following was removed. Leaving here as it may be reimplemented at some point:
+```
 There is also a 4 pin UART port on the board. This is used for serial comms. All serial.print statements end up here, as well as system debug information. In the state machine loop, the USB port is checked for input (as in the user typing on the serial console). Only a few commands are supported right now:
 reset
 scan
@@ -127,8 +131,17 @@ The method implemented is very crude, so be careful!
 
 `/dev/ttyUSBx` is the UART
 `/dev/ttyACMx` is the ESP32
+```
 
 <br>
+
+### Learning the source code
+
+Start with the main.cpp file to understand the flow of the code. It is using FreeRTOS...but OS functions are used modestly, so it may not be obvious quickly. The state_machine.cpp module is the main loop of the thermosta (makes HVAC decisions and network retries). Other modules are fairly obvious.
+
+Each module does have a brief description in the header.
+
+Matter.cpp is not yet being compiled as the SDK is not part of the environment yet.
 
 ### Resources/Links:
 
