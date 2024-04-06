@@ -85,6 +85,27 @@ If the above fails to launch VSCode, go to the system menu and select Visual Stu
 
 In VS Code install the PlatformIO IDE extension (you should be prompted to add it). This will lead to installing many packages the first time.ny packag needed by PlatformIO and the project will be installed. Once you see `Project has been successfully updated!`, all extra packages have been installed.
 
+### Caution: A problem with the ESP SDK/IDF and the libraries has been discovered, causing build problems.
+
+In the file, `~/.platformio/packages/framework-espidf/components/esp_common/include/esp_idf_version.h`
+set the following at the top of the module:
+
+```
+/** Major version number (X.x.x) */
+#define ESP_IDF_VERSION_MAJOR 6
+/** Minor version number (x.X.x) */
+#define ESP_IDF_VERSION_MINOR 6
+/** Patch version number (x.x.X) */
+#define ESP_IDF_VERSION_PATCH 0
+```
+
+The default setup has the wrong IDF version (5.2.1). This is what was causing a number of errors.
+
+You will see a some yellow-colored warnings during build. These are:
+`warning: compound assignment with 'volatile'-qualified left operand is deprecated`
+that exist in the graphics library. They are warnings that can be ignored for now, but they have been reported and hopefully addressed soon.
+
+
 7. Plug in an ESP32-S3 based thermostat and try a build / flash via VSCode / PlatformIO!!
 
 
