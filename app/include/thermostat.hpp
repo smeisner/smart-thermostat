@@ -170,6 +170,7 @@ bool MatterInit();
 #ifdef MQTT_ENABLED
 void MqttInit();
 bool MqttConnect();
+bool MqttReconnect();
 void MqttUpdateStatusTopic();
 void MqttMotionUpdate(bool);
 void MqttHomeAssistantDiscovery();

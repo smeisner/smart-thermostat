@@ -439,87 +439,138 @@ void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic)
     }
 }
 
+bool MqttReconnect(void)
+{
+	ESP_LOGI(__FUNCTION__, "Reconnecting to MQTT broker");
+  xEventGroupClearBits (s_mqtt_event_group, MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT);
+  esp_err_t err;
+
+  if (OperatingParameters.MqttClient == 0)
+  {
+    ESP_LOGE(TAG, "MQTT Client not yet defined!");
+    return false;
+  }
+
+  err = esp_mqtt_client_reconnect((esp_mqtt_client_handle_t)(OperatingParameters.MqttClient));
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to reconnect client: 0x%x", err);
+    if (err == ESP_FAIL) ESP_LOGE(TAG, "ESP_FAIL");
+    if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+    OperatingParameters.Errors.mqttConnectErrors++;
+    // esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
+    // esp_mqtt_client_destroy(client);
+    return false;
+  }
+
+  EventBits_t bits = xEventGroupWaitBits(s_mqtt_event_group,
+      MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT,
+      pdFALSE,
+      pdFALSE,
+      xTicksToWait);
+
+  // bits == 0 means timeout
+  if ((bits == 0) || (bits & MQTT_ERROR_BIT) || (bits & MQTT_EVENT_DISCONNECTED_BIT))
+  {
+    ESP_LOGE (TAG, "MQTT Reconnect failed");
+    // esp_mqtt_client_stop(client); // Commented out since connect never worked
+    OperatingParameters.Errors.mqttConnectErrors++;
+    // ESP_LOGW(TAG, "Removing MQTT data structures");
+    // esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
+    // esp_mqtt_client_destroy(client);
+    return false;
+  }
+
+  if (bits & MQTT_EVENT_CONNECTED_BIT)
+  {
+    // Send discovery packet to let all listeners know we have arrived
+    MqttHomeAssistantDiscovery();
+  }
+
+  return true;
+}
+
 bool MqttConnect(void)
 {
 	ESP_LOGI(__FUNCTION__, "Connecting to MQTT broker");
 	esp_mqtt_client_config_t mqtt_cfg;
 	memset(&mqtt_cfg, 0, sizeof(esp_mqtt_client_config_t));
 
-    // Build up the fully qualified MQTT URI host string
-    char port[16];
-    snprintf (port, 15, "%d", OperatingParameters.MqttBrokerPort);
-    std::string _host = OperatingParameters.MqttBrokerHost;
-    std::string host = "mqtt://" + _host + ":" + port;
+  // Build up the fully qualified MQTT URI host string
+  char port[16];
+  snprintf (port, 15, "%d", OperatingParameters.MqttBrokerPort);
+  std::string _host = OperatingParameters.MqttBrokerHost;
+  std::string host = "mqtt://" + _host + ":" + port;
 
-    ESP_LOGI(TAG, "Broker FQDN: %s", host.c_str());
-    ESP_LOGI(TAG, "Broker:    %s", OperatingParameters.MqttBrokerHost);
-    ESP_LOGI(TAG, "Username:  %s", OperatingParameters.MqttBrokerUsername);
-    // ESP_LOGI(TAG, "Password:  %s", OperatingParameters.MqttBrokerPassword);
-    mqtt_cfg.broker.address.uri = host.c_str();
-    mqtt_cfg.credentials.username = OperatingParameters.MqttBrokerUsername;
-    mqtt_cfg.credentials.set_null_client_id = true;
-    mqtt_cfg.credentials.authentication.password = OperatingParameters.MqttBrokerPassword;
+  ESP_LOGI(TAG, "Broker FQDN: %s", host.c_str());
+  ESP_LOGI(TAG, "Broker:    %s", OperatingParameters.MqttBrokerHost);
+  ESP_LOGI(TAG, "Username:  %s", OperatingParameters.MqttBrokerUsername);
+  // ESP_LOGI(TAG, "Password:  %s", OperatingParameters.MqttBrokerPassword);
+  mqtt_cfg.broker.address.uri = host.c_str();
+  mqtt_cfg.credentials.username = OperatingParameters.MqttBrokerUsername;
+  mqtt_cfg.credentials.set_null_client_id = true;
+  mqtt_cfg.credentials.authentication.password = OperatingParameters.MqttBrokerPassword;
 
-    esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    if (client == NULL)
-    {
-        ESP_LOGE(TAG, "Failed to init client!");
-        OperatingParameters.Errors.mqttConnectErrors++;
-        return false;
-    }
-    OperatingParameters.MqttClient = client;
+  esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
+  if (client == NULL)
+  {
+    ESP_LOGE(TAG, "Failed to init client!");
+    OperatingParameters.Errors.mqttConnectErrors++;
+    return false;
+  }
+  OperatingParameters.MqttClient = client;
 
-    xEventGroupClearBits (s_mqtt_event_group, MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT);
+  xEventGroupClearBits (s_mqtt_event_group, MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT);
 
-    esp_err_t err;
-    err = esp_mqtt_client_register_event (client, MQTT_EVENT_ANY, MqttEventHandler, client);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Failed to register client: 0x%x", err);
-        if (err == ESP_ERR_NO_MEM) ESP_LOGE(TAG, "ESP_ERR_NO_MEM");
-        if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
-        OperatingParameters.Errors.mqttConnectErrors++;
-        esp_mqtt_client_destroy(client);
-        return false;
-    }
+  esp_err_t err;
+  err = esp_mqtt_client_register_event (client, MQTT_EVENT_ANY, MqttEventHandler, client);
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to register client: 0x%x", err);
+    if (err == ESP_ERR_NO_MEM) ESP_LOGE(TAG, "ESP_ERR_NO_MEM");
+    if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+    OperatingParameters.Errors.mqttConnectErrors++;
+    esp_mqtt_client_destroy(client);
+    return false;
+  }
 
-    err = esp_mqtt_client_start(client);
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG, "Failed to start client: 0x%x", err);
-        if (err == ESP_FAIL) ESP_LOGE(TAG, "ESP_FAIL");
-        if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
-        OperatingParameters.Errors.mqttConnectErrors++;
-        esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
-        esp_mqtt_client_destroy(client);
-        return false;
-    }
+  err = esp_mqtt_client_start(client);
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to start client: 0x%x", err);
+    if (err == ESP_FAIL) ESP_LOGE(TAG, "ESP_FAIL");
+    if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
+    OperatingParameters.Errors.mqttConnectErrors++;
+    esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
+    esp_mqtt_client_destroy(client);
+    return false;
+  }
 
-    EventBits_t bits = xEventGroupWaitBits(s_mqtt_event_group,
-        MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT,
-        pdFALSE,
-        pdFALSE,
-        xTicksToWait);
+  EventBits_t bits = xEventGroupWaitBits(s_mqtt_event_group,
+      MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT,
+      pdFALSE,
+      pdFALSE,
+      xTicksToWait);
 
-    // bits == 0 means timeout
-    if ((bits == 0) || (bits & MQTT_ERROR_BIT) || (bits & MQTT_EVENT_DISCONNECTED_BIT))
-    {
-        ESP_LOGE (TAG, "MQTT Connect failed");
-        // esp_mqtt_client_stop(client); // Commented out since connect never worked
-        ESP_LOGW(TAG, "Removing MQTT data structures");
-        OperatingParameters.Errors.mqttConnectErrors++;
-        esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
-        esp_mqtt_client_destroy(client);
-        return false;
-    }
+  // bits == 0 means timeout
+  if ((bits == 0) || (bits & MQTT_ERROR_BIT) || (bits & MQTT_EVENT_DISCONNECTED_BIT))
+  {
+    ESP_LOGE (TAG, "MQTT Connect failed");
+    // esp_mqtt_client_stop(client); // Commented out since connect never worked
+    ESP_LOGW(TAG, "Removing MQTT data structures");
+    OperatingParameters.Errors.mqttConnectErrors++;
+    esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
+    esp_mqtt_client_destroy(client);
+    return false;
+  }
 
-    if (bits & MQTT_EVENT_CONNECTED_BIT)
-    {
-        // Send discovery packet to let all listeners know we have arrived
-        MqttHomeAssistantDiscovery();
-    }
+  if (bits & MQTT_EVENT_CONNECTED_BIT)
+  {
+    // Send discovery packet to let all listeners know we have arrived
+    MqttHomeAssistantDiscovery();
+  }
 
-    return true;
+  return true;
 }
 
 void MqttInit()

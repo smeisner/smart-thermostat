@@ -351,6 +351,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
   {
     ESP_LOGE(tag, "bind: %d (%s)", errno, strerror(errno));
     OperatingParameters.Errors.telnetNetworkErrors++;
+    telnetTaskHandle = NULL;
     return;
   }
 
@@ -359,6 +360,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
   {
     ESP_LOGE(tag, "listen: %d (%s)", errno, strerror(errno));
     OperatingParameters.Errors.telnetNetworkErrors++;
+    telnetTaskHandle = NULL;
     return;
   }
 
@@ -370,6 +372,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
     {
       ESP_LOGE(tag, "accept: %d (%s)", errno, strerror(errno));
       OperatingParameters.Errors.telnetNetworkErrors++;
+      telnetTaskHandle = NULL;
       return;
     }
     int partnerSocket = rc;
@@ -382,7 +385,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
 
 void telnet_esp32_CloseSocket()
 {
-  if (serverSocket == 0)
+  if (serverSocket <= 0)
   {
     return;
   }
@@ -390,7 +393,7 @@ void telnet_esp32_CloseSocket()
   int rc = closesocket(serverSocket);
   if (rc < 0)
   {
-    ESP_LOGE(tag, "closesocket: %d (%s)", errno, strerror(errno));
+    ESP_LOGE(tag, "closesocket(%d) : %d (%s)", serverSocket, errno, strerror(errno));
     OperatingParameters.Errors.telnetNetworkErrors++;
     return;
   }
@@ -906,6 +909,7 @@ static void telnetTask(void *data)
   telnet_esp32_listenForClients(recvData);
 
   ESP_LOGI(tag, "Completing telnetTask()");
+  telnetTaskHandle = NULL;
   vTaskDelete(NULL);
 }
 

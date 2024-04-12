@@ -298,6 +298,10 @@ void stateMachine(void *parameter)
           MqttConnectCalled = true;
           MqttConnect();
         }
+        else
+        {
+          MqttReconnect();
+        }
       }
     }
 #endif
@@ -330,6 +334,6 @@ void stateCreateTask()
       "State Machine",
       8192,
       NULL,
-      tskIDLE_PRIORITY - 1,
+      tskIDLE_PRIORITY, // - 1,
       NULL);
 }
