@@ -38,17 +38,22 @@ typedef struct
 #endif
 } ERRORS;
 
+/*
+ * HVAC_MODE enum modes declared as listed at https://www.home-assistant.io/integrations/climate.mqtt/
+ * to facilitate integration with Home Assitant
+ */
 typedef enum
 {
     OFF = 0,
-    AUTO,
     HEAT,
     COOL,
+    DRY,
+    IDLE,
     FAN_ONLY,
+    AUTO,
     AUX_HEAT,
     ERROR,
-    IDLE
-
+    NR_HVAC_MODES
 } HVAC_MODE;
 
 typedef struct
