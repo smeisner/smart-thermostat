@@ -220,47 +220,51 @@ void tftUpdateDisplay()
   }
 }
 
+static const char *__hvac_mode_to_str(HVAC_MODE mode, const char *mode_str[])
+{
+  switch (mode) {
+  case OFF:
+  case HEAT:
+  case COOL:
+  case DRY:
+  case IDLE:
+  case AUTO:
+  case FAN_ONLY:
+  case AUX_HEAT:
+    return mode_str[mode];
+  default:
+    return mode_str[ERROR];
+  }
+}
+
 #ifdef MQTT_ENABLED
+const char *hvac_mode_str_mqtt[NR_HVAC_MODES] = {
+  "off", "heat", "cool", "dry", "idle", "fan_only", "auto", "aux heat", "error"
+};
+
 const char *hvacModeToMqttCurrMode(HVAC_MODE mode)
 {
-  switch (mode)
-  {
-    case OFF: return "off";
-    case IDLE: return "idle";
-    case AUTO: return "auto";
-    case HEAT: return "heating";
-    case COOL: return "cooling";
-    case FAN_ONLY: return "Fan_only";
-    case AUX_HEAT: return "Aux Heat";
-    default: return "Error";
-  }
+  return __hvac_mode_to_str(mode, hvac_mode_str_mqtt);
 }
 #endif
 
+const char *hvac_mode_str[NR_HVAC_MODES] = {
+  "Off", "Heat", "Cool", "Dry", "Idle", "Fan Only", "Auto", "Aux Heat", "Error"
+};
+
 const char *hvacModeToString(HVAC_MODE mode)
 {
-  switch (mode)
-  {
-    case OFF: return "Off";
-    case IDLE: return "Idle";
-    case AUTO: return "Auto";
-    case HEAT: return "Heat";
-    case COOL: return "Cool";
-    case FAN_ONLY: return "Fan_only";
-    case AUX_HEAT: return "Aux Heat";
-    default:   return "Error";
-  }
+  return __hvac_mode_to_str(mode, hvac_mode_str);
 }
 
 HVAC_MODE strToHvacMode(char *mode)
 {
-  int n;
-  for (n=OFF; n != ERROR; n++)
-  {
-    if (strcmp(mode, hvacModeToString((HVAC_MODE)n)) == 0)
-      break;
+  for (int m = 0; m < NR_HVAC_MODES; m++) {
+    if (strcmp(mode, hvacModeToString((HVAC_MODE)m)) == 0)
+      return (HVAC_MODE)m;
   }
-  return (HVAC_MODE)n;
+
+  return ERROR;
 }
 
 // Pass in selected HVAC mode from list of available modes
@@ -303,8 +307,9 @@ void setHvacModesDropdown()
 {
   // Build up HVAC mode dropdown from enum list
   char tempModes[48] = {0};
-  for (int n=OFF; n != ERROR; n++)
-  {
+  for (int n = 0; n < NR_HVAC_MODES; n++) {
+    if (n == ERROR)
+      continue;
     if ((n == AUTO) && !OperatingParameters.hvacCoolEnable)
       continue;
     if ((n == FAN_ONLY) && !OperatingParameters.hvacFanEnable)
