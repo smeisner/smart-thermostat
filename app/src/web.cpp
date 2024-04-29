@@ -104,6 +104,7 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     clearNVS();
 #ifdef TELNET_ENABLED
   else if (!strncmp(content, "terminateTelnet", BUTTON_CONTENT_SIZE))
+//    if (telnetServiceRunning()) //@@@
     terminateTelnetSession();
 #endif
   else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
@@ -215,9 +216,9 @@ esp_err_t handleXML(httpd_req_t *req)
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   xmlSpace -= snprintf(buf, sizeof(buf), "<correction>%.1f</correction>\n", OperatingParameters.tempCorrection);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<wifiStrength>%d</wifiStrength>\n", wifiSignal());
+  xmlSpace -= snprintf(buf, sizeof(buf), "<wifiStrength>%d</wifiStrength>\n", WifiSignal());
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<address>%s</address>\n", wifiAddress());
+  xmlSpace -= snprintf(buf, sizeof(buf), "<address>%s</address>\n", WifiAddress());
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   xmlSpace -= snprintf(buf, sizeof(buf), "<firmwareVer>%s</firmwareVer>\n", VersionString);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
@@ -332,7 +333,7 @@ httpd_uri_t uri_update = {
 
 void webStart()
 {
-  if (!wifiConnected())
+  if (!WifiConnected())
   {
     ESP_LOGW (TAG, "***  WARNING: Starting web server while wifi down!!  *****");
   }

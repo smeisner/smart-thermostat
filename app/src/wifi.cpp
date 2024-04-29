@@ -163,7 +163,7 @@ void WiFi_ScanSSID(void)
 
   if (!WifiStatus.wifi_started)
   {
-    wifiStart("", "", "");
+    WifiStart("", "", "");
   }
 
   esp_wifi_scan_start(&scan_config, true);
@@ -247,7 +247,8 @@ static void event_handler(void* arg, esp_event_base_t event_base,
   {
     // The next call has a side effect of disabling logging via telnet...
 #ifdef TELNET_ENABLED
-    terminateTelnetSession();
+    if (telnetServiceRunning())
+      terminateTelnetSession();
 #endif
     /// ...making the next line safe.
     ESP_LOGI(TAG, "  event = STA_DISCONECTED - retry # %d (MAX %d)", s_retry_num, CONFIG_ESP_MAXIMUM_RETRY);
@@ -290,7 +291,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
   }
 }
 
-void wifiSetHostname(const char *hostname)
+void WifiSetHostname(const char *hostname)
 {
   ESP_LOGI(TAG, "wifiSetHostname(\"%s\")", hostname);
   // Set the hostname for the network interface
@@ -298,7 +299,7 @@ void wifiSetHostname(const char *hostname)
   ESP_ERROR_CHECK(esp_netif_set_hostname(esp_netif_interface_sta, hostname));
 }
 
-void wifiSetCredentials(const char *ssid, const char *pass)
+void WifiSetCredentials(const char *ssid, const char *pass)
 {
   bool wasInitialized = false;
 
@@ -345,9 +346,9 @@ void wifiSetCredentials(const char *ssid, const char *pass)
   }
 }
 
-void wifiRegisterEventCallbacks()
+void WifiRegisterEventCallbacks()
 {
-  ESP_LOGD(TAG, "wifiRegisterEventCallbacks()");
+  ESP_LOGD(TAG, "WifiRegisterEventCallbacks()");
 
   /* Initialize event group */
   s_wifi_event_group = xEventGroupCreate();
@@ -367,9 +368,9 @@ void wifiRegisterEventCallbacks()
 
 }
 
-void wifiDeregisterEventCallbacks()
+void WifiDeregisterEventCallbacks()
 {
-  ESP_LOGD(TAG, "wifiDeregisterEventCallbacks()");
+  ESP_LOGD(TAG, "WifiDeregisterEventCallbacks()");
 
   if (s_wifi_event_group == NULL)
   {
@@ -386,7 +387,7 @@ void wifiDeregisterEventCallbacks()
 }
 
 #ifdef MATTER_ENABLED
-void wifiSwitchMatterMode()
+void WifiSwitchMatterMode()
 {
   if (OperatingParameters.MatterEnabled)
   {
@@ -395,7 +396,7 @@ void wifiSwitchMatterMode()
     ESP_LOGI(TAG, "Enabling Matter");
     // Since we are shutting down wifi to enable Matter,
     // do not allow callbacks to take any action.
-    wifiDeregisterEventCallbacks();
+    WifiDeregisterEventCallbacks();
     ESP_LOGI(TAG, "Shutting down wifi connection");
     WifiDisconnect();
     ESP_LOGI(TAG, "Unloading wifi driver");
@@ -404,7 +405,7 @@ void wifiSwitchMatterMode()
     OperatingParameters.MatterStarted = MatterInit();
     // Serial.printf ("Connecting to wifi\n");
     // OperatingParameters.wifiConnected =
-    //   wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
+    //   WifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
   }
   else
   {
@@ -414,7 +415,7 @@ void wifiSwitchMatterMode()
   }
 }
 
-void wifiMatterStarted()
+void WifiMatterStarted()
 {
   // wifiSetHostname(WifiCreds.hostname);
 
@@ -424,11 +425,11 @@ void wifiMatterStarted()
   WifiStatus.driver_started = true;
   WifiStatus.Connected = true;
   // Register callbacks for wifi events
-  // wifiRegisterEventCallbacks();
+  // WifiRegisterEventCallbacks();
 }
 #endif
 
-bool wifiStart(const char *hostname, const char *ssid, const char *pass)
+bool WifiStart(const char *hostname, const char *ssid, const char *pass)
 {
   // This code needs to be revisited later after Arduino framework removed.
   // See comments at top of module.
@@ -439,7 +440,7 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   esp_log_level_set("*", ESP_LOG_INFO);
   //
 
-  ESP_LOGI(TAG, "wifiStart()");
+  ESP_LOGI(TAG, "WifiStart()");
 
   nvs_flash_init();
 
@@ -448,7 +449,7 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
 #ifdef MATTER_ENABLED
   if (OperatingParameters.MatterStarted)
   {
-    ESP_LOGI(TAG, "Matter is already running -- abort wifiStart()");
+    ESP_LOGI(TAG, "Matter is already running -- abort WifiStart()");
     return true;
   }
 #endif
@@ -457,15 +458,16 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   {
     ESP_LOGW(TAG, "  Wifi driver not started; Calling init and create funcs");
     WifiStatus.driver_started = true;
-    ESP_ERROR_CHECK(esp_netif_init());
+    //@@@
+    // ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_interface_sta = esp_netif_create_default_wifi_sta();
   }
 
   if (strlen(ssid))
   {
-    ESP_LOGD(TAG, "  Calling wifiRegisterEventCallbacks()");
-    wifiRegisterEventCallbacks();
+    ESP_LOGD(TAG, "  Calling WifiRegisterEventCallbacks()");
+    WifiRegisterEventCallbacks();
   }
 
   ESP_LOGI(TAG, "  Initializing wifi");
@@ -547,7 +549,7 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   }
   else
   {
-    ESP_LOGE(TAG, "UNEXPECTED EVENT");
+    ESP_LOGW(TAG, "UNEXPECTED EVENT");
     ret_value = ESP_FAIL;
   }
 
@@ -560,7 +562,7 @@ bool wifiStart(const char *hostname, const char *ssid, const char *pass)
   return (ret_value == ESP_OK);
 }
 
-bool wifiConnected()
+bool WifiConnected()
 {
   // Updated in event callbacks
   if (WifiStatus.wifi_started)
@@ -584,7 +586,7 @@ void WifiDeinit()
   if (WifiStatus.driver_started)
   {
     ESP_LOGD(TAG, "- Taking down network stack");
-    // wifiDeregisterEventCallbacks();
+    // WifiDeregisterEventCallbacks();  //@@@ Moved to WifiDisconnect()
     esp_netif_destroy_default_wifi(esp_netif_interface_sta);
     esp_event_loop_delete_default();
     esp_wifi_deinit();
@@ -613,15 +615,19 @@ void WifiDisconnect()
   OperatingParameters.wifiConnected = false;
 }
 
-bool wifiReconnect(const char *hostname, const char *ssid, const char *pass)
+bool WifiReconnect(const char *hostname, const char *ssid, const char *pass)
 {
   ESP_LOGI(TAG, "wifiReconnect()");
+
   if (!WifiStatus.driver_started)
   {
     ESP_LOGE(TAG, "- wifiReconnect() called, but state(s) wrong:");
     ESP_LOGE(TAG, "  WifiStatus.driver_started = %d (wanted: true)", WifiStatus.driver_started);
-    return false;
+    // return false;  //@@@
   }
+
+  //@@@
+  WifiDeregisterEventCallbacks();
 
   if (OperatingParameters.wifiConnected)
   {
@@ -629,12 +635,12 @@ bool wifiReconnect(const char *hostname, const char *ssid, const char *pass)
     WifiDisconnect();
   }
 
-  if (WifiStatus.wifi_started)
-  {
-    ESP_LOGD(TAG, "- Calling esp_wifi_stop()");
-    esp_wifi_stop();
-    WifiStatus.wifi_started = false;
-  }
+  // if (WifiStatus.wifi_started)
+  // {
+  //   ESP_LOGD(TAG, "- Calling esp_wifi_stop()");
+  //   esp_wifi_stop();
+  //   WifiStatus.wifi_started = false;
+  // }
 
   if (WifiStatus.driver_started)
   {
@@ -642,8 +648,11 @@ bool wifiReconnect(const char *hostname, const char *ssid, const char *pass)
     WifiDeinit();
   }
 
+  //@@@
+  // return false;
+
   ESP_LOGI(TAG, "- Restarting wifi");
-  return (wifiStart(hostname, ssid, pass));
+  return (WifiStart(hostname, ssid, pass));
 }
 
 void networkReconnectTask(void *pvParameters)
@@ -670,7 +679,7 @@ void networkReconnectTask(void *pvParameters)
   // Update timestamp for last wifi connect attempt
   lastWifiMillis = millis();
 
-  if (wifiReconnect(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password) == true)
+  if (WifiReconnect(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password) == true)
   {
     OperatingParameters.wifiConnected = true;
   }
@@ -716,7 +725,7 @@ uint16_t rssiToPercent(int rssi_i)
   return (uint16_t)rssi;
 }
 
-uint16_t wifiSignal()
+uint16_t WifiSignal()
 {
   long rssi;
   wifi_ap_record_t ap;
@@ -734,7 +743,7 @@ uint16_t wifiSignal()
   }
 }
 
-char *wifiAddress()
+char *WifiAddress()
 {
   static char ipAddress[24];
   if (WifiStatus.wifi_started)

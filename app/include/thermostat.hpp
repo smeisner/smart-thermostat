@@ -184,6 +184,7 @@ void MqttHomeAssistantDiscovery();
 #ifdef TELNET_ENABLED
 esp_err_t telnetStart();
 void terminateTelnetSession();
+bool telnetServiceRunning();
 #endif
 
 // State Machine
@@ -205,15 +206,15 @@ bool eepromUpdateArbMode(const char *key, HVAC_MODE mode);
 void webStart();
 
 // Routine to control wifi
-void wifiSetHostname(const char *hostname);
-void wifiSetCredentials(const char *ssid, const char *pass);
-bool wifiStart(const char *hostname, const char *ssid, const char *pass);
-bool wifiConnected();
+void WifiSetHostname(const char *hostname);
+void WifiSetCredentials(const char *ssid, const char *pass);
+bool WifiStart(const char *hostname, const char *ssid, const char *pass);
+bool WifiConnected();
 void WifiDisconnect();
 //bool wifiReconnect(const char *hostname, const char *ssid, const char *pass);
 void startReconnectTask();
-uint16_t wifiSignal();
-char *wifiAddress();
+uint16_t WifiSignal();
+char *WifiAddress();
 char *Get_WiFiSSID_DD_List( void );
 void WiFi_ScanSSID( void );
 
