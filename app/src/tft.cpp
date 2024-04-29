@@ -195,7 +195,7 @@ void tftUpdateDisplay()
 
   lv_dropdown_set_selected(ui_ModeDropdown, convertSelectedHvacMode());
 
-  if (wifiConnected())
+  if (WifiConnected())
     lv_label_set_text(ui_WifiIndicatorLabel, "#0000A0 " LV_SYMBOL_WIFI);
   else
     lv_label_set_text(ui_WifiIndicatorLabel, "#d0e719 " LV_SYMBOL_WIFI);

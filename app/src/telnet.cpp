@@ -60,23 +60,57 @@ float doTempDown(void);
 
 static char tag[] = "telnet";
 
+typedef enum {
+  NOT_LISTENING = 0,
+  STARTING,
+  LISTENING
+} TELNET_STATE;
+
 static vprintf_like_t OrigEsplogger = NULL;
 static bool telnetLoggerActive = false;
 static bool disconnectPending = false;
+static TELNET_STATE telnetState = NOT_LISTENING;
 
 // The global tnHandle ... since we are only processing ONE telnet
 // client at a time, this can be a global static.
 static telnet_t *tnHandle;
 
-// Task handle for the telnet service task
+// Task handle for the telnet RTOS service task
 static TaskHandle_t telnetTaskHandle = NULL;
 
+// Func declaration for the callback when data is received on telnet session
 static void (*receivedDataCallback)(int sock, uint8_t *buffer, size_t size);
 
-struct telnetUserData
+// Primary descriptor for the listening telnet socket
+static int serverSocket=0;
+
+// All valid commands as enums
+typedef enum
+{
+  HELP = 0,
+  CONFIG,
+  TEMP_UP,
+  TEMP_DOWN,
+  TEMP_SET,
+  MODE_SET,
+  MONITOR_LOG,
+  STATUS,
+  ERROR_COUNTS,
+  REBOOT,
+  QUIT,
+  UNKNOWN
+} CMD;
+
+// List of valid command strings
+const char *cmdStrings[] = {"HELP", "CONFIG", "UP", "DOWN", "TEMP", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "QUIT", NULL};
+
+#define min(x, y) ((x > y) ? y : x)
+
+typedef struct 
 {
   int sockfd;
-};
+} TELNET_USER_DATA;
+
 
 void revertTelnetLogger()
 {
@@ -167,286 +201,6 @@ int telnet_esp32_printf(const char *fmt, ...)
   return rs;
 } // telnet_esp32_vprintf
 
-/**
- * Telnet handler.
- */
-static void telnetHandler(
-    telnet_t *thisTelnet,
-    telnet_event_t *event,
-    void *userData)
-{
-  int rc;
-  struct telnetUserData *telnetUserData = (struct telnetUserData *)userData;
-
-  ESP_LOGD(tag, "telnet event: %s", eventToString(event->type));
-
-  switch (event->type)
-  {
-  case TELNET_EV_SEND:
-    if (!wifiConnected())
-    {
-      if (telnetUserData->sockfd != -1)
-      {
-        revertTelnetLogger();
-        ESP_LOGW(tag, "wifi detected down! Dropping telnet connection");
-        closesocket(telnetUserData->sockfd);
-        telnetUserData->sockfd = -1;
-        OperatingParameters.Errors.wifiErrors++;
-      }
-    }
-    else
-    {
-      if (telnetUserData->sockfd != -1)
-      {
-        rc = send(telnetUserData->sockfd, event->data.buffer, event->data.size, 0);
-        if (rc < 0)
-        {
-          revertTelnetLogger();
-          ESP_LOGE(tag, "send: %d (%s)", errno, strerror(errno));
-          closesocket(telnetUserData->sockfd);
-          telnetUserData->sockfd = -1;
-          OperatingParameters.Errors.telnetNetworkErrors++;
-        }
-      }
-    }
-    break;
-
-  case TELNET_EV_DATA:
-    ESP_LOGD(tag, "received data, len=%d", event->data.size);
-    if (!wifiConnected())
-    {
-      if (telnetUserData->sockfd != -1)
-      {
-        ESP_LOGW(tag, "wifi detected down! Ignoring telnet data");
-        closesocket(telnetUserData->sockfd);
-        telnetUserData->sockfd = -1;
-        OperatingParameters.Errors.wifiErrors++;
-      }
-    }
-    else
-    {
-      /**
-       * Here is where we would want to handle newly received data.
-       * The data receive is in event->data.buffer of size
-       * event->data.size.
-       */
-      if (telnetUserData->sockfd != -1)
-        if (receivedDataCallback != NULL)
-        {
-          receivedDataCallback(telnetUserData->sockfd, (uint8_t *)event->data.buffer, (size_t)event->data.size);
-          // Clear the prior contents
-          memset((void *)(event->data.buffer), 0, sizeof((void *)(event->data.buffer)));
-          event->data.size = 0;
-        }
-    }
-    break;
-
-  default:
-    break;
-
-  } // End of switch event type
-} // myTelnetHandler
-
-static void doTelnet(int partnerSocket)
-{
-  // ESP_LOGD(tag, ">> doTelnet");
-  static const telnet_telopt_t my_telopts[] = {
-      {TELNET_TELOPT_ECHO, TELNET_WILL, TELNET_DONT},
-      {TELNET_TELOPT_TTYPE, TELNET_WILL, TELNET_DONT},
-      {TELNET_TELOPT_COMPRESS2, TELNET_WONT, TELNET_DO},
-      {TELNET_TELOPT_ZMP, TELNET_WONT, TELNET_DO},
-      {TELNET_TELOPT_MSSP, TELNET_WONT, TELNET_DO},
-      {TELNET_TELOPT_BINARY, TELNET_WILL, TELNET_DO},
-      {TELNET_TELOPT_NAWS, TELNET_WILL, TELNET_DONT},
-      {-1, 0, 0}};
-
-  struct telnetUserData *pTelnetUserData = (struct telnetUserData *)malloc(sizeof(struct telnetUserData));
-  pTelnetUserData->sockfd = partnerSocket;
-  disconnectPending = false;
-
-  tnHandle = telnet_init(my_telopts, telnetHandler, 0, pTelnetUserData);
-
-  uint8_t buffer[1024];
-
-  struct timeval to;
-  to.tv_sec = 1;
-  to.tv_usec = 0;
-  if (setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to)) < 0)
-  {
-    ESP_LOGE(tag, "Unable to set read timeout on socket!");
-    // return false;
-  }
-
-  while (/*wifiConnected() && */ (pTelnetUserData->sockfd != -1))
-  {
-    if ((disconnectPending) /*|| (!wifiConnected()) */)
-    {
-      ESP_LOGI(tag, "telnet disconect requested");
-      disconnectPending = false;
-      revertTelnetLogger();
-      closesocket(pTelnetUserData->sockfd);
-      pTelnetUserData->sockfd = -1;
-      break;
-    }
-    // ESP_LOGD(tag, "waiting for data");
-    ssize_t len = recv(partnerSocket, (char *)buffer, sizeof(buffer), 0);
-
-    if ((len == 0) && (telnetLoggerActive == true))
-    {
-      ESP_LOGI(tag, "Terminating logging");
-      break;
-    }
-
-    if ((len > sizeof(buffer)) || (len < 0)) //(len != EWOULDBLOCK))
-    {
-      // Got an error receiving data; just delay and then wait for more
-      vTaskDelay(pdMS_TO_TICKS(250));
-      continue;
-    }
-
-    if (/*wifiConnected() &&*/ (pTelnetUserData->sockfd != -1))
-    {
-      ESP_LOGD(tag, "received %d bytes", len);
-
-      // Disable timeout on socket to allow for interaction (like doing a config)
-      to.tv_sec = 0;
-      setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to));
-
-      // Process the received data
-      telnet_recv(tnHandle, (char *)buffer, len);
-
-      // Reenable the socket timeout option
-      to.tv_sec = 1;
-      setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to));
-    }
-    telnet_esp32_printf("> ");
-    vTaskDelay(pdMS_TO_TICKS(50));
-  }
-  revertTelnetLogger();
-  ESP_LOGI(tag, "Telnet partner finished");
-  telnet_free(tnHandle);
-  tnHandle = NULL;
-} // doTelnet
-
-int serverSocket=0;
-/**
- * Listen for telnet clients and handle them.
- */
-void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buffer, size_t size))
-{
-  // ESP_LOGD(tag, ">> telnet_listenForClients");
-  receivedDataCallback = callbackParam;
-  serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-  BaseType_t xTrueValue = pdTRUE;
-  setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (void *)&xTrueValue, sizeof(xTrueValue));
-
-  struct sockaddr_in serverAddr;
-  serverAddr.sin_family = AF_INET;
-  serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  serverAddr.sin_port = htons(23);
-
-  int rc = bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
-  if (rc < 0)
-  {
-    ESP_LOGE(tag, "bind: %d (%s)", errno, strerror(errno));
-    OperatingParameters.Errors.telnetNetworkErrors++;
-    telnetTaskHandle = NULL;
-    return;
-  }
-
-  rc = listen(serverSocket, 5);
-  if (rc < 0)
-  {
-    ESP_LOGE(tag, "listen: %d (%s)", errno, strerror(errno));
-    OperatingParameters.Errors.telnetNetworkErrors++;
-    telnetTaskHandle = NULL;
-    return;
-  }
-
-  while (1)
-  {
-    socklen_t len = sizeof(serverAddr);
-    rc = accept(serverSocket, (struct sockaddr *)&serverAddr, &len);
-    if (rc < 0)
-    {
-      ESP_LOGE(tag, "accept: %d (%s)", errno, strerror(errno));
-      OperatingParameters.Errors.telnetNetworkErrors++;
-      telnetTaskHandle = NULL;
-      return;
-    }
-    int partnerSocket = rc;
-
-    ESP_LOGI(tag, "We have a new client connection!");
-    // This call is blocking, so only 1 telnet session at a time!
-    doTelnet(partnerSocket);
-  }
-} // listenForNewClient
-
-void telnet_esp32_CloseSocket()
-{
-  if (serverSocket <= 0)
-  {
-    return;
-  }
-
-  int rc = closesocket(serverSocket);
-  if (rc < 0)
-  {
-    ESP_LOGE(tag, "closesocket(%d) : %d (%s)", serverSocket, errno, strerror(errno));
-    OperatingParameters.Errors.telnetNetworkErrors++;
-    return;
-  }
-}
-
-void terminateTelnetSession()
-{
-  // On first invocation, this routine will only close the
-  // active telnet session, if there is one...then return. On
-  // the next invocation, since the first closed the active
-  // session, the task that handles incoming connect requests
-  // will be terminated and restarted.
-
-  ESP_LOGI(tag, "Telnet session termination requested");
-
-  if ((tnHandle == NULL) && (telnetTaskHandle == NULL))
-  {
-    ESP_LOGW(tag, "No action taken - no telnet connection and telnet task not started");
-    return;
-  }
-
-  if (tnHandle != NULL)
-  {
-    ESP_LOGW(tag, "Active telnet session -- waiting for it to terminate");
-
-    revertTelnetLogger();
-
-    // Set the flag to start exiting telnet task
-    disconnectPending = true;
-    while (tnHandle != NULL)
-      vTaskDelay(pdMS_TO_TICKS(50));
-
-    // First step completed; Stop active telnet session.
-    // On a subsequent call, the socket will be closed and task restarted
-    return;
-  }
-
-  // Close the listener socket
-  telnet_esp32_CloseSocket();
-
-  // telnet session is now aborted and listening socket is closed. Now restart the task.
-  if (telnetTaskHandle != NULL)
-  {
-    ESP_LOGD(tag, "Active telnet sessions stopped and socket closed. Now stopping telnet RTOS task.");
-    vTaskDelete(telnetTaskHandle);
-    telnetTaskHandle = NULL;
-  }
-
-  ESP_LOGI(tag, "Starting new telnet service instance");
-  vTaskDelay(pdMS_TO_TICKS(125));
-  telnetStart();
-}
-
 void DisplayErrors()
 {
   telnet_esp32_printf("Current Error Counts:\n");
@@ -488,6 +242,8 @@ void DisplayStatus()
                         (int)(uptime / 1000L) % 60);               // seconds
   }
 
+  telnet_esp32_printf ("Free Heap size: %d", esp_get_free_heap_size());
+
   telnet_esp32_printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
                       OperatingParameters.mac[0],
                       OperatingParameters.mac[1],
@@ -497,8 +253,8 @@ void DisplayStatus()
                       OperatingParameters.mac[5]);
   telnet_esp32_printf("Wifi SSID: %s\n", WifiCreds.ssid);
   telnet_esp32_printf("Wifi connected: %s\n", OperatingParameters.wifiConnected ? "Yes" : "No");
-  telnet_esp32_printf("Wifi signal: %d%%\n", wifiSignal());
-  telnet_esp32_printf("Wifi IP address: %s\n", wifiAddress());
+  telnet_esp32_printf("Wifi signal: %d%%\n", WifiSignal());
+  telnet_esp32_printf("Wifi IP address: %s\n", WifiAddress());
 
   {
     struct tm local_time;
@@ -724,27 +480,6 @@ void doConfiguration(int sock)
   telnet_esp32_printf("Config complete. If changes made, consider restarting (with 'Reboot')\n");
 }
 
-// All valid commands
-typedef enum
-{
-  HELP = 0,
-  CONFIG,
-  TEMP_UP,
-  TEMP_DOWN,
-  TEMP_SET,
-  MODE_SET,
-  MONITOR_LOG,
-  STATUS,
-  ERROR_COUNTS,
-  REBOOT,
-  QUIT,
-  UNKNOWN
-} CMD;
-
-const char *cmdStrings[] = {"HELP", "CONFIG", "UP", "DOWN", "TEMP", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "QUIT", NULL};
-
-#define min(x, y) ((x > y) ? y : x)
-
 static CMD lookupCommnd(char *buffer, size_t len)
 {
   int n = 0;
@@ -801,7 +536,7 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     return;
   }
 
-  if (!wifiConnected())
+  if (!WifiConnected())
   {
     ESP_LOGW(tag, "Wifi down! Aborting receive request!");
     OperatingParameters.Errors.wifiErrors++;
@@ -903,21 +638,326 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
   }
 }
 
-static void telnetTask(void *data)
+/**
+ * Telnet callback handler. Called when remote telnet client issues a command.
+ */
+static void telnetCallbackHandler(
+    telnet_t *thisTelnet,
+    telnet_event_t *event,
+    void *userData)
 {
-  ESP_LOGI(tag, "Start telnetTask()");
+  int rc;
+  TELNET_USER_DATA *telnetUserData = (TELNET_USER_DATA *)userData;
+
+  ESP_LOGD(tag, "telnet event: %s", eventToString(event->type));
+
+  switch (event->type)
+  {
+  case TELNET_EV_SEND:
+    if (!WifiConnected())
+    {
+      if (telnetUserData->sockfd != -1)
+      {
+        revertTelnetLogger();
+        ESP_LOGW(tag, "wifi detected down! Dropping telnet connection");
+        closesocket(telnetUserData->sockfd);
+        telnetUserData->sockfd = -1;
+        OperatingParameters.Errors.wifiErrors++;
+      }
+    }
+    else
+    {
+      if (telnetUserData->sockfd != -1)
+      {
+        rc = send(telnetUserData->sockfd, event->data.buffer, event->data.size, 0);
+        if (rc < 0)
+        {
+          revertTelnetLogger();
+          ESP_LOGE(tag, "send: %d (%s)", errno, strerror(errno));
+          closesocket(telnetUserData->sockfd);
+          telnetUserData->sockfd = -1;
+          OperatingParameters.Errors.telnetNetworkErrors++;
+        }
+      }
+    }
+    break;
+
+  case TELNET_EV_DATA:
+    ESP_LOGD(tag, "received data, len=%d", event->data.size);
+    if (!WifiConnected())
+    {
+      if (telnetUserData->sockfd != -1)
+      {
+        ESP_LOGW(tag, "wifi detected down! Ignoring telnet data");
+        closesocket(telnetUserData->sockfd);
+        telnetUserData->sockfd = -1;
+        OperatingParameters.Errors.wifiErrors++;
+      }
+    }
+    else
+    {
+      /**
+       * Here is where we would want to handle newly received data.
+       * The data receive is in event->data.buffer of size
+       * event->data.size.
+       */
+      if (telnetUserData->sockfd != -1)
+        if (receivedDataCallback != NULL)
+        {
+          receivedDataCallback(telnetUserData->sockfd, (uint8_t *)event->data.buffer, (size_t)event->data.size);
+          // Clear the prior contents
+          memset((void *)(event->data.buffer), 0, sizeof((void *)(event->data.buffer)));
+          event->data.size = 0;
+        }
+    }
+    break;
+
+  default:
+    break;
+
+  } // End of switch event type
+}
+
+void telnet_esp32_CloseSocket()
+{
+  if (serverSocket <= 0)
+  {
+    return;
+  }
+
+  int rc = closesocket(serverSocket);
+  if (rc < 0)
+  {
+    ESP_LOGE(tag, "closesocket(%d) : %d (%s)", serverSocket, errno, strerror(errno));
+    OperatingParameters.Errors.telnetNetworkErrors++;
+    return;
+  }
+}
+
+void terminateTelnetSession()
+{
+  // On first invocation, this routine will only close the
+  // active telnet session, if there is one...then return. On
+  // the next invocation, since the first closed the active
+  // session, the task that handles incoming connect requests
+  // will be terminated and restarted.
+
+  ESP_LOGI(tag, "Telnet session termination requested");
+
+  if ((tnHandle == NULL) && (telnetTaskHandle == NULL))
+  {
+    ESP_LOGW(tag, "No action taken - no telnet connection and telnet task not started");
+    return;
+  }
+
+  if (tnHandle != NULL)
+  {
+    ESP_LOGW(tag, "Active telnet session -- waiting for it to terminate");
+
+    revertTelnetLogger();
+
+    // Set the flag to start exiting telnet task
+    disconnectPending = true;
+    while (tnHandle != NULL)
+      vTaskDelay(pdMS_TO_TICKS(50));
+
+    // First step completed; Stop active telnet session.
+    // On a subsequent call, the socket will be closed and task restarted
+    return;
+  }
+
+  // Close the listener socket
+  telnet_esp32_CloseSocket();
+
+  // telnet session is now aborted and listening socket is closed. Now restart the task.
+  if (telnetTaskHandle != NULL)
+  {
+    ESP_LOGD(tag, "Active telnet sessions stopped and socket closed. Now stopping telnet RTOS task.");
+    telnetState = NOT_LISTENING;
+    vTaskDelete(telnetTaskHandle);
+    telnetTaskHandle = NULL;
+  }
+
+  // ESP_LOGI(tag, "Starting new telnet service instance");
+  // vTaskDelay(pdMS_TO_TICKS(125));
+  // telnetStart();
+}
+
+static void doTelnet(int partnerSocket)
+{
+  // ESP_LOGD(tag, ">> doTelnet");
+  static const telnet_telopt_t my_telopts[] = {
+      {TELNET_TELOPT_ECHO, TELNET_WILL, TELNET_DONT},
+      {TELNET_TELOPT_TTYPE, TELNET_WILL, TELNET_DONT},
+      {TELNET_TELOPT_COMPRESS2, TELNET_WONT, TELNET_DO},
+      {TELNET_TELOPT_ZMP, TELNET_WONT, TELNET_DO},
+      {TELNET_TELOPT_MSSP, TELNET_WONT, TELNET_DO},
+      {TELNET_TELOPT_BINARY, TELNET_WILL, TELNET_DO},
+      {TELNET_TELOPT_NAWS, TELNET_WILL, TELNET_DONT},
+      {-1, 0, 0}};
+
+  TELNET_USER_DATA *pTelnetUserData = (TELNET_USER_DATA *)malloc(sizeof(TELNET_USER_DATA));
+  static uint8_t buffer[1024];
+  struct timeval to;
+
+  pTelnetUserData->sockfd = partnerSocket;
+  disconnectPending = false;
+
+  tnHandle = telnet_init(my_telopts, telnetCallbackHandler, 0, pTelnetUserData);
+
+  to.tv_sec = 1;
+  to.tv_usec = 0;
+  if (setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to)) < 0)
+  {
+    ESP_LOGE(tag, "Unable to set read timeout on socket!");
+    // return false;
+  }
+
+  // Primary loop for telnet "server"
+  while (/*wifiConnected() && */ (pTelnetUserData->sockfd != -1))
+  {
+    if ((disconnectPending) /*|| (!wifiConnected()) */)
+    {
+      ESP_LOGI(tag, "telnet disconect requested");
+      disconnectPending = false;
+      revertTelnetLogger();
+      closesocket(pTelnetUserData->sockfd);
+      pTelnetUserData->sockfd = -1;
+      break;
+    }
+
+    ssize_t len = recv(partnerSocket, (char *)buffer, sizeof(buffer), 0);
+
+    if ((len == 0) && (telnetLoggerActive == true))
+    {
+      ESP_LOGI(tag, "Terminating logging");
+      break;    //@@@ break or continue???
+    }
+
+    if ((len > sizeof(buffer)) || (len < 0)) //(len != EWOULDBLOCK))
+    {
+      // Got an error receiving data; just delay and then wait for more
+      vTaskDelay(pdMS_TO_TICKS(250));
+      continue;
+    }
+
+    if (/*wifiConnected() &&*/ (pTelnetUserData->sockfd != -1))
+    {
+      ESP_LOGD(tag, "received %d bytes", len);
+
+      // Disable timeout on socket to allow for interaction (like doing a config)
+      to.tv_sec = 0;
+      setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to));
+
+      // Process the received data
+      telnet_recv(tnHandle, (char *)buffer, len);
+
+      // Reenable the socket timeout option
+      to.tv_sec = 1;
+      setsockopt(pTelnetUserData->sockfd, SOL_SOCKET, SO_RCVTIMEO, &to, sizeof(to));
+    }
+    telnet_esp32_printf("> ");
+    vTaskDelay(pdMS_TO_TICKS(50));
+  }
+  revertTelnetLogger();
+  ESP_LOGI(tag, "Telnet client finished");
+  telnet_free(tnHandle);
+  free (pTelnetUserData);
+  tnHandle = NULL;
+}
+
+/**
+ * Listen for telnet clients and handle them.
+ */
+void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buffer, size_t size))
+{
+  // ESP_LOGD(tag, ">> telnet_listenForClients");
+  receivedDataCallback = callbackParam;
+  serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+  BaseType_t xTrueValue = pdTRUE;
+  setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (void *)&xTrueValue, sizeof(xTrueValue));
+
+  struct sockaddr_in serverAddr;
+  serverAddr.sin_family = AF_INET;
+  serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  serverAddr.sin_port = htons(23);
+
+  int rc = bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+  if (rc < 0)
+  {
+    ESP_LOGE(tag, "bind: %d (%s)", errno, strerror(errno));
+    OperatingParameters.Errors.telnetNetworkErrors++;
+    telnetTaskHandle = NULL;
+    return;
+  }
+
+  rc = listen(serverSocket, 5);
+  if (rc < 0)
+  {
+    ESP_LOGE(tag, "listen: %d (%s)", errno, strerror(errno));
+    OperatingParameters.Errors.telnetNetworkErrors++;
+    telnetTaskHandle = NULL;
+    return;
+  }
+
+  telnetState = LISTENING;
+
+  while (1)
+  {
+    socklen_t len = sizeof(serverAddr);
+    rc = accept(serverSocket, (struct sockaddr *)&serverAddr, &len);
+    if (rc < 0)
+    {
+      ESP_LOGE(tag, "accept: %d (%s)", errno, strerror(errno));
+      OperatingParameters.Errors.telnetNetworkErrors++;
+      telnetState = NOT_LISTENING;
+      telnetTaskHandle = NULL;
+      return;
+    }
+
+    ESP_LOGI(tag, "We have a new client connection!");
+    // This call is blocking, so only 1 telnet session at a time!
+    doTelnet(rc);
+  }
+
+  telnetState = NOT_LISTENING;
+}
+
+static void telnetListenTask(void *data)
+{
+  ESP_LOGI(tag, "Starting telnetTask()");
+  if (!WifiConnected())
+  {
+    ESP_LOGW(tag, "*** WARNING: Failed to start telnet listener due to wifi down!! ***");
+    telnetState = NOT_LISTENING;
+    telnetTaskHandle = NULL;
+    vTaskDelete(NULL);
+    return;
+  }
+
   telnet_esp32_listenForClients(recvData);
 
-  ESP_LOGI(tag, "Completing telnetTask()");
+  ESP_LOGI(tag, "Stopping telnetTask()");
+  telnet_esp32_CloseSocket();
+  telnetState = NOT_LISTENING;
   telnetTaskHandle = NULL;
   vTaskDelete(NULL);
 }
 
+bool telnetServiceRunning()
+{
+  // Return True for STARTING or LISTENING
+  return (telnetState != NOT_LISTENING);
+}
+
 esp_err_t telnetStart()
 {
+  telnetState = STARTING;
+
   // xTaskCreatePinnedToCore (&telnetTask, "telnetTask", 8048, NULL, 5, NULL, 0);
   xTaskCreate(
-      &telnetTask,
+      &telnetListenTask,
       "TelnetTask",
       8048,
       NULL,

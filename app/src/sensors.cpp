@@ -49,8 +49,6 @@ Smoothed<float> sensorHumidity;
 adc_unit_t adcUnit;
 adc_channel_t adcChannel;
 adc_oneshot_unit_handle_t adcHandle;
-#define EXAMPLE_ADC_ATTEN ADC_ATTEN_DB_11
-
 
 void updateHvacMode(HVAC_MODE mode)
 {
@@ -86,7 +84,7 @@ void initLightSensor()
   ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config, &adcHandle));
 
   adc_oneshot_chan_cfg_t config = {
-    .atten = EXAMPLE_ADC_ATTEN,
+    .atten = ADC_ATTEN_DB_12,
     .bitwidth = ADC_BITWIDTH_DEFAULT,
   };
   ESP_ERROR_CHECK(adc_oneshot_config_channel(adcHandle, adcChannel, &config));
@@ -401,7 +399,7 @@ bool getLocalTime(struct tm * info, uint64_t ms)
   uint64_t tmo = ms;
   time_t now;
 
-  if (!wifiConnected())
+  if (!WifiConnected())
     tmo = 20;
 
   while ((millis() - start) <= tmo)

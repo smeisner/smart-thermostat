@@ -25,7 +25,7 @@
 
 OPERATING_PARAMETERS OperatingParameters;
 extern int64_t lastTimeUpdate;
-int64_t lastWifiReconnect = millis();
+int64_t lastWifiReconnect;
 #ifdef MQTT_ENABLED
 int64_t lastMqttReconnect = 0;
 #endif
@@ -190,6 +190,8 @@ void hvacStateUpdate()
 
 void stateMachine(void *parameter)
 {
+  lastTimeUpdate = millis();
+  lastWifiReconnect = millis();
 #ifdef MQTT_ENABLED
   // This will cause the first pass to make a connect attempt
   lastMqttReconnect = MQTT_RECONNECT_DELAY * -1;
@@ -207,7 +209,7 @@ void stateMachine(void *parameter)
 
     // Check wifi
     // Update wifi connection status
-    OperatingParameters.wifiConnected = wifiConnected();
+    OperatingParameters.wifiConnected = WifiConnected();
 
 #ifdef MATTER_ENABLED
     if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)) && (!OperatingParameters.MatterStarted))
@@ -222,18 +224,26 @@ void stateMachine(void *parameter)
       }
     }
 
+#ifdef TELNET_ENABLED
+    if (OperatingParameters.wifiConnected && !telnetServiceRunning())
+    {
+      telnetStart();
+    }
+#endif
+
     // Determine if it's time to update the SNTP sourced clock
     if (millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL)
     {
       lastTimeUpdate = millis();
       updateTimeSntp();
+      ESP_LOGI (__FUNCTION__, ">>>> Heap size: %d", esp_get_free_heap_size());
     }
 
 #ifdef MQTT_ENABLED
     //@@ Must be cleaned up. This (theoretically) should only execute
     // once to establish the MQTT connection.
 
-    if ((OperatingParameters.wifiConnected) && (OperatingParameters.MqttEnabled) && (!OperatingParameters.MqttConnected))
+    if ((MqttConnectCalled == false) && (OperatingParameters.wifiConnected) && (OperatingParameters.MqttEnabled) && (!OperatingParameters.MqttConnected))
     {
       if (millis() > (lastMqttReconnect + MQTT_RECONNECT_DELAY))
       {
@@ -244,10 +254,10 @@ void stateMachine(void *parameter)
           MqttConnectCalled = true;
           MqttConnect();
         }
-        else
-        {
-          MqttReconnect();
-        }
+        // else
+        // {
+        //   MqttReconnect();
+        // }
       }
     }
 #endif

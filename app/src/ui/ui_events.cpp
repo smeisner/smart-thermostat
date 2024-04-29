@@ -160,7 +160,7 @@ void LoadInfoStrings(lv_event_t * e)
     lv_obj_add_flag(ui_ShowQRLabel, LV_OBJ_FLAG_HIDDEN);
   }
 
-  if (wifiConnected())
+  if (WifiConnected())
     lv_obj_add_state(ui_WifiConnCheckBox, LV_STATE_CHECKED);
 	else
     lv_obj_clear_state(ui_WifiConnCheckBox, LV_STATE_CHECKED);
@@ -171,10 +171,10 @@ void LoadInfoStrings(lv_event_t * e)
   lv_label_set_text_fmt(ui_HostnameLabel, "%s Hostname:# %s", LABEL_COLOR, OperatingParameters.DeviceName);
 
   lv_label_set_recolor(ui_IPLabel, true);
-  lv_label_set_text_fmt(ui_IPLabel, "%s IP:# %s", LABEL_COLOR, wifiAddress());
+  lv_label_set_text_fmt(ui_IPLabel, "%s IP:# %s", LABEL_COLOR, WifiAddress());
 
   lv_label_set_recolor(ui_RssiLabel, true);
-  lv_label_set_text_fmt(ui_RssiLabel, "%s Signal:# %d%%", LABEL_COLOR, wifiSignal());
+  lv_label_set_text_fmt(ui_RssiLabel, "%s Signal:# %d%%", LABEL_COLOR, WifiSignal());
 
   lv_label_set_recolor(ui_FwVersionLabel, true);
   lv_label_set_text_fmt(ui_FwVersionLabel, "%s Firmware:# %s", LABEL_COLOR, VersionString);
@@ -223,7 +223,7 @@ void tftSetNewWifi(lv_event_t * e)
     printf ("*** [tftSetNewWifi] WifiCreds.password = %s\n", WifiCreds.password);
     // Save the new wifi credentials to NVRAM
     setWifiCreds(); //Store locally (in Thermostat NVS)
-    wifiSetCredentials(WifiCreds.ssid, WifiCreds.password);
+    WifiSetCredentials(WifiCreds.ssid, WifiCreds.password);
     // Initiate a disconnect so the new wifi info will be used when auto-reconnect happens
     WifiDisconnect();
 

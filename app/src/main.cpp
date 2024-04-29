@@ -62,9 +62,10 @@ void app_main()
 
   // Start wifi
   ESP_LOGI (TAG, "Starting wifi (\"%s\", \"%s\")", WifiCreds.ssid, WifiCreds.password);
+  ESP_ERROR_CHECK(esp_netif_init());
   OperatingParameters.wifiConnected = 
     // wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
-    wifiStart(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password);
+    WifiStart(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password);
 
 
 #ifdef MQTT_ENABLED
@@ -81,10 +82,6 @@ void app_main()
   indicatorsInit();
   initRelays();
 
-  // Create the RTOS task to drive the state machine
-  ESP_LOGI (TAG, "Starting state machine task");
-  stateCreateTask();
-
   // Start web server
   ESP_LOGI (TAG, "Starting web server");
   webStart();
@@ -93,6 +90,10 @@ void app_main()
   // Start telnet server
   telnetStart();
 #endif
+
+  // Create the RTOS task to drive the state machine
+  ESP_LOGI (TAG, "Starting state machine task");
+  stateCreateTask();
 
   // Play the startup sound
   audioStartupBeep();
