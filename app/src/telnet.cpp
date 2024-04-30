@@ -242,7 +242,7 @@ void DisplayStatus()
                         (int)(uptime / 1000L) % 60);               // seconds
   }
 
-  telnet_esp32_printf ("Free Heap size: %d", esp_get_free_heap_size());
+  telnet_esp32_printf ("Free Heap size: %d\n", esp_get_free_heap_size());
 
   telnet_esp32_printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
                       OperatingParameters.mac[0],
