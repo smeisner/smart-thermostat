@@ -162,26 +162,19 @@ void tftUpdateDisplay()
 {
   static char buffer[16];
   static struct tm local_time;
-  // static ulong last = 0;
 
   if (tftAwake)
     tftAutoBrightness();
-  // updateTime() will return false if wifi is not connected. 
-  // Otherwise pending on SNTP call will cause a stall.
-  // if (!updateTime(&local_time))
-  // if (millis() - last >  5000)
-  // {
-    // last = millis();
-    if (getLocalTime(&local_time, 80))
-    {
-      strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
-    }
-    else
-    {
-      strcpy (buffer, "--:--:--");
-    }
-    lv_label_set_text(ui_TimeLabel, buffer);
-  // }
+
+  if (getLocalTime(&local_time, 80))
+  {
+    strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
+  }
+  else
+  {
+    strcpy (buffer, "--:--:--");
+  }
+  lv_label_set_text(ui_TimeLabel, buffer);
 
   lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());
   lv_label_set_text_fmt(ui_HumidityLabel, "%d%%", getHumidity());

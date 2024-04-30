@@ -14,7 +14,7 @@
  * History
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrote to support ESP-IDF framework instead of Arduino
- *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add suport for home automation (MQTT & Matter)
+ *  11-Oct-2023: Steve Meisner (steve@meisners.net) - Add support for home automation (MQTT & Matter)
  * 
  */
 #include <stdbool.h>
@@ -175,16 +175,6 @@ void hvacStateUpdate()
     }
     break;
   }
-  // if ((currentTemp >= minTemp) && (currentTemp <= maxTemp) && (OperatingParameters.hvacSetMode != FAN_ONLY) && (OperatingParameters.hvacSetMode != OFF))
-  // {
-  //   OperatingParameters.hvacOpMode = IDLE;
-  //   gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
-  //   gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
-  //   gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW); //@@ Not used yet
-  //   gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
-  //   gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
-  //   gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
-  // }
 }
 
 
@@ -231,7 +221,8 @@ void stateMachine(void *parameter)
     }
 #endif
 
-    // Determine if it's time to update the SNTP sourced clock
+    // Determine if it's time to update the SNTP sourced clock and
+    // display the amount of available heap space.
     if (millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL)
     {
       lastTimeUpdate = millis();
@@ -240,7 +231,7 @@ void stateMachine(void *parameter)
     }
 
 #ifdef MQTT_ENABLED
-    //@@ Must be cleaned up. This (theoretically) should only execute
+    //@@@ Must be cleaned up. This (theoretically) should only execute
     // once to establish the MQTT connection.
 
     if ((MqttConnectCalled == false) && (OperatingParameters.wifiConnected) && (OperatingParameters.MqttEnabled) && (!OperatingParameters.MqttConnected))
@@ -248,16 +239,11 @@ void stateMachine(void *parameter)
       if (millis() > (lastMqttReconnect + MQTT_RECONNECT_DELAY))
       {
         lastMqttReconnect = millis();
-        //@@@ Should be a "reconnect"
         if (!MqttConnectCalled)
         {
           MqttConnectCalled = true;
           MqttConnect();
         }
-        // else
-        // {
-        //   MqttReconnect();
-        // }
       }
     }
 #endif
