@@ -4,6 +4,15 @@
 
   (paper "A4")
 
+  (title_block
+    (title "Smart Thermostat")
+    (date "2024-02-09")
+    (rev "0.6.0")
+    (company "Steve Meisner")
+    (comment 1 "steve@meisners.net")
+    (comment 2 "(C) 2024 Steven Meisner ")
+  )
+
   (lib_symbols
     (symbol "+3V3_1" (power) (pin_names (offset 0)) (in_bom yes) (on_board yes)
       (property "Reference" "#PWR" (id 0) (at 0 -3.81 0)
