@@ -6,8 +6,8 @@
 
   (title_block
     (title "Smart Thermostat")
-    (date "2024-01-21")
-    (rev "0.6")
+    (date "2024-02-09")
+    (rev "0.6.0")
     (company "Steve Meisner")
     (comment 1 "steve@meisners.net")
     (comment 2 "(C) 2024 Steven Meisner ")
