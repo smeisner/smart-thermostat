@@ -21,55 +21,33 @@
  *  17-Aug-2023: Steve Meisner (steve@meisners.net) - Initial version
  *  30-Aug-2023: Steve Meisner (steve@meisners.net) - Rewrite to use ESP-IDF
  *   1-Dec-2023: Steve Meisner (steve@meisners.net) - Added support for telnet
+ *  29-Apr-2024: Steve Meisner (steve@meisners.net) - Reworked the way wifi reconnects work
  * 
  */
 
 #include <string> // for string class
 #include "thermostat.hpp"
 #include <esp_mac.h>  // for esp_read_mac()
-#if 0
-
-// This isn't working correctly yet. I believe due to relying on the 
-// Arduino framework. Once this is abandoned, the following must be 
-// revisited to fine tune the log level.
-//
-// Currently the log level can only be set in platformio.ini (see
-// the CORE_DEBUG_LEVEL definition). But changing this causes an entire rebuild.
-
-// Enable Arduino-ESP32 logging in Arduino IDE
-#ifdef CORE_DEBUG_LEVEL
-  #undef CORE_DEBUG_LEVEL
-#endif
-#ifdef LOG_LOCAL_LEVEL
-  #undef LOG_LOCAL_LEVEL
-#endif
-
-#define CORE_DEBUG_LEVEL ESP_LOG_WARN
-#define LOG_LOCAL_LEVEL CORE_DEBUG_LEVEL
-
-#endif
-
-static const char *TAG = "WIFI";
-
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "esp_wps.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
 
+static const char *TAG = "WIFI";
+
 //////////////////////////////////////////////////////////////////////
-typedef enum {
-    TCPIP_ADAPTER_IF_STA = 0,     /**< Wi-Fi STA (station) interface */
-    TCPIP_ADAPTER_IF_AP,          /**< Wi-Fi soft-AP interface */
-    TCPIP_ADAPTER_IF_ETH,         /**< Ethernet interface */
-    TCPIP_ADAPTER_IF_TEST,        /**< tcpip stack test interface */
-    TCPIP_ADAPTER_IF_MAX
-} tcpip_adapter_if_t;
+// typedef enum {
+//     TCPIP_ADAPTER_IF_STA = 0,     /**< Wi-Fi STA (station) interface */
+//     TCPIP_ADAPTER_IF_AP,          /**< Wi-Fi soft-AP interface */
+//     TCPIP_ADAPTER_IF_ETH,         /**< Ethernet interface */
+//     TCPIP_ADAPTER_IF_TEST,        /**< tcpip stack test interface */
+//     TCPIP_ADAPTER_IF_MAX
+// } tcpip_adapter_if_t;
 
 #define isnan(n) ((n != n) ? 1 : 0)
 
 /////////////////////////////////////////////////////////////////////
-
 
 #define WIFI_MAX_SSID (6u)
 #define WIFI_SSID_LEN (32u)
@@ -97,6 +75,9 @@ int s_retry_num = 0;
 
 WIFI_CREDS WifiCreds;
 WIFI_STATUS WifiStatus = {};
+
+static int64_t lastWifiMillis = 0;
+TaskHandle_t ntReconnectTaskHandler = NULL;
 
 ///////////////////////////////////////////////////////////////////////////////////////
 //
@@ -437,7 +418,11 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
   // Enable debug logging
   // esp_log_level_set("*", ESP_LOG_NONE);
   // esp_log_level_set(TAG, ESP_LOG_WARN);
-  esp_log_level_set("*", ESP_LOG_INFO);
+  // esp_log_level_set("wifi", ESP_LOG_INFO);
+  esp_log_level_set("wifi_init", ESP_LOG_WARN);
+  esp_log_level_set("wifi", ESP_LOG_WARN);
+  esp_log_level_set("net80211", ESP_LOG_WARN);
+  esp_log_level_set("pp", ESP_LOG_WARN);
   //
 
   ESP_LOGI(TAG, "WifiStart()");
@@ -458,8 +443,6 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
   {
     ESP_LOGW(TAG, "  Wifi driver not started; Calling init and create funcs");
     WifiStatus.driver_started = true;
-    //@@@
-    // ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_interface_sta = esp_netif_create_default_wifi_sta();
   }
@@ -554,8 +537,8 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
   }
 
   //
-  // Intentionally leave the callbacks in place as they are used to update
-  // statuses such as connection status and ip address.
+  // Intentionally leave the callbacks in place (WifiRegisterEventCallbacks) 
+  // as they are used to update statuses such as connection status and ip address.
   //
 
   ESP_LOGD(TAG, "wifi_connect_sta finished.");
@@ -586,7 +569,6 @@ void WifiDeinit()
   if (WifiStatus.driver_started)
   {
     ESP_LOGD(TAG, "- Taking down network stack");
-    // WifiDeregisterEventCallbacks();  //@@@ Moved to WifiDisconnect()
     esp_netif_destroy_default_wifi(esp_netif_interface_sta);
     esp_event_loop_delete_default();
     esp_wifi_deinit();
@@ -599,9 +581,6 @@ void WifiDeinit()
     ESP_LOGE(TAG, "  WifiStatus.driver_started = %d (wanted: true)", WifiStatus.driver_started);
   }
 }
-
-static int64_t lastWifiMillis = 0;
-TaskHandle_t ntReconnectTaskHandler = NULL;
 
 void WifiDisconnect()
 {
@@ -626,7 +605,12 @@ bool WifiReconnect(const char *hostname, const char *ssid, const char *pass)
     // return false;  //@@@
   }
 
-  //@@@
+  //
+  //@@@ This call tears down the callback mechanism for
+  // wifi status updates.
+  // Should this be part of the network stack teardown code?
+  // Maybe in WifiDiconnect or WifiDeinit?
+  //
   WifiDeregisterEventCallbacks();
 
   if (OperatingParameters.wifiConnected)
@@ -635,21 +619,11 @@ bool WifiReconnect(const char *hostname, const char *ssid, const char *pass)
     WifiDisconnect();
   }
 
-  // if (WifiStatus.wifi_started)
-  // {
-  //   ESP_LOGD(TAG, "- Calling esp_wifi_stop()");
-  //   esp_wifi_stop();
-  //   WifiStatus.wifi_started = false;
-  // }
-
   if (WifiStatus.driver_started)
   {
     ESP_LOGD(TAG, "- Calling WifiDeinit()");
     WifiDeinit();
   }
-
-  //@@@
-  // return false;
 
   ESP_LOGI(TAG, "- Restarting wifi");
   return (WifiStart(hostname, ssid, pass));
@@ -715,7 +689,6 @@ void startReconnectTask()
     1,
     &ntReconnectTaskHandler);
 }
-
 
 uint16_t rssiToPercent(int rssi_i)
 {

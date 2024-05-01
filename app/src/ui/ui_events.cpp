@@ -38,8 +38,6 @@ void tftDecreaseSetTemp(lv_event_t * e)
   lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
   if (OperatingParameters.tempUnits == 'C')
     lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
-
-  //@@@ printf ("Temp decreased to: %.1f\n", OperatingParameters.tempSet);
 }
 
 void tftIncreaseSetTemp(lv_event_t * e)
@@ -56,9 +54,6 @@ void tftIncreaseSetTemp(lv_event_t * e)
   lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
   if (OperatingParameters.tempUnits == 'C')
     lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
-
-
-  //@@@ printf ("Temp increased to: %.1f\n", OperatingParameters.tempSet);
 }
 
 void tftHvacModeChange(lv_event_t * e)

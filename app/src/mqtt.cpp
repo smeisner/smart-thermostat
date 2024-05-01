@@ -37,7 +37,7 @@ static const char *TAG = "MQTT";
 // Variable used for MQTT Discovery
 const char*         g_deviceModel = "Truly Smart Thermostat"; // Hardware Model
 const char*         g_swVersion = VersionString;              // Firmware Version
-const char*         g_manufacturer = "Steve Meisner";         // Manufacturer Name
+const char*         g_manufacturer = "Tah Der";                // Manufacturer Name
 std::string         g_deviceName;                             // Device Name
 std::string         g_friendlyName;
 std::string         g_mqttStatusTopic;                        // MQTT Topic
@@ -99,8 +99,8 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
       ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
       break;
     case MQTT_EVENT_PUBLISHED:
-      ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
-      // xEventGroupSetBits(s_mqtt_event_group, MQTT_EVENT_PUB_BIT);
+      ESP_LOGD(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
+      // xEventGroupSetBits(s_mqtt_event_group, MQTT_EVENT_PUB_BIT); //@@@ Can this be removed?
       break;
     case MQTT_EVENT_ERROR:
       ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
@@ -198,25 +198,12 @@ void MqttUpdateStatusTopic()
     std::string mode = hvacModeToString(OperatingParameters.hvacSetMode);
     std::string curr_mode = hvacModeToMqttCurrMode(OperatingParameters.hvacOpMode);
     JsonDocument payload;
-#if 0 //@@@
-    int bytes_written;
 
-    std::string temp(16, '\0');
-    bytes_written = std::snprintf(&temp[0], temp.size(), "%.2f", (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection));
-    temp.resize(bytes_written);
-    payload["Temperature"] = temp;
-
-    std::string hum(16, '\0');
-    bytes_written = std::snprintf(&hum[0], hum.size(), "%.2f", (OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection));
-    hum.resize(bytes_written);
-    payload["Humidity"] = hum;
-#else
     static char txt[16];
-    snprintf(txt, 15, "%.2f", (OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection));
+    snprintf(txt, 15, "%.2f", (OperatingParameters.tempCurrent + OperatingParameters.tempCorrection));
     payload["Temperature"] = txt;
     snprintf(txt, 15, "%.2f", (OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection));
     payload["Humidity"] = txt;
-#endif
 
     payload["Setpoint"] = OperatingParameters.tempSet;
 
@@ -279,7 +266,7 @@ void MqttHomeAssistantStatDiscovery()
         OperatingParameters.mac[4],
         OperatingParameters.mac[5]);
 
-    payload["name"] = ""; //@@@g_friendlyName;
+    payload["name"] = "";
     payload["uniq_id"] = mac;
 
     int i=0;
@@ -589,12 +576,14 @@ bool MqttConnect(void)
 
 void MqttInit()
 {
-    esp_log_level_set("*", ESP_LOG_INFO);
-    esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
-    esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
-    esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+    //@@@ Remove these???
+    // esp_log_level_set("*", ESP_LOG_INFO);
+    // esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+    // esp_log_level_set("TRANSPORT_TCP", ESP_LOG_VERBOSE);
+    // esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
+    // esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
+    // esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_INFO);
 
     /* Initialize event group */
     s_mqtt_event_group = xEventGroupCreate();

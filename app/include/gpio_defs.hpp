@@ -68,7 +68,7 @@
 
 /*
 
-Macros to nvert GPIO number to ADC channel and vice versa
+Macros to convert GPIO number to ADC channel and vice versa
 
 */
 #define _ADC_TO_GPIO(x) x##_GPIO_NUM

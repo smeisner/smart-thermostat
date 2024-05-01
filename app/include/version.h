@@ -10,7 +10,7 @@
 #define STR(x) _STR(x)
 
 #define VERSION_STRING STR(VERSION_MAJOR) "." STR(VERSION_MINOR) "." STR(VERSION_BUILD)
-#define VERSION_COPYRIGHT "(C) Steve Meisner 2024 (steve@meisners.net)"
+#define VERSION_COPYRIGHT "(C) Tah Der 2024 (steve@meisners.net)"
 #define VERSION_BUILD_DATE_TIME VERSION_BUILD_DATE " - " VERSION_BUILD_TIME
 
 extern const char *VersionString;

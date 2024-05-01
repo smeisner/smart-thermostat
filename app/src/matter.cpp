@@ -30,8 +30,8 @@
  *  @brief Fallback value for the basic information cluster's Vendor name attribute
  *   if the actual vendor name is not provisioned in the device memory.
  */
-#define CHIP_DEVICE_CONFIG_VENDOR_NAME "Steve Meisner"
-#define CONFIG_CHIP_DEVICE_VENDOR_NAME "1Steve Meisner"
+#define CHIP_DEVICE_CONFIG_VENDOR_NAME "Tah Der"
+#define CONFIG_CHIP_DEVICE_VENDOR_NAME "1Tah Der"
 
 /**
  *  @brief Set the name of the product. This will be written to node0
@@ -42,7 +42,7 @@
 // Use a default pairing code if one hasn't been provisioned in flash.
 // #define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_PIN_CODE 20202021
 // #define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_DISCRIMINATOR 0xF00
-#define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_NAME "Steve Meisner"
+#define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_NAME "Tah Der"
 #define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_NAME "Smart prod"
 #define CONFIG_CHIP_DEVICE_PRODUCT_NAME "Smart chip prod"
 #define CHIP_DEVICE_CONFIG_DEVICE_HARDWARE_VERSION_STRING "v1.0"
@@ -191,6 +191,7 @@ static esp_err_t on_attribute_update(attribute::callback_type_t type, uint16_t e
 
 bool MatterInit()
 {
+  //@@@ Need to set for Matter only
   // Enable debug logging
   esp_log_level_set("*", ESP_LOG_DEBUG);
   // esp_log_level_set("*", ESP_LOG_WARN);

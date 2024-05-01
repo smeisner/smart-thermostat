@@ -246,7 +246,6 @@ esp_err_t handleRoot(httpd_req_t *req)
 
 esp_err_t fwUpload(httpd_req_t *req)
 {
-//@@@  clearNVS();
   return httpd_resp_send(req, web_fw_upload, strlen(web_fw_upload));
 }
 
