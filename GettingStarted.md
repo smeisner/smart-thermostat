@@ -1,81 +1,127 @@
 # Getting Started
 
-> NOTE: These steps have not been fully verified or validated yet. Please add any modifications to them!!
-
-Tested on Debian 11 (Bullseye) and 12 (Bookworm)
+> [!NOTE]
+> These steps are not fully verified or validated on every release yet or Linux distribution. Please add any modifications to them as needed.
+>
+> The instructions here preseted were tested on Debian 11 (Bullseye) and 12 (Bookworm), and Fedora 39.
 
 ## Release Notes
 
 * NB #1: The v0.5.2 prototype boards have an odd connectivity issue with the USB ports. If you see 'oddness', flip the cable around and try that. It should work since all prototypes are tested before leaving my workbench.
 
-* NB #2: There was an error on the v0.5.2 protos; the top right corner has 3 test points; GND, 5V and 3V3. I misconfigured the net connection for the 3v3 and it ended up not being connected. So don't use it to test...it's not connected.
+* NB #2: There was an error on the v0.5.2 proto; the top right corner has 3 test points; GND, 5V and 3V3. I misconfigured the net connection for the 3v3 and it ended up not being connected. So don't use it to test...it's not connected.
 
 * NB #3: If the board has been powered off for a bit, it starts up in boot mode when power is applied. Therefore, the reset button must be pushed. I am guessing this is a power-up problem...if anyone can suggest a PCB change, I will include it in the next run!
 
 ## Steps to build environment:
 
-1. Of sourse, update the system first:
+### Of course, update the system first:
+
+<details>
+<summary>Debian</summary>
 
 `sudo apt update --allow-releaseinfo-change && sudo apt upgrade`
+</details>
 
-2. Install the prerequisite packages
-  * git
-  * curl
-  * wget
-  * python3-pip
-  * python3.11-venv
-  * apt-transport-https
-  * gpg
+<details>
+<summary>Fedora</summary>
 
-`sudo apt install git curl wget python3-pip python3.11-venv apt-transport-https gpg`
+`sudo dnf upgrade --refresh`
+</details>
 
-3. Build the dev environment:
+### Install the prerequisite packages
 
-Install Visual Studio Code<br>
+<details>
+<summary>Debian</summary>
+
+`sudo apt install git curl wget python3-pip python3-venv apt-transport-https gpg`
+</details>
+
+<details>
+<summary>Fedora</summary>
+
+On Fedora, python3 already bundles venv module by default<br>
+`sudo dnf install git curl wget python3-pip gnupg`
+</details>
+
+### Build the dev environment:
+
+#### Install Visual Studio Code
+
 The following info was mostly got from https://code.visualstudio.com/docs/setup/linux
 
+<details>
+<summary>Debian</summary>
+
 ```
-wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
-sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
-sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
-rm -f packages.microsoft.gpg
+$ wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+$ sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
+$ sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
+$ rm -f packages.microsoft.gpg
 ```
+
 Add the VS Code repository to the cache:
+
 `sudo apt update`
 
-The above will add the repository key locally. Next we need to install the VS Code package itself:<br>
+The above will add the repository key locally. Next we need to install the VS Code package itself:
 
 `sudo apt install code`
+</details>
 
-Now install PlatformIO:<br>
+<details>
+<summary>Fedora</summary>
 
 ```
-curl -fsSL -o get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py`  
-python3 get-platformio.py
+$ sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+$ echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
 ```
 
-Add `pio` to the path:<br>
+Add the VS Code repository to the cache:
+
+`sudo dnf update`
+
+The above will add the repository key locally. Next we need to install the VS Code package itself:
+
+`sudo dnf install code`
+</details>
+
+#### Install PlatformIO:<br>
+
+```
+$ curl -fsSL -o get-platformio.py https://raw.githubusercontent.com/platformio/platformio-core-installer/master/get-platformio.py`
+$ python3 get-platformio.py
+```
+
+Add PlatformIO tools to the path:<br>
 
 `echo "export PATH=\$PATH:/home/$USER/.platformio/penv/bin" >> ~/.profile`
 
-4. Install the udev rules found in the ESP-IDF
+#### Install udev rules
 
 This will allow for recognizing the ESP32 USB JTAG device correctly.<br>
 Source: [PlatformIO doc for 99-platformio-udev.rules](https://docs.platformio.org/en/stable/core/installation/udev-rules.html)
 
-  * `curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/system/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules`
-  * Restart udev: `sudo service udev restart`
+```
+$ curl -fsSL https://raw.githubusercontent.com/platformio/platformio-core/develop/platformio/assets/system/99-platformio-udev.rules | sudo tee /etc/udev/rules.d/99-platformio-udev.rules
+$ sudo udevadm control --reload-rules
+```
 
-5. Add user to the proper groups
-  * `sudo usermod -a -G dialout $USER`
-  * `sudo usermod -a -G plugdev $USER`
+Add user to the proper groups:
 
-NB: You must logout and back in again for this to take effect!! Otherwise, you will fail to write firmware imagesd to the device.
+```
+$ sudo usermod -a -G dialout $USER
+$ sudo groupadd plugdev
+$ sudo usermod -a -G plugdev $USER
+```
 
-6. Clone the thermostat repo
-  * `git clone https://github.com/smeisner/smart-thermostat`
+NB: You must logout and back in again for this to take effect!! Otherwise, you will fail to write firmware images to the device.
 
-In the cloned repo, go into the 'app' folder and open the VS Code workspace smart-thermostat.code-workspace. With the included platformio.ini and the board definition files, you should be able to compile and flash to an ESP32-S3:
+#### Clone the thermostat repo
+
+`git clone https://github.com/smeisner/smart-thermostat`
+
+In the cloned repo, go into the 'app' folder and open the VS Code workspace smart-thermostat.code-workspace. With the included `platformio.ini` and the board definition files, you should be able to compile and flash to an ESP32-S3:
 
 ```
 code smart-thermostat.code-workspace
@@ -83,30 +129,28 @@ code smart-thermostat.code-workspace
 
 If the above fails to launch VSCode, go to the system menu and select Visual Studio Code under Development. Then File, Open Workspace from File and navigate to the `smart-thermostat.code-workspace` file in the `app` folder.
 
-In VS Code install the PlatformIO IDE extension (you should be prompted to add it). This will lead to installing many packages the first time.ny packag needed by PlatformIO and the project will be installed. Once you see `Project has been successfully updated!`, all extra packages have been installed.
+In VS Code install the PlatformIO IDE extension (you should be prompted to add it). This will lead to installing many packages the first time. Any package needed by PlatformIO and the project will be installed. Once you see `Project has been successfully updated!`, all extra packages have been installed.
 
-### Caution: A problem with the ESP SDK/IDF and the libraries has been discovered, causing build problems.
+> [!CAUTION]
+> A problem with ESP SDK/IDF has been discovered, causing build problems.
+>
+> In the file `esp_idf_version.h`, at `~/.platformio/packages/framework-espidf/components/esp_common/include/`, redefine the following macros, at the top of the module, to the values:
+>
+> ```c
+> /** Major version number (X.x.x) */
+> #define ESP_IDF_VERSION_MAJOR 6
+> /** Minor version number (x.X.x) */
+> #define ESP_IDF_VERSION_MINOR 6
+> /** Patch version number (x.x.X) */
+> #define ESP_IDF_VERSION_PATCH 0
+> ```
+>
+> The default setup has the wrong IDF version (5.2.1), causing a number of yellow-colored warnings during build phase and a final build failure.
+>
+> Most of the warnings are: `warning: compound assignment with 'volatile'-qualified left operand is deprecated`
+> that exist in the graphics library. They are warnings that can be ignored for now, **but they have been reported and hopefully addressed soon**.
 
-In the file, `~/.platformio/packages/framework-espidf/components/esp_common/include/esp_idf_version.h`
-set the following at the top of the module:
-
-```
-/** Major version number (X.x.x) */
-#define ESP_IDF_VERSION_MAJOR 6
-/** Minor version number (x.X.x) */
-#define ESP_IDF_VERSION_MINOR 6
-/** Patch version number (x.x.X) */
-#define ESP_IDF_VERSION_PATCH 0
-```
-
-The default setup has the wrong IDF version (5.2.1). This is what was causing a number of errors.
-
-You will see a some yellow-colored warnings during build. These are:
-`warning: compound assignment with 'volatile'-qualified left operand is deprecated`
-that exist in the graphics library. They are warnings that can be ignored for now, but they have been reported and hopefully addressed soon.
-
-
-7. Plug in an ESP32-S3 based thermostat and try a build / flash via VSCode / PlatformIO!!
+Finally, plug in an ESP32-S3 based thermostat and try a build and flash the firmware via VSCode / PlatformIO!!
 
 
 ## Hints for setup & install
@@ -121,20 +165,18 @@ $ git config --global user.email johndoe@example.com
 
 Notes:
 a. Any PSRAM will be disabled. This is due to a pin conflicts on the MCU.
-b. At least 8MB is required on the ESP32-S3 SOC. Adjust the board\_build.partitions in the platformio.ini as necessary.
+b. At least 8MB is required on the ESP32-S3 SOC. Adjust the `board\_build.partitions` in the `platformio.ini` as necessary.
 
 ### Components / Libraries used
 
 ***
 
-LovyanGFX - Graphics driver for the MSP3218 TFT display and touch screen
-lvgl - Menuing system layered on top of LovyanGFX to generate screens and menus
-micro-timezonedb - Timezone database support to configure any timezone setting
-Smoothed - Tool to automatically average values over a sample period
-
-DFRobot\_AHT20 : imported class library to support the AHT20 sensor (much simpler and reliable than Adafruit's)
-
-SquareLine Studio is used to design and develop the lvgl menuing system & screens.
+**LovyanGFX** - Graphics driver for the MSP3218 TFT display and touch screen<br>
+**lvgl** - Menuing system layered on top of LovyanGFX to generate screens and menus<br>
+**micro-timezonedb** - Timezone database support to configure any timezone setting<br>
+**Smoothed** - Automatically average values over a sample period<br>
+**DFRobot_AHT20** - Class library to support the AHT20 sensor (much simpler and reliable than Adafruit's)<br>
+**SquareLine Studio** - Design and develop the lvgl menuing system & screens.
 
 ### Debugging / flashing
 
@@ -154,15 +196,15 @@ The method implemented is very crude, so be careful!
 `/dev/ttyACMx` is the ESP32
 ```
 
-<br>
-
 ### Learning the source code
 
-Start with the main.cpp file to understand the flow of the code. It is using FreeRTOS...but OS functions are used modestly, so it may not be obvious quickly. The state_machine.cpp module is the main loop of the thermosta (makes HVAC decisions and network retries). Other modules are fairly obvious.
+***
+
+Start with the `main.cpp` file to understand the flow of the code. It is using FreeRTOS...but OS functions are used modestly, so it may not be obvious quickly. The `state_machine.cpp` module is the main loop of the thermostat (makes HVAC decisions and network retries). Other modules are fairly obvious.
 
 Each module does have a brief description in the header.
 
-Matter.cpp is not yet being compiled as the SDK is not part of the environment yet.
+`matter.cpp` is not yet being compiled as the SDK is not part of the environment yet.
 
 ### Resources/Links:
 
@@ -214,7 +256,7 @@ NTP Support library
 
 Arduino ESP32 doc
 
-* [https://docs.espressif.com/_/downloads/arduino-esp32/en/latest/pdf/](https://docs.espressif.com/_/downloads/arduino-esp32/en/latest/pdf/)
+* [https://docs.espressif.com/\_/downloads/arduino-esp32/en/latest/pdf/](https://docs.espressif.com/_/downloads/arduino-esp32/en/latest/pdf/)
 
 
 #### FreeRTOS
