@@ -20,17 +20,11 @@
 #include <stdbool.h>
 #include "thermostat.hpp"
 #include "driver/gpio.h"
-#define HIGH 1
-#define LOW 0
 
 OPERATING_PARAMETERS OperatingParameters;
 extern int64_t lastTimeUpdate;
 int64_t lastWifiReconnect;
-#ifdef MQTT_ENABLED
-int64_t lastMqttReconnect = 0;
-#endif
 static bool MqttConnectCalled = false;
-
 
 struct gpio_pin_desc {
   short pin;
@@ -89,12 +83,31 @@ static void set_hvac_mode(HVAC_MODE mode)
   OperatingParameters.hvacOpMode = mode;
 }
 
-#define COND_LOG(cond, log_msg, ...)              \
-do {                                              \
-  if ((cond)) {                                   \
+#define COND_LOG(cond, log_msg, ...) ({           \
+  int __ret_on_cond = !!(cond);                   \
+  if (__ret_on_cond) {                            \
     ESP_LOGI(__FUNCTION__, log_msg, __VA_ARGS__); \
   }                                               \
-} while(0)
+  (__ret_on_cond);                                \
+})
+
+static inline float get_min_temp(OPERATING_PARAMETERS *params, bool auto_mode)
+{
+#ifdef AUTOMODE_SUPPORTED
+  if (auto_mode)
+    return params->tempSetAutoMin - (params->tempSwing / 2.0);
+#endif
+  return params->tempSet - (params->tempSwing / 2.0);
+}
+
+static inline float get_max_temp(OPERATING_PARAMETERS *params, bool auto_mode)
+{
+#ifdef AUTOMODE_SUPPORTED
+  if (auto_mode)
+    return params->tempSetAutoMax + (params->tempSwing / 2.0);
+#endif
+  return params->tempSet + (params->tempSwing / 2.0);
+}
 
 void hvacStateUpdate()
 {
@@ -104,17 +117,10 @@ void hvacStateUpdate()
   HVAC_MODE prev_mode = OperatingParameters.hvacOpMode;
 
   currentTemp = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;
-  minTemp = OperatingParameters.tempSet - (OperatingParameters.tempSwing / 2.0);
-  maxTemp = OperatingParameters.tempSet + (OperatingParameters.tempSwing / 2.0);
-
-// The following code is for later when auto mode is supported fully
-#if 0
-    autoMinTemp = OperatingParameters.tempSetAutoMin - (OperatingParameters.tempSwing / 2.0);
-    autoMaxTemp = OperatingParameters.tempSetAutoMax + (OperatingParameters.tempSwing / 2.0);
-#else
-    autoMinTemp = minTemp;
-    autoMaxTemp = maxTemp;
-#endif
+  minTemp = get_min_temp(&OperatingParameters, false);
+  maxTemp = get_max_temp(&OperatingParameters, false);
+  autoMinTemp = get_min_temp(&OperatingParameters, true);
+  autoMaxTemp = get_max_temp(&OperatingParameters, true);
 
   switch (OperatingParameters.hvacSetMode) {
   case OFF:
@@ -177,96 +183,79 @@ void hvacStateUpdate()
   }
 }
 
+static inline bool wifi_reconnect_check(OPERATING_PARAMETERS *params)
+{
+  bool ret = !(params->wifiConnected) && strlen(WifiCreds.ssid);
+#ifdef MATTER_ENABLED
+  ret = ret && !(params->MatterStarted);
+#endif
+  return ret;
+}
+
+static inline bool is_mqtt_enabled(OPERATING_PARAMETERS *params)
+{
+#ifdef MQTT_ENABLED
+  return params->MqttEnabled;
+#else
+  return false;
+#endif
+}
+
+static inline bool is_mqtt_connected(OPERATING_PARAMETERS *params)
+{
+#ifdef MQTT_ENABLED
+  return params->MqttConnected;
+#else
+  return false;
+#endif
+}
 
 void stateMachine(void *parameter)
 {
   lastTimeUpdate = millis();
   lastWifiReconnect = millis();
-#ifdef MQTT_ENABLED
-  // This will cause the first pass to make a connect attempt
-  lastMqttReconnect = MQTT_RECONNECT_DELAY * -1;
-#endif
 
-  for (;;) // infinite loop
-  {
+  for (;;) {
     // Update sensor readings
     OperatingParameters.lightDetected = readLightSensor();
+
     // Update state of motion sensor
     ld2410_loop();
 
     // Update HVAC State machine
     hvacStateUpdate();
 
-    // Check wifi
-    // Update wifi connection status
+    // Check and Update wifi connection status
     OperatingParameters.wifiConnected = WifiConnected();
+    if (wifi_reconnect_check(&OperatingParameters) &&
+        (millis() > lastWifiReconnect + WIFI_CONNECT_INTERVAL)) {
+      lastWifiReconnect = millis();
+      startReconnectTask();
+    }
 
-#ifdef MATTER_ENABLED
-    if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)) && (!OperatingParameters.MatterStarted))
-#else
-    if ((!OperatingParameters.wifiConnected) && (strlen(WifiCreds.ssid)))
-#endif
-    {
-      if (millis() > lastWifiReconnect + WIFI_CONNECT_INTERVAL)
-      {
-        lastWifiReconnect = millis();
-        startReconnectTask();
+    if (OperatingParameters.wifiConnected) {
+      if (!telnetServiceRunning())
+        telnetStart();
+
+      // Call MqttConnect() once to establish the MQTT connection.
+      if (is_mqtt_enabled(&OperatingParameters) &&
+          !is_mqtt_connected(&OperatingParameters) && !MqttConnectCalled) {
+        MqttConnectCalled = true;
+        MqttConnect();
       }
     }
-
-#ifdef TELNET_ENABLED
-    if (OperatingParameters.wifiConnected && !telnetServiceRunning())
-    {
-      telnetStart();
-    }
-#endif
 
     // Determine if it's time to update the SNTP sourced clock and
     // display the amount of available heap space.
-    if (millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL)
-    {
+    if (COND_LOG((millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL),
+                 ">>>> Heap size: %d", esp_get_free_heap_size())) {
       lastTimeUpdate = millis();
       updateTimeSntp();
-      ESP_LOGI (__FUNCTION__, ">>>> Heap size: %d", esp_get_free_heap_size());
     }
-
-#ifdef MQTT_ENABLED
-    //@@@ Must be cleaned up. This (theoretically) should only execute
-    // once to establish the MQTT connection.
-
-    if ((MqttConnectCalled == false) && (OperatingParameters.wifiConnected) && (OperatingParameters.MqttEnabled) && (!OperatingParameters.MqttConnected))
-    {
-      if (millis() > (lastMqttReconnect + MQTT_RECONNECT_DELAY))
-      {
-        lastMqttReconnect = millis();
-        if (!MqttConnectCalled)
-        {
-          MqttConnectCalled = true;
-          MqttConnect();
-        }
-      }
-    }
-#endif
-
-//@@@ Old code, but may be useful for configuring via the USB serial port...
-
-    // if (Serial.available())
-    // {
-    //   String temp = Serial.readString();
-    //   printf ("[USB] %s\n", temp);
-    //   if (temp.indexOf("reset") > -1)
-    //     ESP.restart();
-    //   // if (temp.indexOf("scan") > -1)
-    //   //   scanI2cBus();
-    //   if (temp.indexOf("temp") > -1)
-    //   {
-    //     printf ("Current Set Temp: %.1f\n", OperatingParameters.tempSet);
-    //   }
-    // }
 
     // Pause the task again for 40ms
     vTaskDelay(pdMS_TO_TICKS(40));
-  } // end for loop
+  }
 }
 
 void stateCreateTask()

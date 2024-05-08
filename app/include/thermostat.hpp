@@ -13,9 +13,7 @@
 
 #include "gpio_defs.hpp"
 
-#define HIGH 1
-#define LOW 0
-
+enum logic_levels {LOW, HIGH};
 
 /////////////////////////////////////////////////////////////////////
 //     Shared data structures
@@ -185,6 +183,10 @@ void MqttHomeAssistantDiscovery();
 esp_err_t telnetStart();
 void terminateTelnetSession();
 bool telnetServiceRunning();
+#else
+static inline esp_err_t telnetStart(void) {return ESP_FAIL;}
+static inline void terminateTelnetSession(void) {}
+static inline bool telnetServiceRunning(void) {return false;}
 #endif
 
 // State Machine
