@@ -1,0 +1,49 @@
+---
+name: CI
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - app/**
+  workflow_dispatch:
+  release:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+          save-always: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build
+        run: pio run -d app/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: app/.pio/build/esp32s3/firmware.bin
+          if-no-files-found: error
+
+      - name: Add firmware.bin to release
+        run: gh release upload ${{github.event.release.tag_name}} app/.pio/build/esp32s3/firmware.bin
+        env:
+          GITHUB_TOKEN: ${{ github.TOKEN }}
+        if: ${{startsWith(github.ref, 'refs/tags/') }}
