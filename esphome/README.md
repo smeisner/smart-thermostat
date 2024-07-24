@@ -20,5 +20,5 @@ You can achieve the above with the following snippet:
 python3 -m venv venv
 source venv/bin/activate
 pip install esphome pillow==10.2.0
-esphome run --no-logs device.yaml --device /dev/ttyACM0
+esphome run --no-logs device-v0.5.2.yaml --device /dev/ttyACM0
 ```

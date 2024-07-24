@@ -4,7 +4,7 @@ substitutions:
 
 dashboard_import:
   #package_import_url: github://smeisner/smart-thermostat/esphome/device-v0.5.2.yaml@main
-  package_import_url: github://DSpeichert/smart-thermostat/esphome/device-v0.5.2.yaml@esphome
+  package_import_url: github://DSpeichert/smart-thermostat/esphome/device-v052.yaml@esphome
   import_full_config: false
 
 esphome:
@@ -23,7 +23,7 @@ esphome:
 esp32:
   board: esp32-s3-devkitc-1
   flash_size: 16MB
-  partitions: ../default_16mb.csv
+  partitions: ../app/default_16mb.csv
   framework:
     type: esp-idf
     version: recommended
