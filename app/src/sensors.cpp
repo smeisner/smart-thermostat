@@ -33,9 +33,13 @@
 
 static const char *TAG = "SENSORS";
 
+// const char *gmt_timezones[] = 
+//   {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
+//    "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
+
 const char *gmt_timezones[] = 
-  {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
-   "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
+  {"GMT+11", "GMT+10", "GMT+9", "GMT+8", "GMT+7", "GMT+6", "GMT+5", "GMT+4", "GMT+3", "GMT+2", "GMT+1",
+   "GMT", "GMT-1", "GMT-2", "GMT-3", "GMT-4", "GMT-5", "GMT-6", "GMT-7", "GMT-8", "GMT-9", "GMT-10", "GMT-11", "GMT-12"};
 
 int64_t lastTimeUpdate = 0;
 
@@ -529,15 +533,16 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
     snprintf (gmt_tz, sizeof(gmt_tz), "GMT%s", tmp);
     ESP_LOGI (TAG, "GMT timezone: %s", gmt_tz);
 
+  // Save timezone in "GMTxxxx" format
     int i = 0;
     while ((strcmp(gmt_timezones[i], (const char *)gmt_tz) != 0) && (i < 24))
       i++;
     if (i < 24)
     {
       OperatingParameters.timezone_sel = i;
-      ESP_LOGI (TAG, "OperatingParameters.timezone_sel: %d", i);
+      ESP_LOGI (TAG, "OperatingParameters.timezone_sel: %d", OperatingParameters.timezone_sel);
       OperatingParameters.timezone = (char *)(gmt_timezones[OperatingParameters.timezone_sel]);
-      ESP_LOGI (TAG, "OperatingParameters.timezone:     %s", gmt_tz);
+      ESP_LOGI (TAG, "OperatingParameters.timezone:     %s", OperatingParameters.timezone);
     }
   }
 
