@@ -490,7 +490,7 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
   esp_err_t err;
   if ((err = esp_http_client_open(client, 0)) != ESP_OK)
   {
-    ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+    ESP_LOGE(__FUNCTION__, "Failed to open HTTP connection: %s", esp_err_to_name(err));
     free(buffer);
     return false;
   }
@@ -501,15 +501,15 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
       read_len = esp_http_client_read(client, buffer, content_length);
       if (read_len <= 0)
       {
-          ESP_LOGE(TAG, "Failure during HTTP data read");
+          ESP_LOGE(__FUNCTION__, "Failure during HTTP data read");
       }
       buffer[read_len] = 0;
-      ESP_LOGD(TAG, ">> read_len = %d", read_len);
+      ESP_LOGD(__FUNCTION__, ">> read_len = %d", read_len);
   }
-  ESP_LOGI(TAG, "HTTP Stream reader Status = %d, content_length = %ld",
+  ESP_LOGI(__FUNCTION__, "HTTP Stream reader Status = %d, content_length = %ld",
                   esp_http_client_get_status_code(client),
                   esp_http_client_get_content_length(client));
-  ESP_LOGI(TAG, "HTTP Stream Content: \"%s\"", buffer);
+  ESP_LOGI(__FUNCTION__, "HTTP Stream Content: \"%s\"", buffer);
 
   esp_http_client_close(client);
   esp_http_client_cleanup(client);
@@ -519,7 +519,7 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
 
   const char* datetime = doc["timezone"];
   // DateTime dt = parseISO8601(String(datetime));
-  ESP_LOGI (TAG, "Timezone:  %s", datetime);
+  ESP_LOGI (__FUNCTION__, "Timezone:  %s", datetime);
 
   // Generate GMT-xx format timzeone string
   {
@@ -531,7 +531,7 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
     int b = atoi(tmp);
     snprintf (tmp, sizeof(tmp), "%+d", b);
     snprintf (gmt_tz, sizeof(gmt_tz), "GMT%s", tmp);
-    ESP_LOGI (TAG, "GMT timezone: %s", gmt_tz);
+    ESP_LOGI (__FUNCTION__, "GMT timezone: %s", gmt_tz);
 
   // Save timezone in "GMTxxxx" format
     int i = 0;
@@ -540,9 +540,9 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
     if (i < 24)
     {
       OperatingParameters.timezone_sel = i;
-      ESP_LOGI (TAG, "OperatingParameters.timezone_sel: %d", OperatingParameters.timezone_sel);
+      ESP_LOGI (__FUNCTION__, "OperatingParameters.timezone_sel: %d", OperatingParameters.timezone_sel);
       OperatingParameters.timezone = (char *)(gmt_timezones[OperatingParameters.timezone_sel]);
-      ESP_LOGI (TAG, "OperatingParameters.timezone:     %s", OperatingParameters.timezone);
+      ESP_LOGI (__FUNCTION__, "OperatingParameters.timezone:     %s", OperatingParameters.timezone);
     }
   }
 
