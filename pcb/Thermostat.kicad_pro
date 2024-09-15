@@ -537,7 +537,7 @@
       "idf": "",
       "netlist": "",
       "specctra_dsn": "Thermostat.dsn.txt",
-      "step": "Thermostat V0.5.2.step",
+      "step": "Thermostat V0.6.0.step",
       "vrml": ""
     },
     "page_layout_descr_file": ""

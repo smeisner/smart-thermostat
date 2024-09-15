@@ -33,9 +33,13 @@
 
 static const char *TAG = "SENSORS";
 
+// const char *gmt_timezones[] = 
+//   {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
+//    "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
+
 const char *gmt_timezones[] = 
-  {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
-   "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
+  {"GMT+11", "GMT+10", "GMT+9", "GMT+8", "GMT+7", "GMT+6", "GMT+5", "GMT+4", "GMT+3", "GMT+2", "GMT+1",
+   "GMT", "GMT-1", "GMT-2", "GMT-3", "GMT-4", "GMT-5", "GMT-6", "GMT-7", "GMT-8", "GMT-9", "GMT-10", "GMT-11", "GMT-12"};
 
 int64_t lastTimeUpdate = 0;
 
@@ -373,7 +377,7 @@ const char *ntpServer = "pool.ntp.org";
 // const char* timezone = "Africa/Luanda";
 // const char* timezone = "America/New York";
 
-void updateTimezone()
+void updateTimezoneFromConfig()
 {
   // To save on program space, let's just
   // use GMT+/- timezones. Otherwise, there
@@ -392,6 +396,32 @@ void updateTimezone()
   setenv("TZ", tz, 1);
   tzset();
 }
+
+void updateTimezone(char *zone)
+{
+  char tz_lookup[32] = "";
+
+  // Replace all '_' chars with " "
+  for (int i=0; i <= strlen(zone); i++)
+  {
+    if (zone[i] == '_')
+      tz_lookup[i] = ' ';
+    else
+      tz_lookup[i] = zone[i];
+  }
+
+  ESP_LOGI(TAG, "** Timezone: %s", tz_lookup);
+  auto tz = lookup_posix_timezone_tz(tz_lookup);
+  if (!tz)
+  {
+    ESP_LOGE(TAG, "** Invalid Timezone: %s", tz_lookup);
+    OperatingParameters.Errors.systemErrors++;
+    return;
+  }
+  setenv("TZ", tz, 1);
+  tzset();
+}
+
 
 bool getLocalTime(struct tm * info, uint64_t ms)
 {
@@ -440,11 +470,99 @@ void configTime(const char* server)
   esp_sntp_init();
 }
 
+#include <ArduinoJson.h>
+#include "esp_http_client.h"
+#define MAX_HTTP_RECV_BUFFER 512
+
+bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
+{
+  char *timeServer = (char *)"http://worldtimeapi.org/api/ip";
+  char *buffer = (char *)malloc(MAX_HTTP_RECV_BUFFER + 1);
+  
+  esp_http_client_config_t config = {
+      .url = timeServer,
+      .path = "/"
+      // .transport_type = HTTP_TRANSPORT_OVER_SSL,
+      // .event_handler = _http_event_handler,
+      // .cert_pem = howsmyssl_com_root_cert_pem_start,
+  };
+  esp_http_client_handle_t client = esp_http_client_init(&config);
+  esp_err_t err;
+  if ((err = esp_http_client_open(client, 0)) != ESP_OK)
+  {
+    ESP_LOGE(__FUNCTION__, "Failed to open HTTP connection: %s", esp_err_to_name(err));
+    free(buffer);
+    return false;
+  }
+  int content_length =  esp_http_client_fetch_headers(client);
+  int total_read_len = 0, read_len;
+  if (total_read_len < content_length && content_length <= MAX_HTTP_RECV_BUFFER)
+  {
+      read_len = esp_http_client_read(client, buffer, content_length);
+      if (read_len <= 0)
+      {
+          ESP_LOGE(__FUNCTION__, "Failure during HTTP data read");
+      }
+      buffer[read_len] = 0;
+      ESP_LOGD(__FUNCTION__, ">> read_len = %d", read_len);
+  }
+  ESP_LOGI(__FUNCTION__, "HTTP Stream reader Status = %d, content_length = %ld",
+                  esp_http_client_get_status_code(client),
+                  esp_http_client_get_content_length(client));
+  ESP_LOGI(__FUNCTION__, "HTTP Stream Content: \"%s\"", buffer);
+
+  esp_http_client_close(client);
+  esp_http_client_cleanup(client);
+
+  JsonDocument doc;
+  deserializeJson(doc, buffer);
+
+  const char* datetime = doc["timezone"];
+  // DateTime dt = parseISO8601(String(datetime));
+  ESP_LOGI (__FUNCTION__, "Timezone:  %s", datetime);
+
+  // Generate GMT-xx format timzeone string
+  {
+    // "utc_offset":"-04:00" ===> Etc/GMT-4
+    const char *offset=doc["utc_offset"];
+    char gmt_tz[16], tmp[8] = "";
+    strncpy (tmp, offset, 3);
+    // Quick trick to remove leading zeros
+    int b = atoi(tmp);
+    snprintf (tmp, sizeof(tmp), "%+d", b);
+    snprintf (gmt_tz, sizeof(gmt_tz), "GMT%s", tmp);
+    ESP_LOGI (__FUNCTION__, "GMT timezone: %s", gmt_tz);
+
+  // Save timezone in "GMTxxxx" format
+    int i = 0;
+    while ((strcmp(gmt_timezones[i], (const char *)gmt_tz) != 0) && (i < 24))
+      i++;
+    if (i < 24)
+    {
+      OperatingParameters.timezone_sel = i;
+      ESP_LOGI (__FUNCTION__, "OperatingParameters.timezone_sel: %d", OperatingParameters.timezone_sel);
+      OperatingParameters.timezone = (char *)(gmt_timezones[OperatingParameters.timezone_sel]);
+      ESP_LOGI (__FUNCTION__, "OperatingParameters.timezone:     %s", OperatingParameters.timezone);
+    }
+  }
+
+  // Send data back to user
+  strncpy (TimeZone, datetime, MaxLen);
+
+  free(buffer);
+
+  return true;
+}
+
 void initTimeSntp()
 {
   ESP_LOGI(TAG, "Time server: %s", ntpServer);
+  char TimeZone[32];
 
-  updateTimezone();
+  if (lookupGeoIpTimezone(TimeZone, sizeof(TimeZone)))
+    updateTimezone(TimeZone);
+  else
+    updateTimezoneFromConfig();
   configTime(ntpServer);
   updateTimeSntp();
 }

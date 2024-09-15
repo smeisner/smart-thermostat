@@ -141,7 +141,7 @@ extern int64_t ui_WifiStatusLabel_timestamp;
 #endif
 #define MOTION_TIMEOUT 10000
 #define WIFI_CONNECT_INTERVAL 30000
-#define UPDATE_TIME_INTERVAL 60000
+#define UPDATE_TIME_INTERVAL 300000  //60000
 #define UI_TEXT_DELAY 3000
 
 extern const char *gmt_timezones[];
@@ -273,7 +273,7 @@ void indicatorsInit();
 void audioBeep();
 
 // SNTP Time Sync
-void updateTimezone();
+void updateTimezoneFromConfig();
 bool getLocalTime(struct tm *, uint64_t);
 void updateTimeSntp();
 
