@@ -63,7 +63,7 @@ The code is currently exceeding the usual partitioning table, so the large_app p
 
 The processor of choice is the ESP32 with 4MB FLASH.
 
-The coice to use an Espressif MCU was made since it is cheaper, smaller and more simple to integrate into the circuit. It also provides enough GPIO pins to control everything.
+The choice to use an Espressif MCU was made since it is cheaper, smaller and more simple to integrate into the circuit. It also provides enough GPIO pins to control everything.
 
 Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB. Alternatively, wifi plus Matter could be used and skip Zigbee and Thread. This is still under investigation.
 
