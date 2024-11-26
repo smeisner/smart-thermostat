@@ -27,7 +27,7 @@ Basic layout of thermostat:
 
 # December 18, 2023 Changes to MQTT and addition of telnet support
 
-Version 0.7.2 adds support for telnet and soft back light bring up (more on that later). It also fixes a handful of bugs and reliability (especially around MQT) has been dramatically increased.
+Version 0.7.2 adds support for telnet and soft back light bring up (more on that later). It also fixes a handful of bugs and reliability (especially around MQTT) has been dramatically increased.
 
 Prior to this release, the backlight would come on immediately with "full brightness" (depending on the ambient light level). Now, the logic has been updated to bring the back light up slowly to match the current room light level. Also the backlight will continue to match the detected light, so if you turn the room light on, it will match.
 
