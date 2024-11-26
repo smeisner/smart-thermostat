@@ -5,13 +5,13 @@ Main features are:
 
 * Can be integrated into a home automation system (such as Home Assistant)
 * Cloud connection not required
-* Wifi connected
-* Initial setup (e.g., Wifi credentials) configured via touch screen interface
+* WiFi connected
+* Initial setup (e.g., WiFi credentials) configured via touch screen interface
 * Will act similarly to a person's preferences when it comes to HVAC. For example:
     * the temperature set should be dependent upon local forecast
     * If the outside temp is close to the set thermostat temp, suggest opening a window
     * Detect if a window or door is open and disable the heat/AC
-* Use Matter protocol over Wifi (thermostat V2)
+* Use Matter protocol over WiFi (thermostat V2)
 * Provide local web site to control/configure thermostat
 * Allow ssh login
 * Provide diagnostic logging (rsyslog as well?)
@@ -65,7 +65,7 @@ The processor of choice is the ESP32 with 4MB FLASH.
 
 The choice to use an Espressif MCU was made since it is cheaper, smaller and more simple to integrate into the circuit. It also provides enough GPIO pins to control everything.
 
-Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB. Alternatively, Wifi plus Matter could be used and skip Zigbee and Thread. This is still under investigation.
+Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB. Alternatively, WiFi plus Matter could be used and skip Zigbee and Thread. This is still under investigation.
 
 Built onto the PCB is a SWD interface allowing GDB debugging, as well as loading firmware. 
 
@@ -258,16 +258,16 @@ General to-do:
 
 #### To be added:
 
-* [x] Wifi
+* [x] WiFi
 * [x] Web server
-* [ ] Matter over Wifi
+* [ ] Matter over WiFi
 * [x] Telnet
 * [x] OTA updates
 * [ ] Add air quality monitoring device -- Maybe a future feature
 
 #### Parameters set by user:
 
-* Wifi credentials
+* WiFi credentials
 * Location (zip code) for outdoor temp - or URI for local/private temp sensor
 * Home Assistant FQDN / IP
 * Temp swing
