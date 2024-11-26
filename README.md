@@ -45,7 +45,7 @@ Matter support is delayed until the SDK can be added as a library to PlatformIO.
 
 The thermostat app code is now 100% ESP-IDF based. All dependencies on the Arduino framework have been removed. This provides for much better control of the code and better integration with the upcoming Matter implementation.
 
-FYI: There are some libraries being used that have soem compile-time errors. These are currently being worked with the maintainers. See PR comments.
+FYI: There are some libraries being used that have some compile-time errors. These are currently being worked with the maintainers. See PR comments.
 
 FYI #2: Many details have changed with today's commit (such as the partition scheme). It is best to clear out old builds and be sure everything (ESP-IDF and libraries) are up-to-date. Details in the platformio.ini file.
 
