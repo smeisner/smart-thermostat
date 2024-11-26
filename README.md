@@ -149,7 +149,7 @@ Built into the PCB is a power supply capable of providing stable 5V DC for the p
 
 [LM2576HVT Datasheet](https://www.ti.com/general/docs/suppproductinfo.tsp?distId=10&gotoUrl=https%3A%2F%2Fwww.ti.com%2Flit%2Fgpn%2Flm2576hv)
 
-A low droput voltage regulator is incorporated into the PCB to regulate the 5V to 3v3. [AMS1117 Datasheet](http://www.advanced-monolithic.com/pdf/ds1117.pdf)
+A low dropout voltage regulator is incorporated into the PCB to regulate the 5V to 3v3. [AMS1117 Datasheet](http://www.advanced-monolithic.com/pdf/ds1117.pdf)
 
 ## Sensors
 
