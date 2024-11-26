@@ -57,7 +57,7 @@ Great progress! The processor has been selected, the ESP-32 and the user interfa
 
 FreeRTOS will be the OS. Tasks are created to drive the user interface, the state machine, the web server and reading of the sensors. The state machine will make up the primary task that runs on a continuous, low-priority loop. The user interface task, which drives the TFT is the highest priority. All other tasks will have higher priorities.
 
-The code is currently exceeding the usual partitioning table, so the large_app partition scheme was used. OTA update has not been tried sicne switching to this partition scheme, but it may now be broken. Later with an ESP32 chip with a larger FLASH should be able to handle the code and perform OTA updates.
+The code is currently exceeding the usual partitioning table, so the large_app partition scheme was used. OTA update has not been tried since switching to this partition scheme, but it may now be broken. Later with an ESP32 chip with a larger FLASH should be able to handle the code and perform OTA updates.
 
 ## MCU
 
