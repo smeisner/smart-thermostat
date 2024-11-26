@@ -31,7 +31,7 @@ Version 0.7.2 adds support for telnet and soft back light bring up (more on that
 
 Prior to this release, the backlight would come on immediately with "full brightness" (depending on the ambient light level). Now, the logic has been updated to bring the back light up slowly to match the current room light level. Also the backlight will continue to match the detected light, so if you turn the room light on, it will match.
 
-Auto reconnect in the ESP MQTT module has been enabled. Ths eliminates the responsibility for smart-thermostat to re-establish an MQTT connection if it is lost. Trying to do this manually led to race conditions and some incorrect logic assumptions. Now the built in module (from Esspressif) handles it ... and it is incredibly reliable!
+Auto reconnect in the ESP MQTT module has been enabled. This eliminates the responsibility for smart-thermostat to re-establish an MQTT connection if it is lost. Trying to do this manually led to race conditions and some incorrect logic assumptions. Now the built in module (from Esspressif) handles it ... and it is incredibly reliable!
 
 Telnet support has been added! There is no credential checking mechanism, but this is not a high security device. It could be added later by a contributor if wanted. Via telnet, a user can reconfigure the stat, monitoring the logging output, reboot and check on stats & error counts.
 
