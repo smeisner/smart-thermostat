@@ -33,7 +33,7 @@ Prior to this release, the backlight would come on immediately with "full bright
 
 Auto reconnect in the ESP MQTT module has been enabled. Ths eliminates the responsibility for smart-thermostat to re-establish an MQTT connection if it is lost. Trying to do this manually led to race conditions and some incorrect logic assumptions. Now the built in module (from Esspressif) handles it ... and it is incredibly reliable!
 
-Telnet support has been added! There is no credential checking mechanism, but this is not a high security device. It could be added later by a contributor if wanted. Via telnet, a user can reconfigure the stat, monitoring th elogging output, reboot and check on stats & error counts.
+Telnet support has been added! There is no credential checking mechanism, but this is not a high security device. It could be added later by a contributor if wanted. Via telnet, a user can reconfigure the stat, monitoring the logging output, reboot and check on stats & error counts.
 
 # October 4, 2023 addition of Matter support
 
