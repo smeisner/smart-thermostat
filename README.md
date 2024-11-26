@@ -136,7 +136,7 @@ etc...
 
 The TFT display chosen is the [MSP3218](http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218) with the ILI9341 TFT driver and the XPT2046 touch controller. LVGL supports this display nicely (see lvgl_conf.h). The 3.2" screen is a bit tight for all menus and controls, but with a stylus, it is fine ... might be tough with a finger.
 
-SquareLine Sudio designed screens:<br>
+SquareLine Studio designed screens:<br>
 <img src="./assets/thermostat-main.png">
 <img src="./assets/thermostat-info.png">
 <img src="./assets/thermostat-setup.png">
