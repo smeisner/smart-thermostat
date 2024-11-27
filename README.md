@@ -5,13 +5,13 @@ Main features are:
 
 * Can be integrated into a home automation system (such as Home Assistant)
 * Cloud connection not required
-* Wifi connected
-* Initial setup (e.g., wifi credentials) configured via touch screen interface
+* WiFi connected
+* Initial setup (e.g., WiFi credentials) configured via touch screen interface
 * Will act similarly to a person's preferences when it comes to HVAC. For example:
     * the temperature set should be dependent upon local forecast
     * If the outside temp is close to the set thermostat temp, suggest opening a window
     * Detect if a window or door is open and disable the heat/AC
-* Use Matter protocol over wifi (thermostat V2)
+* Use Matter protocol over WiFi (thermostat V2)
 * Provide local web site to control/configure thermostat
 * Allow ssh login
 * Provide diagnostic logging (rsyslog as well?)
@@ -27,13 +27,13 @@ Basic layout of thermostat:
 
 # December 18, 2023 Changes to MQTT and addition of telnet support
 
-Version 0.7.2 adds support for telnet and soft back light bring up (more on that later). It also fixes a handful of bugs and reliability (especially around MQT) has been dramatically increased.
+Version 0.7.2 adds support for telnet and soft backlight bring up (more on that later). It also fixes a handful of bugs and reliability (especially around MQTT) has been dramatically increased.
 
-Prior to this release, the backlight would come on immediately with "full brightness" (depending on the ambient light level). Now, the logic has been updated to bring the back light up slowly to match the current room light level. Also the backlight will continue to match the detected light, so if you turn the room light on, it will match.
+Prior to this release, the backlight would come on immediately with "full brightness" (depending on the ambient light level). Now, the logic has been updated to bring the backlight up slowly to match the current room light level. Also the backlight will continue to match the detected light, so if you turn the room light on, it will match.
 
-Auto reconnect in the ESP MQTT module has been enabled. Ths eliminates the responsibility for smart-thermostat to re-establish an MQTT connection if it is lost. Trying to do this manually led to race conditions and some incorrect logic assumptions. Now the built in module (from Esspressif) handles it ... and it is incredibly reliable!
+Auto reconnect in the ESP MQTT module has been enabled. This eliminates the responsibility for smart-thermostat to re-establish an MQTT connection if it is lost. Trying to do this manually led to race conditions and some incorrect logic assumptions. Now the built-in module (from Esspressif) handles it ... and it is incredibly reliable!
 
-Telnet support has been added! There is no credential checking mechanism, but this is not a high security device. It could be added later by a contributor if wanted. Via telnet, a user can reconfigure the stat, monitoring th elogging output, reboot and check on stats & error counts.
+Telnet support has been added! There is no credential checking mechanism, but this is not a high security device. It could be added later by a contributor if wanted. Via telnet, a user can reconfigure the stat, monitoring the logging output, reboot and check on stats & error counts.
 
 # October 4, 2023 addition of Matter support
 
@@ -45,7 +45,7 @@ Matter support is delayed until the SDK can be added as a library to PlatformIO.
 
 The thermostat app code is now 100% ESP-IDF based. All dependencies on the Arduino framework have been removed. This provides for much better control of the code and better integration with the upcoming Matter implementation.
 
-FYI: There are some libraries being used that have soem compile-time errors. These are currently being worked with the maintainers. See PR comments.
+FYI: There are some libraries being used that have some compile-time errors. These are currently being worked with the maintainers. See PR comments.
 
 FYI #2: Many details have changed with today's commit (such as the partition scheme). It is best to clear out old builds and be sure everything (ESP-IDF and libraries) are up-to-date. Details in the platformio.ini file.
 
@@ -55,17 +55,17 @@ Great progress! The processor has been selected, the ESP-32 and the user interfa
 
 ## Operating environment
 
-FreeRTOS will be the OS. Tasks are created to drive the user interface, the statemachine, the web server and reading of the sensors. The state machine will make up the primary task that runs on a continuous, low-priority loop. The user interface task, which drives the TFT is the highest priority. All other tasks will have higher priorities.
+FreeRTOS will be the OS. Tasks are created to drive the user interface, the state machine, the web server and reading of the sensors. The state machine will make up the primary task that runs on a continuous, low-priority loop. The user interface task, which drives the TFT is the highest priority. All other tasks will have higher priorities.
 
-The code is currently exceeding the usual partitioning table, so the large_app partition scheme was used. OTA update has not been tried sicne switching to this partition scheme, but it may now be broken. Later with an ESP32 chip with a larger FLASH should be able to handle the code and perform OTA updates.
+The code is currently exceeding the usual partitioning table, so the large_app partition scheme was used. OTA update has not been tried since switching to this partition scheme, but it may now be broken. Later with an ESP32 chip with a larger FLASH should be able to handle the code and perform OTA updates.
 
 ## MCU
 
 The processor of choice is the ESP32 with 4MB FLASH.
 
-The coice to use an Espressif MCU was made since it is cheaper, smaller and more simple to integrate into the circuit. It also provides enough GPIO pins to control everything.
+The choice to use an Espressif MCU was made since it is cheaper, smaller and more simple to integrate into the circuit. It also provides enough GPIO pins to control everything.
 
-Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB. Alternatively, wifi plus Matter could be used and skip Zigbee and Thread. This is still under investigation.
+Eventually, the ESP32-C6 will be used as it has support for [802.15.4 (Zigbee / Thread)](https://en.wikipedia.org/wiki/IEEE_802.15.4). But it does not have enough GPIO pins, so a multiplexer must be added to the PCB. Alternatively, WiFi plus Matter could be used and skip Zigbee and Thread. This is still under investigation.
 
 Built onto the PCB is a SWD interface allowing GDB debugging, as well as loading firmware. 
 
@@ -136,7 +136,7 @@ etc...
 
 The TFT display chosen is the [MSP3218](http://www.lcdwiki.com/3.2inch_SPI_Module_ILI9341_SKU:MSP3218) with the ILI9341 TFT driver and the XPT2046 touch controller. LVGL supports this display nicely (see lvgl_conf.h). The 3.2" screen is a bit tight for all menus and controls, but with a stylus, it is fine ... might be tough with a finger.
 
-SquareLine Sudio designed screens:<br>
+SquareLine Studio designed screens:<br>
 <img src="./assets/thermostat-main.png">
 <img src="./assets/thermostat-info.png">
 <img src="./assets/thermostat-setup.png">
@@ -149,7 +149,7 @@ Built into the PCB is a power supply capable of providing stable 5V DC for the p
 
 [LM2576HVT Datasheet](https://www.ti.com/general/docs/suppproductinfo.tsp?distId=10&gotoUrl=https%3A%2F%2Fwww.ti.com%2Flit%2Fgpn%2Flm2576hv)
 
-A low droput voltage regulator is incorporated into the PCB to regulate the 5V to 3v3. [AMS1117 Datasheet](http://www.advanced-monolithic.com/pdf/ds1117.pdf)
+A low dropout voltage regulator is incorporated into the PCB to regulate the 5V to 3v3. [AMS1117 Datasheet](http://www.advanced-monolithic.com/pdf/ds1117.pdf)
 
 ## Sensors
 
@@ -258,16 +258,16 @@ General to-do:
 
 #### To be added:
 
-* [x] Wifi
+* [x] WiFi
 * [x] Web server
-* [ ] Matter over wifi
+* [ ] Matter over WiFi
 * [x] Telnet
 * [x] OTA updates
 * [ ] Add air quality monitoring device -- Maybe a future feature
 
 #### Parameters set by user:
 
-* Wifi credentials
+* WiFi credentials
 * Location (zip code) for outdoor temp - or URI for local/private temp sensor
 * Home Assistant FQDN / IP
 * Temp swing
