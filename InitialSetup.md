@@ -23,3 +23,5 @@ Once you return to the main screeen, go back into setup:
   1. Tap SETUP
   2. Check the box next to MQTT Enable
   3. Tap SAVE
+
+NOTE: Using the telnet console, you can use the `config` command to go thru all of the configuration parameters, including setting the MQTT port. So it can be changed using this method.
