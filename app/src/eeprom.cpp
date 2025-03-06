@@ -342,6 +342,10 @@ void setDefaultThermostatParams()
   OperatingParameters.thermostatSleepTime = DEF_SLEEP_TIME;
   OperatingParameters.timezone_sel = DEF_TZ_SEL;
   OperatingParameters.thermostatBeepEnable = DEF_BEEP_ENABLE;
+  OperatingParameters.hvacCoolEnable = DEF_HVAC_COOL_ENABLE;
+  OperatingParameters.hvacFanEnable = DEF_HVAC_FAN_ENABLE;
+  OperatingParameters.hvac2StageHeatEnable = DEF_HVAC_2STAGE_ENABLE;
+  OperatingParameters.hvacReverseValveEnable = DEF_HVAC_REVERSE_ENABLE;
 #ifdef MQTT_ENABLED
   OperatingParameters.MqttEnabled = DEF_MQTT_ENABLE;
   strncpy (OperatingParameters.MqttBrokerHost, DEF_MQTT_BROKER, sizeof(OperatingParameters.MqttBrokerHost));
