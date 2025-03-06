@@ -148,8 +148,8 @@ void WiFi_ScanSSID(void)
   }
 
   esp_wifi_scan_start(&scan_config, true);
-  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
   wifiScanActive = false;
   ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
   if (ap_count == 0)
