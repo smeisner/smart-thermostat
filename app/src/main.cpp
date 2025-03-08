@@ -37,7 +37,7 @@ int64_t millis() { return esp_timer_get_time() / 1000;}
 void app_main()
 {
   // Set default log level for all components
-  esp_log_level_set("*", ESP_LOG_INFO);
+  esp_log_level_set("*", ESP_LOG_WARN);
 
   ESP_LOGI (TAG, "IDF version: %s", esp_get_idf_version());
   ESP_LOGD (TAG, "- Free memory: %d bytes", esp_get_free_heap_size());
