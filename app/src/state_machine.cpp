@@ -183,13 +183,22 @@ void hvacStateUpdate()
   }
 }
 
-static inline bool wifi_reconnect_check(OPERATING_PARAMETERS *params)
+// static inline bool wifi_reconnect_check(OPERATING_PARAMETERS *params)
+static bool wifi_reconnect_check(OPERATING_PARAMETERS *params)
 {
-  bool ret = !(params->wifiConnected) && strlen(WifiCreds.ssid);
+  bool ret = ( !(params->wifiConnected) && strlen(WifiCreds.ssid) && WifiStarted() ) ||
+                WifiRestartPending();
 #ifdef MATTER_ENABLED
   ret = ret && !(params->MatterStarted);
 #endif
-  return ret;
+  if (ret == true)
+  {
+    ESP_LOGE("TEST", "wifi reconnect check:\n");
+    ESP_LOGE("TEST", "params->wifiConnected) = %d\nstrlen(WifiCreds.ssid) = %d\nWifiStarted() = %d\nWifiRestartPending() = %d\n",
+      params->wifiConnected, strlen(WifiCreds.ssid), WifiStarted(), WifiRestartPending());
+  
+  }
+return ret;
 }
 
 static inline bool is_mqtt_enabled(OPERATING_PARAMETERS *params)
@@ -227,8 +236,9 @@ void stateMachine(void *parameter)
 
     // Check and Update wifi connection status
     OperatingParameters.wifiConnected = WifiConnected();
-    if (wifi_reconnect_check(&OperatingParameters) &&
-        (millis() > lastWifiReconnect + WIFI_CONNECT_INTERVAL)) {
+    if ((millis() > lastWifiReconnect + WIFI_CONNECT_INTERVAL) &&
+        (wifi_reconnect_check(&OperatingParameters)))
+    {
       lastWifiReconnect = millis();
       startReconnectTask();
     }
