@@ -1,6 +1,7 @@
 const char webUI[] = R"=====(
 <html>
 <meta content="width=device-width,initial-scale=1"name=viewport>
+<link rel="icon" href="data:,">
 <title>Truly Smart Thermostat</title>
 <style>body{background-color:#303030;font-family:Arial,Helvetica,Sans-Serif;Color:#cacaca}
 a{color:#006eff}h2{padding:0;margin:0}.mr{margin:10px}.pd{padding:10px}
