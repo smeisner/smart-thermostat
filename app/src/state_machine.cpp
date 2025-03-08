@@ -183,21 +183,13 @@ void hvacStateUpdate()
   }
 }
 
-// static inline bool wifi_reconnect_check(OPERATING_PARAMETERS *params)
-static bool wifi_reconnect_check(OPERATING_PARAMETERS *params)
+static inline bool wifi_reconnect_check(OPERATING_PARAMETERS *params)
 {
   bool ret = ( !(params->wifiConnected) && strlen(WifiCreds.ssid) && WifiStarted() ) ||
                 WifiRestartPending();
 #ifdef MATTER_ENABLED
   ret = ret && !(params->MatterStarted);
 #endif
-  if (ret == true)
-  {
-    ESP_LOGE("TEST", "wifi reconnect check:\n");
-    ESP_LOGE("TEST", "params->wifiConnected) = %d\nstrlen(WifiCreds.ssid) = %d\nWifiStarted() = %d\nWifiRestartPending() = %d\n",
-      params->wifiConnected, strlen(WifiCreds.ssid), WifiStarted(), WifiRestartPending());
-  
-  }
 return ret;
 }
 
