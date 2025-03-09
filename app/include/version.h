@@ -1,7 +1,7 @@
 
 #define VERSION_MAJOR 0
-#define VERSION_MINOR 7
-#define VERSION_BUILD 4
+#define VERSION_MINOR 8
+#define VERSION_BUILD 0
 
 #define VERSION_BUILD_DATE __DATE__
 #define VERSION_BUILD_TIME __TIME__
