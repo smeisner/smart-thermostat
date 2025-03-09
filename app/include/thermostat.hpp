@@ -218,7 +218,6 @@ bool WifiStarted();
 bool WifiRestartPending();
 bool WifiConnected();
 void WifiDisconnect();
-//bool wifiReconnect(const char *hostname, const char *ssid, const char *pass);
 void startReconnectTask();
 uint16_t WifiSignal();
 char *WifiAddress();
@@ -233,6 +232,7 @@ HVAC_MODE strToHvacMode(char *mode);
 HVAC_MODE convertSelectedHvacMode();
 void setHvacModesDropdown();
 #ifdef MQTT_ENABLED
+const char *hvacModeToMqttOpMode(HVAC_MODE mode);
 const char *hvacModeToMqttCurrMode(HVAC_MODE mode);
 #endif
 const char *hvacModeToString(HVAC_MODE mode);
@@ -255,15 +255,12 @@ void tftDimDisplay();
 
 // Sensors
 void updateHvacMode(HVAC_MODE mode);
+void updateEnabledHvacModes();
 void updateHvacSetTemp(float setTemp);
 // float roundValue(float value, int places = 0);
 float roundValue(float value, int places);
 float getRoundedFrac(float value);
 void initTimeSntp();
-// int degCfrac(float tempF);
-// int tempOut(float tempF);
-// float tempIn(float tempC);
-// float degFtoC(float degF);
 void resetTempSmooth();
 void sensorsInit();
 void initRelays();

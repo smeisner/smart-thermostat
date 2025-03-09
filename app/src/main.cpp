@@ -70,7 +70,6 @@ void app_main()
     // wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
     WifiStart(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password);
 
-
 #ifdef MQTT_ENABLED
   // Start Matter
   ESP_LOGI (TAG, "Starting MQTT");

@@ -120,8 +120,6 @@ void audioBeep()
 
 void initRelays()
 {
-  vTaskDelay(pdMS_TO_TICKS(250));
-
   gpio_set_direction((gpio_num_t)HVAC_HEAT_PIN, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
   // gpio_reset_pin((gpio_num_t)HVAC_HEAT_PIN);

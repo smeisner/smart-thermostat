@@ -108,9 +108,19 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     terminateTelnetSession();
 #endif
   else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
-    OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable;
+  {
+    OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable; 
+    #ifdef MQTT_ENABLED
+    updateEnabledHvacModes();
+    #endif
+  }
   else if (!strncmp(content, "hvacFanEnable", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.hvacFanEnable = !OperatingParameters.hvacFanEnable;
+    #ifdef MQTT_ENABLED
+    updateEnabledHvacModes();
+    #endif
+  }
   else if (!strncmp(content, "swingUp", BUTTON_CONTENT_SIZE))
   {
     OperatingParameters.tempSwing = enforceRange(OperatingParameters.tempSwing + 0.1, 0.0, 6.0);
@@ -132,9 +142,19 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     eepromUpdateArbFloat("setTempCorr", OperatingParameters.tempCorrection);
   }
   else if (!strncmp(content, "twoStageEnable", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.hvac2StageHeatEnable = !OperatingParameters.hvac2StageHeatEnable;
+    #ifdef MQTT_ENABLED
+    updateEnabledHvacModes();
+    #endif
+  }
   else if (!strncmp(content, "reverseEnable", BUTTON_CONTENT_SIZE))
+  {
     OperatingParameters.hvacReverseValveEnable = !OperatingParameters.hvacReverseValveEnable;
+    #ifdef MQTT_ENABLED
+    updateEnabledHvacModes();
+    #endif
+  }
   else if (!strncmp(content, "unitToggle", BUTTON_CONTENT_SIZE)) {
     if (OperatingParameters.tempUnits == 'F') {
       OperatingParameters.tempSet = (OperatingParameters.tempSet - 32.0) / (9.0/5.0);

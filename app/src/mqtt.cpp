@@ -196,7 +196,6 @@ void MqttUpdateStatusTopic()
   if (OperatingParameters.MqttEnabled && OperatingParameters.MqttConnected)
   {
     std::string mode = hvacModeToString(OperatingParameters.hvacSetMode);
-    std::string curr_mode = hvacModeToMqttCurrMode(OperatingParameters.hvacOpMode);
     JsonDocument payload;
 
     static char txt[16];
@@ -210,8 +209,7 @@ void MqttUpdateStatusTopic()
     makeLower(mode.c_str());
     payload["Mode"] = mode;
 
-    makeLower(curr_mode.c_str());
-    payload["CurrMode"] = curr_mode;
+    payload["CurrMode"] = hvacModeToMqttCurrMode(OperatingParameters.hvacOpMode);
 
     if (OperatingParameters.hvacSetMode == AUTO)
     {
@@ -324,7 +322,7 @@ void MqttHomeAssistantStatDiscovery()
 
     // serializeJsonPretty(payload, writer);
     serializeJson(payload, strPayload);
-    ESP_LOGI (TAG, "Payload: %s", strPayload.c_str());
+    ESP_LOGI (TAG, "MQTT Payload: %s", strPayload.c_str());
 
     xEventGroupClearBits (s_mqtt_event_group, MQTT_EVENT_PUB_BIT | MQTT_ERROR_BIT);
 
@@ -338,10 +336,16 @@ void MqttHomeAssistantStatDiscovery()
 
     if (bits & MQTT_ERROR_BIT)
     {
-      ESP_LOGE(TAG, "Publish failed");
+      ESP_LOGE(TAG, "MQTT Publish failed");
       OperatingParameters.Errors.mqttProtocolErrors++;
     }
   }
+}
+
+// Public API to resend MQTT discovery (like when enabled modes change)
+void updateEnabledHvacModes()
+{
+  MqttHomeAssistantStatDiscovery();
 }
 
 void MqttSensorDiscovery()
@@ -353,7 +357,7 @@ void MqttSensorDiscovery()
 
   if (!OperatingParameters.MqttEnabled || !OperatingParameters.MqttConnected)
   {
-    ESP_LOGE(TAG, "Sensor: MQTT not enabled or not connected!");
+    ESP_LOGE(TAG, "SensorDiscovery: MQTT not enabled or not connected!");
     OperatingParameters.Errors.mqttConnectErrors++;
     return;
   }
@@ -437,57 +441,6 @@ void MqttSubscribeTopic(esp_mqtt_client_handle_t client, std::string topic)
   }
 }
 
-// bool MqttReconnect(void)
-// {
-// 	ESP_LOGI(__FUNCTION__, "Reconnecting to MQTT broker");
-//   xEventGroupClearBits (s_mqtt_event_group, MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT);
-//   esp_err_t err;
-
-//   if (OperatingParameters.MqttClient == 0)
-//   {
-//     ESP_LOGE(TAG, "MQTT Client not yet defined!");
-//     return false;
-//   }
-
-//   err = esp_mqtt_client_reconnect((esp_mqtt_client_handle_t)(OperatingParameters.MqttClient));
-//   if (err != ESP_OK)
-//   {
-//     ESP_LOGE(TAG, "Failed to reconnect client: 0x%x", err);
-//     if (err == ESP_FAIL) ESP_LOGE(TAG, "ESP_FAIL");
-//     if (err == ESP_ERR_INVALID_ARG) ESP_LOGE(TAG, "ESP_ERR_INVALID_ARG");
-//     OperatingParameters.Errors.mqttConnectErrors++;
-//     // esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
-//     // esp_mqtt_client_destroy(client);
-//     return false;
-//   }
-
-//   EventBits_t bits = xEventGroupWaitBits(s_mqtt_event_group,
-//       MQTT_EVENT_CONNECTED_BIT | MQTT_ERROR_BIT | MQTT_EVENT_DISCONNECTED_BIT,
-//       pdFALSE,
-//       pdFALSE,
-//       xTicksToWait);
-
-//   // bits == 0 means timeout
-//   if ((bits == 0) || (bits & MQTT_ERROR_BIT) || (bits & MQTT_EVENT_DISCONNECTED_BIT))
-//   {
-//     ESP_LOGE (TAG, "MQTT Reconnect failed");
-//     // esp_mqtt_client_stop(client); // Commented out since connect never worked
-//     OperatingParameters.Errors.mqttConnectErrors++;
-//     // ESP_LOGW(TAG, "Removing MQTT data structures");
-//     // esp_mqtt_client_unregister_event(client, MQTT_EVENT_ANY, MqttEventHandler);
-//     // esp_mqtt_client_destroy(client);
-//     return false;
-//   }
-
-//   if (bits & MQTT_EVENT_CONNECTED_BIT)
-//   {
-//     // Send discovery packet to let all listeners know we have arrived
-//     MqttHomeAssistantDiscovery();
-//   }
-
-//   return true;
-// }
-
 bool MqttConnect(void)
 {
 	ESP_LOGI(__FUNCTION__, "Connecting to MQTT broker");
@@ -506,7 +459,7 @@ bool MqttConnect(void)
   // ESP_LOGI(TAG, "Password:  %s", OperatingParameters.MqttBrokerPassword);
   mqtt_cfg.broker.address.uri = host.c_str();
   mqtt_cfg.credentials.username = OperatingParameters.MqttBrokerUsername;
-  mqtt_cfg.credentials.set_null_client_id = true;
+  mqtt_cfg.credentials.client_id = OperatingParameters.DeviceName;
   mqtt_cfg.credentials.authentication.password = OperatingParameters.MqttBrokerPassword;
 
   // Make MQTT subsystem auto reconnect when disconnects happen
@@ -596,7 +549,7 @@ void MqttInit()
     g_mqttSensorStatusTopic = g_deviceName + "/motion";
     OperatingParameters.MqttConnected = false;
 
-    if (!OperatingParameters.MqttEnabled)
+    if (OperatingParameters.MqttEnabled == false)
     {
         ESP_LOGW(TAG, "MQTT is not enabled!");
         // No need to count this as an error
@@ -604,7 +557,7 @@ void MqttInit()
 
     if (!WifiConnected())
     {
-        ESP_LOGW(TAG, "*** WARNING: Attempting to start MQTT when wifi connection down!! ***");
+        ESP_LOGW(TAG, "*** WARNING: Starting MQTT when wifi connection down!! ***");
         OperatingParameters.Errors.mqttConnectErrors++;
     }
 }
