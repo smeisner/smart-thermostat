@@ -63,6 +63,7 @@ typedef struct
     char FriendlyName[32];
     char DeviceName[32];
     uint8_t mac[6];
+    char ld2410FirmWare[24];
     HVAC_MODE hvacOpMode;
     HVAC_MODE hvacSetMode;
     float tempSet;
@@ -124,6 +125,8 @@ typedef struct
     bool if_init;
     /* Indicates esp_wifi_start() has been called */
     bool wifi_started;
+    /* A wifi reconnect has been requested */
+    bool reconnect_requested;
     /* Indicates active wifi connection to AP established */
     bool Connected;
     /* IP address fetched when AP connect happened */
@@ -211,6 +214,8 @@ void webStart();
 void WifiSetHostname(const char *hostname);
 void WifiSetCredentials(const char *ssid, const char *pass);
 bool WifiStart(const char *hostname, const char *ssid, const char *pass);
+bool WifiStarted();
+bool WifiRestartPending();
 bool WifiConnected();
 void WifiDisconnect();
 //bool wifiReconnect(const char *hostname, const char *ssid, const char *pass);

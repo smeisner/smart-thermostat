@@ -126,6 +126,8 @@ void StartWifiScan(lv_event_t * e)
   networkScanner();
 }
 
+extern bool wifiScanActive;
+
 void stopWifiScan(lv_event_t * e)
 {
   if (ntScanTaskHandler != NULL)
@@ -136,6 +138,7 @@ void stopWifiScan(lv_event_t * e)
   lv_label_set_text(ui_WifiStatusLabel, "Scan Aborted");
   ui_WifiStatusLabel_timestamp = millis();
   lv_obj_clear_state(ui_ScanBtn, LV_STATE_DISABLED);
+  wifiScanActive = false;
 }
 
 #define LABEL_COLOR "#850808"

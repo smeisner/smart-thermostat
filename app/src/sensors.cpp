@@ -176,11 +176,20 @@ bool ld2410_init()
         radar.firmware_minor_version,
         radar.firmware_bugfix_version
         );
+      snprintf (OperatingParameters.ld2410FirmWare, sizeof(OperatingParameters.ld2410FirmWare),
+        "%u.%02u.%08x",
+        radar.firmware_major_version,
+        radar.firmware_minor_version,
+        radar.firmware_bugfix_version
+        );
     }
     else
     {
       ESP_LOGE(TAG, "LD2410: Failed to read firmware version\n");
       OperatingParameters.Errors.hardwareErrors++;
+      snprintf (OperatingParameters.ld2410FirmWare,
+        sizeof(OperatingParameters.ld2410FirmWare),
+        "-.--.--------");
     }
 
     if (radar.requestCurrentConfiguration())
@@ -445,10 +454,34 @@ bool getLocalTime(struct tm * info, uint64_t ms)
   return false;
 }
 
+static time_t last_time = (time_t)-1;
+
 void updateTimeSntp()
 {
   struct tm local_time;
   char buffer[16];
+  double diff_t;
+
+  time_t end = time(NULL);
+  if ((last_time != (time_t)-1) && (end != (time_t)-1))
+  {
+    diff_t = difftime(end, last_time);
+    // if (diff_t > 0.0)
+    // {
+    //   ESP_LOGW(TAG, "  Time changed by %f seconds", diff_t);
+    // }
+
+    // If the time changed more than UPDATE_TIME_INTERVAL seconds ... plus a fudge factor (10 seconds)
+    if (diff_t > ((double)(UPDATE_TIME_INTERVAL) / 1000.0) + 10.0)
+    {
+      // To calculate the actual time adjustment, we need to subtract the
+      // polling interval as defined by UPDATE_TIME_INTERVAL.
+      ESP_LOGE(TAG, ">>  Time changed by %.1f seconds! <<", 
+        (diff_t - ((double)(UPDATE_TIME_INTERVAL) / 1000.0)));
+      ESP_LOGE(TAG, "Prior current time: %s", asctime(gmtime(&last_time)));
+      ESP_LOGE(TAG, "New current time:   %s", asctime(gmtime(&end)));
+    }
+  }
 
   if (OperatingParameters.wifiConnected)
   {
@@ -459,6 +492,8 @@ void updateTimeSntp()
       ESP_LOGI(TAG, "Current time: %s", buffer);
     }
   }
+
+  last_time = time(NULL);
 }
 
 void configTime(const char* server)

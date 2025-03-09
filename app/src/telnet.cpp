@@ -54,6 +54,8 @@
 #include "telnet.h"
 #include "version.h"
 
+#include <esp_heap_caps.h>
+
 // Implemented in web.cpp
 float doTempUp(void);
 float doTempDown(void);
@@ -88,10 +90,12 @@ static int serverSocket=0;
 typedef enum
 {
   HELP = 0,
+  HELP_2,
   CONFIG,
   TEMP_UP,
   TEMP_DOWN,
   TEMP_SET,
+  LOG_LEVEL,
   MODE_SET,
   MONITOR_LOG,
   STATUS,
@@ -102,7 +106,7 @@ typedef enum
 } CMD;
 
 // List of valid command strings
-const char *cmdStrings[] = {"HELP", "CONFIG", "UP", "DOWN", "TEMP", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "QUIT", NULL};
+const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "LOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "QUIT", NULL};
 
 #define min(x, y) ((x > y) ? y : x)
 
@@ -230,6 +234,8 @@ void DisplayStatus()
   telnet_esp32_printf("Firmware version: %s\n", VersionString);
   telnet_esp32_printf("Firmware build date: %s\n", VersionBuildDateTime);
 
+  telnet_esp32_printf("LD2410 Firmware: %s\n", OperatingParameters.ld2410FirmWare);
+
   telnet_esp32_printf("Device name: %s\n", OperatingParameters.DeviceName);
   telnet_esp32_printf("Friendly name: %s\n", OperatingParameters.FriendlyName);
 
@@ -242,7 +248,11 @@ void DisplayStatus()
                         (int)(uptime / 1000L) % 60);               // seconds
   }
 
+  uint32_t freeHeapBytes = heap_caps_get_free_size(MALLOC_CAP_DEFAULT);
+  uint32_t totalHeapBytes = heap_caps_get_total_size(MALLOC_CAP_DEFAULT);
+  float percentageHeapFree = freeHeapBytes * 100.0f / (float)totalHeapBytes;
   telnet_esp32_printf ("Free Heap size: %d\n", esp_get_free_heap_size());
+  telnet_esp32_printf ("[Memory] %.1f%% free - %d of %d bytes free\n", percentageHeapFree, freeHeapBytes, totalHeapBytes);
 
   telnet_esp32_printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
                       OperatingParameters.mac[0],
@@ -279,11 +289,11 @@ void DisplayStatus()
   telnet_esp32_printf("Matter Started: %s\n", (OperatingParameters.MatterStarted) ? "Yes" : "No");
 #endif
 
-  telnet_esp32_printf("Current temp: %.1f %c (Correction: %.1f)\n",
+  telnet_esp32_printf("Current temp: %.1f %c (Correction: %+.1f)\n",
                       OperatingParameters.tempCurrent + OperatingParameters.tempCorrection,
                       OperatingParameters.tempUnits,
                       OperatingParameters.tempCorrection);
-  telnet_esp32_printf("Current humidity: %.1f%% (Correction: %.1f)\n",
+  telnet_esp32_printf("Current humidity: %.1f%% (Correction: %+.1f)\n",
                       OperatingParameters.humidCurrent + OperatingParameters.humidityCorrection,
                       OperatingParameters.humidityCorrection);
   telnet_esp32_printf("Target temp: %.1f %c\n", OperatingParameters.tempSet);
@@ -350,14 +360,14 @@ void doConfiguration(int sock)
   if ((len) && (len < sizeof(buffer)))
     OperatingParameters.tempSwing = atof(buffer);
 
-  telnet_esp32_printf("Temperature correction [%.1f]: ", OperatingParameters.tempCorrection);
+  telnet_esp32_printf("Temperature correction [%+.1f]: ", OperatingParameters.tempCorrection);
   len = recv(sock, buffer, sizeof(buffer), 0);
   len -= 2;
   buffer[len] = '\0';
   if ((len) && (len < sizeof(buffer)))
     OperatingParameters.tempCorrection = atof(buffer);
 
-  telnet_esp32_printf("Humidity correction [%.1f]: ", OperatingParameters.humidityCorrection);
+  telnet_esp32_printf("Humidity correction [%+.1f]: ", OperatingParameters.humidityCorrection);
   len = recv(sock, buffer, sizeof(buffer), 0);
   len -= 2;
   buffer[len] = '\0';
@@ -549,12 +559,14 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
   switch (lookupCommnd((char *)buffer, size))
   {
   case HELP:
+  case HELP_2:
     telnet_esp32_printf("Valid commands:\n");
     telnet_esp32_printf("  Config:      Change configuration\n");
     telnet_esp32_printf("  Help:        This!\n");
     telnet_esp32_printf("  Up:          Increase set temp\n");
     telnet_esp32_printf("  Down:        Decrease set temp\n");
     telnet_esp32_printf("  Temp <temp>: Set arbitrary temp\n");
+    telnet_esp32_printf("  Log <level>: Set log level for serial console\n");
     telnet_esp32_printf("  Mode <mode>: Set operating mode\n");
     telnet_esp32_printf("  Monitor:     Monitor log output\n");
     telnet_esp32_printf("  Status:      Dump status counters\n");
@@ -579,6 +591,36 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     i = atoi(ptr);
     telnet_esp32_printf("Set temperature to %d\n", i);
     updateHvacSetTemp((float)i);
+    break;
+  case LOG_LEVEL:
+    ptr = strchr((char *)buffer, (int)' ');
+    ptr++; // Move past ' '
+    switch (*ptr)
+    {
+      case 'E':
+      case 'e':
+        esp_log_level_set("*", ESP_LOG_ERROR);
+        telnet_esp32_printf("Log level set to ERROR\n");
+        break;
+      case 'W':
+      case 'w':
+        esp_log_level_set("*", ESP_LOG_WARN);
+        telnet_esp32_printf("Log level set to WARN\n");
+        break;
+      case 'I':
+      case 'i':
+        esp_log_level_set("*", ESP_LOG_INFO);
+        telnet_esp32_printf("Log level set to INFO\n");
+        break;
+      case 'D':
+      case 'd':
+        esp_log_level_set("*", ESP_LOG_DEBUG);
+        telnet_esp32_printf("Log level set to DEBUG\n");
+        break;
+      default:
+        telnet_esp32_printf("Invalid Log Level: %c - Log level unchanged\n", *ptr);
+        break;
+    }
     break;
   case MODE_SET:
   {
@@ -874,6 +916,14 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
   // ESP_LOGD(tag, ">> telnet_listenForClients");
   receivedDataCallback = callbackParam;
   serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (serverSocket == -1)
+  {
+    ESP_LOGE(tag, "socket: Failed to allocate new socket");
+    OperatingParameters.Errors.telnetNetworkErrors++;
+    telnetState = NOT_LISTENING;
+    telnetTaskHandle = NULL;
+    return;
+  }
 
   BaseType_t xTrueValue = pdTRUE;
   setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (void *)&xTrueValue, sizeof(xTrueValue));
@@ -888,7 +938,9 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
   {
     ESP_LOGE(tag, "bind: %d (%s)", errno, strerror(errno));
     OperatingParameters.Errors.telnetNetworkErrors++;
+    telnetState = NOT_LISTENING;
     telnetTaskHandle = NULL;
+    close(serverSocket);
     return;
   }
 
@@ -897,7 +949,9 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
   {
     ESP_LOGE(tag, "listen: %d (%s)", errno, strerror(errno));
     OperatingParameters.Errors.telnetNetworkErrors++;
+    telnetState = NOT_LISTENING;
     telnetTaskHandle = NULL;
+    close(serverSocket);
     return;
   }
 
@@ -913,6 +967,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
       OperatingParameters.Errors.telnetNetworkErrors++;
       telnetState = NOT_LISTENING;
       telnetTaskHandle = NULL;
+      close(serverSocket);
       return;
     }
 
