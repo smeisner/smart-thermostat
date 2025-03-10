@@ -573,7 +573,7 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
   ESP_LOGI(TAG, "  Initializing wifi");
 
   // Set the hostname for the network interface
-  ESP_LOGI(TAG, "  Setting wifi hostname");
+  ESP_LOGI(TAG, "  Setting wifi hostname to: \"%s\"", hostname);
   if (strlen(hostname))
     esp_netif_set_hostname(esp_netif_interface_sta, hostname);
   else
