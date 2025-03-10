@@ -431,6 +431,9 @@ void SaveUncommonConfigSettings(lv_event_t * e)
   updateTimezoneFromConfig();
   updateThermostatParams();
 
+#ifdef MQTT_ENABLED
+  updateEnabledHvacModes();
+#endif
 }
 
 void tftCalibrate(lv_event_t * e)

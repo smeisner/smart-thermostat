@@ -239,7 +239,12 @@ void stateMachine(void *parameter)
       if (!telnetServiceRunning())
         telnetStart();
 
+      //
       // Call MqttConnect() once to establish the MQTT connection.
+      //
+      // NB: We never set MqttConnectCalled to false so it is only ever
+      // called once at startup. The MQTT subsystem handles reconnects.
+      //
       if (is_mqtt_enabled(&OperatingParameters) &&
           !is_mqtt_connected(&OperatingParameters) && !MqttConnectCalled) {
         MqttConnectCalled = true;

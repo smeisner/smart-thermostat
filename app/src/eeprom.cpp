@@ -42,6 +42,10 @@
 #define DEF_SLEEP_TIME 30
 #define DEF_TZ_SEL 15
 #define DEF_BEEP_ENABLE true
+#define DEF_HVAC_COOL_ENABLE false
+#define DEF_HVAC_FAN_ENABLE false
+#define DEF_HVAC_2STAGE_ENABLE false
+#define DEF_HVAC_REVERSE_ENABLE false
 #define DEF_MQTT_ENABLE false
 #define DEF_MQTT_BROKER "mqtt"
 #define DEF_MQTT_USER "mqtt"
@@ -307,7 +311,11 @@ void setDefaultThermostatParams()
   nvs_writeInt16(my_handle, "sleepTime", DEF_SLEEP_TIME);
   nvs_writeInt16(my_handle, "timezoneSel", DEF_TZ_SEL);
   nvs_writeBool(my_handle, "Beep", DEF_BEEP_ENABLE);
-#ifdef MQTT_ENABLED
+  nvs_writeBool(my_handle, "hvacCoolEnable", DEF_HVAC_COOL_ENABLE);
+  nvs_writeBool(my_handle, "hvacFanEnable", DEF_HVAC_FAN_ENABLE);
+  nvs_writeBool(my_handle, "twoStageEnable", DEF_HVAC_2STAGE_ENABLE);
+  nvs_writeBool(my_handle, "reverseEnable", DEF_HVAC_REVERSE_ENABLE);
+  #ifdef MQTT_ENABLED
   nvs_writeBool(my_handle, "MqttEn", DEF_MQTT_ENABLE);
   nvs_writeString(my_handle, "MqttBroker", DEF_MQTT_BROKER);
   nvs_writeString(my_handle, "MqttUsername", DEF_MQTT_USER);
@@ -334,6 +342,10 @@ void setDefaultThermostatParams()
   OperatingParameters.thermostatSleepTime = DEF_SLEEP_TIME;
   OperatingParameters.timezone_sel = DEF_TZ_SEL;
   OperatingParameters.thermostatBeepEnable = DEF_BEEP_ENABLE;
+  OperatingParameters.hvacCoolEnable = DEF_HVAC_COOL_ENABLE;
+  OperatingParameters.hvacFanEnable = DEF_HVAC_FAN_ENABLE;
+  OperatingParameters.hvac2StageHeatEnable = DEF_HVAC_2STAGE_ENABLE;
+  OperatingParameters.hvacReverseValveEnable = DEF_HVAC_REVERSE_ENABLE;
 #ifdef MQTT_ENABLED
   OperatingParameters.MqttEnabled = DEF_MQTT_ENABLE;
   strncpy (OperatingParameters.MqttBrokerHost, DEF_MQTT_BROKER, sizeof(OperatingParameters.MqttBrokerHost));
@@ -366,7 +378,11 @@ void updateThermostatParams()
   nvs_writeInt16(my_handle, "sleepTime", OperatingParameters.thermostatSleepTime);
   nvs_writeInt16(my_handle, "timezoneSel", OperatingParameters.timezone_sel);
   nvs_writeBool(my_handle, "Beep", OperatingParameters.thermostatBeepEnable);
-#ifdef MQTT_ENABLED
+  nvs_writeBool(my_handle, "hvacCoolEnable", OperatingParameters.hvacCoolEnable);
+  nvs_writeBool(my_handle, "hvacFanEnable", OperatingParameters.hvacFanEnable);
+  nvs_writeBool(my_handle, "twoStageEnable", OperatingParameters.hvac2StageHeatEnable);
+  nvs_writeBool(my_handle, "reverseEnable", OperatingParameters.hvacReverseValveEnable);
+  #ifdef MQTT_ENABLED
   nvs_writeBool(my_handle, "MqttEn", OperatingParameters.MqttEnabled);
   nvs_writeString(my_handle, "MqttBroker", OperatingParameters.MqttBrokerHost);
   nvs_writeString(my_handle, "MqttUsername", OperatingParameters.MqttBrokerUsername);
@@ -406,7 +422,11 @@ void getThermostatParams()
   nvs_readInt16(my_handle, "timezoneSel", &OperatingParameters.timezone_sel, DEF_TZ_SEL);
   OperatingParameters.timezone = (char *)gmt_timezones[OperatingParameters.timezone_sel];
   nvs_readBool(my_handle, "Beep", &OperatingParameters.thermostatBeepEnable, DEF_BEEP_ENABLE);
-#ifdef MQTT_ENABLED
+  nvs_readBool(my_handle, "hvacCoolEnable", &OperatingParameters.hvacCoolEnable, DEF_HVAC_COOL_ENABLE);
+  nvs_readBool(my_handle, "hvacFanEnable", &OperatingParameters.hvacFanEnable, DEF_HVAC_FAN_ENABLE);
+  nvs_readBool(my_handle, "twoStageEnable", &OperatingParameters.hvac2StageHeatEnable, DEF_HVAC_2STAGE_ENABLE);
+  nvs_readBool(my_handle, "reverseEnable", &OperatingParameters.hvacReverseValveEnable, DEF_HVAC_REVERSE_ENABLE);
+  #ifdef MQTT_ENABLED
   nvs_readBool(my_handle, "MqttEn", &OperatingParameters.MqttEnabled, DEF_MQTT_ENABLE);
   nvs_readStr(my_handle, "MqttBroker", DEF_MQTT_BROKER, OperatingParameters.MqttBrokerHost, sizeof(OperatingParameters.MqttBrokerHost));
   nvs_readStr(my_handle, "MqttUsername", DEF_MQTT_USER, OperatingParameters.MqttBrokerUsername, sizeof(OperatingParameters.MqttBrokerUsername));

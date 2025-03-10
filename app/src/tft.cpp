@@ -231,13 +231,21 @@ static const char *__hvac_mode_to_str(HVAC_MODE mode, const char *mode_str[])
 }
 
 #ifdef MQTT_ENABLED
-const char *hvac_mode_str_mqtt[NR_HVAC_MODES] = {
+const char *hvac_op_mode_str_mqtt[NR_HVAC_MODES] = {
   "off", "heat", "cool", "dry", "idle", "fan_only", "auto", "aux heat", "error"
+};
+const char *hvac_curr_mode_str_mqtt[NR_HVAC_MODES] = {
+  "off", "heating", "cooling", "drying", "idle", "fan", "error", "error", "error"
 };
 
 const char *hvacModeToMqttCurrMode(HVAC_MODE mode)
 {
-  return __hvac_mode_to_str(mode, hvac_mode_str_mqtt);
+  return __hvac_mode_to_str(mode, hvac_curr_mode_str_mqtt);
+}
+
+const char *hvacModeToMqttOpMode(HVAC_MODE mode)
+{
+  return __hvac_mode_to_str(mode, hvac_op_mode_str_mqtt);
 }
 #endif
 
