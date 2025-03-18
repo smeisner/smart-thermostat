@@ -341,6 +341,9 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     WifiStatus.Connected = false;
     wifiConnecting = false;
     OperatingParameters.wifiConnected = false;
+    esp_wifi_disconnect();
+    esp_wifi_stop();
+
 #ifdef MATTER_ENABLED
     if (!OperatingParameters.MatterStarted)
     {
