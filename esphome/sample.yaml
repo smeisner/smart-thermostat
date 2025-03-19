@@ -1,0 +1,19 @@
+substitutions:
+  name: thermostat-aaaaaa
+  friendly_name: Smart Thermostat
+
+packages:
+  smeisner.smart-thermostat: github://smeisner/smart-thermostat/esphome/device-v0.5.2.yaml@main
+
+esphome:
+  name: ${name}
+  name_add_mac_suffix: false
+  friendly_name: ${friendly_name}
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
