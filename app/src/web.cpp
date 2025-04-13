@@ -40,7 +40,7 @@
 #include <esp_http_server.h>
 #include <esp_ota_ops.h>
 #include "thermostat.hpp"
-#include "ui/ui.h"
+#include "ui.hpp"
 #include "version.h"
 #include "web_ui.h"
 
@@ -162,9 +162,8 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
       OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 5.0 / 9.0;
       OperatingParameters.tempSwing = OperatingParameters.tempSwing * 5.0 / 9.0;
       resetTempSmooth();
-      lv_arc_set_range(ui_TempArc, 7*10, 33*10);
-      lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
       OperatingParameters.tempUnits = 'C';
+      uiUpdateTemperatureUnits();
     }
     else {
       OperatingParameters.tempSet = (OperatingParameters.tempSet * 9.0/5.0) + 32.0;
@@ -172,9 +171,8 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
       OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 1.8;
       OperatingParameters.tempSwing = OperatingParameters.tempSwing * 1.8;
       resetTempSmooth();
-      lv_arc_set_range(ui_TempArc, 45*10, 92*10);
-      lv_obj_add_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
       OperatingParameters.tempUnits = 'F';
+      uiUpdateTemperatureUnits();
     }
   }
   else

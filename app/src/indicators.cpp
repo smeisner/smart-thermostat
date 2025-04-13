@@ -21,10 +21,10 @@
 #include "driver/gpio.h"
 #include "esp_err.h"
 
-#define LEDC_TIMER LEDC_TIMER_0
+#define LEDC_TIMER ((ledc_timer_t)LEDC_BUZZER_TIMER)
 #define LEDC_MODE LEDC_LOW_SPEED_MODE
 #define LEDC_OUTPUT_IO (BUZZER_PIN) // Define the output GPIO
-#define LEDC_CHANNEL LEDC_CHANNEL_0
+#define LEDC_CHANNEL ((ledc_channel_t)LEDC_BUZZER_CHANNEL)
 #define LEDC_DUTY_RES LEDC_TIMER_13_BIT // Set duty resolution to 8 bits
 #define LEDC_DUTY (4095)                // Set duty to 50%. ((2 ** 13) - 1) * 50% = 4095
 #define LEDC_FREQUENCY (5000)           // Frequency in Hertz. Set frequency at 5 kHz

@@ -23,6 +23,7 @@
 #endif
 
 #include "thermostat.hpp"
+#include "display.hpp"
 #include "esp_timer.h"
 #include "version.h"
 #define TAG "Main"
@@ -37,8 +38,9 @@ int64_t millis() { return esp_timer_get_time() / 1000;}
 void app_main()
 {
   // Set default log level for all components
-  esp_log_level_set("*", ESP_LOG_WARN);
-
+  esp_log_level_set("*", ESP_LOG_INFO);
+  displayInit();
+  //vTaskDelay(pdMS_TO_TICKS(1000));
   ESP_LOGI (TAG, "IDF version: %s", esp_get_idf_version());
   ESP_LOGD (TAG, "- Free memory: %d bytes", esp_get_free_heap_size());
 
@@ -47,12 +49,12 @@ void app_main()
   eepromInit();
 
   // Initialize the TFT display
-  ESP_LOGI (TAG, "Initializing TFT");
-  tftInit();
+  ESP_LOGI (TAG, "Initializing Display");
   // Create the RTOS task to drive the touchscreen
   ESP_LOGI (TAG, "Starting TFT task");
   tftCreateTask();
 
+//  while(1) { vTaskDelay(pdMS_TO_TICKS(1000)); }
   // Initialize sensors (temp, humidity, motion, etc)
   ESP_LOGI (TAG, "Initializing sensors");
   sensorsInit();
@@ -100,4 +102,6 @@ void app_main()
   // Play the startup sound
   audioStartupBeep();
   ESP_LOGI (TAG, "Startup done");
+  //while(1)
+  //  vTaskDelay(pdMS_TO_TICKS(1000));
 }

@@ -137,7 +137,6 @@ typedef struct
 
 extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
-extern int64_t ui_WifiStatusLabel_timestamp;
 
 #ifdef MQTT_ENABLED
 #define MQTT_RECONNECT_DELAY 75000
@@ -225,9 +224,6 @@ char *Get_WiFiSSID_DD_List( void );
 void WiFi_ScanSSID( void );
 
 // TFT
-void tftInit();
-void tftCalibrateTouch();
-void tftCreateTask();
 HVAC_MODE strToHvacMode(char *mode);
 HVAC_MODE convertSelectedHvacMode();
 void setHvacModesDropdown();

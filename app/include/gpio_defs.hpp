@@ -63,6 +63,10 @@
 #define GPIO42 42 //@@@ Not used
 #define LED_COOL_PIN 2
 
+#define LEDC_BUZZER_CHANNEL        0
+#define LEDC_BUZZER_TIMER          0
+#define LEDC_BACKLIGHT_CHANNEL     1
+#define LEDC_BACKLIGHT_TIMER       1
 // #define SCL 35 //28
 // #define SDA 36 //29
 
