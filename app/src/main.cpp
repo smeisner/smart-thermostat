@@ -54,7 +54,6 @@ void app_main()
   ESP_LOGI (TAG, "Starting TFT task");
   tftCreateTask();
 
-//  while(1) { vTaskDelay(pdMS_TO_TICKS(1000)); }
   // Initialize sensors (temp, humidity, motion, etc)
   ESP_LOGI (TAG, "Initializing sensors");
   sensorsInit();

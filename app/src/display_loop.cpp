@@ -60,7 +60,7 @@ int sensorToScreenBrightness(int sensor)
 }
 
 #define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
-#define BRIGHTNESS_STEP_SIZE 2
+#define BRIGHTNESS_STEP_SIZE 32
 void tftAutoBrightness()
 {
   int curBrightness = getBrightness();
@@ -76,7 +76,7 @@ void tftAutoBrightness()
   else
     return;
   adjustment = curBrightness > convertedLightLevel ? adjustment * -1 : adjustment;
-  ESP_LOGI(TAG, "Seeting brightness to %d", CLAMP(curBrightness + adjustment, MIN_BRIGHTNESS, FULL_BRIGHTNESS));
+  //ESP_LOGI(TAG, "Backlight: %d, light: %d Target: %d", curBrightness, OperatingParameters.lightDetected);
   setBrightness(CLAMP(curBrightness + adjustment, MIN_BRIGHTNESS, FULL_BRIGHTNESS));
 }
 #undef CLAMP
@@ -86,7 +86,7 @@ void tftWakeDisplay(bool beep)
   ESP_LOGI(TAG, "TFT Wakeup");
   tftEnableTouchTimer();
   tftUpdateTouchTimestamp();
-  setBrightness(FULL_BRIGHTNESS);
+  setBrightness(MIN_BRIGHTNESS);
   uiWake(beep);
   tftAwake = true;
 }
@@ -117,6 +117,8 @@ void tftPump(void * parameter)
   {
     uiUpdate();
 
+    if (tftAwake)
+      tftAutoBrightness();
     if (millis() - lastTouchDetected > OperatingParameters.thermostatSleepTime * 1000)
     {
       //
@@ -176,15 +178,17 @@ void tftPump(void * parameter)
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
-
+#define STACK_WORDS 4096
+static StaticTask_t xTaskBuffer;
+static StackType_t xStack[ STACK_WORDS ];
 void tftCreateTask()
 {
-  xTaskCreate (
+  xTouchUIHandle = xTaskCreateStatic (
       tftPump,
       "Touch Screen UI",
-      8192,
+      STACK_WORDS,
       NULL,
       tskIDLE_PRIORITY+1,
-      &xTouchUIHandle
-  );
+      xStack,
+      &xTaskBuffer);
 }

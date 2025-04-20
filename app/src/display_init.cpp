@@ -36,7 +36,7 @@ void setBrightness(uint32_t level)
   if (level >= (1<<13)) {
     level = (1<<13) - 1;
   }
-  ESP_LOGI(TAG, "Setting Backlight to %d", level);
+  //ESP_LOGI(TAG, "Setting Backlight to %d", level);
   ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, (ledc_channel_t)LEDC_BACKLIGHT_CHANNEL, level));
   // Update duty to apply the new value
   ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, (ledc_channel_t)LEDC_BACKLIGHT_CHANNEL));
@@ -44,7 +44,7 @@ void setBrightness(uint32_t level)
 
 uint32_t getBrightness() {
   uint32_t backlight = ledc_get_duty(LEDC_MODE, (ledc_channel_t)LEDC_BACKLIGHT_CHANNEL);
-  ESP_LOGI(TAG, "Get Backlight: %s", backlight);
+  // ESP_LOGI(TAG, "Get Backlight: %d", backlight);
   return backlight;
 }
 
@@ -108,10 +108,8 @@ static void apply_calibration(esp_lcd_touch_handle_t tp, uint16_t *x, uint16_t *
   }
   for (int i = 0; i < *point_num; i++)
   {
-    ESP_LOGI(TAG, "Touch %d: %dx%d", i, x[i], y[i]);
     x[i] = alpha_x * x[i] + beta_x * y[i] + delta_x;
     y[i] = alpha_y * x[i] + beta_y * y[i] + delta_y;
-    ESP_LOGI(TAG, "-> %dx%d", x[i], y[i]);
   }
 }
 
@@ -232,7 +230,7 @@ static void lvglInit()
         .panel_handle = panel_handle,
         .control_handle = NULL,
         .buffer_size = LCD_BUFFER_SIZE,
-        .double_buffer = true,
+        .double_buffer = false,
         .trans_size = 0,
         .hres = LCD_H_RES,
         .vres = LCD_V_RES,
