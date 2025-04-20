@@ -32,6 +32,7 @@
             - Allow Aux with Heat
     * Setup
         - UI
+            - units
             - brightness
                 - adapt to room lighting
                 - level
@@ -54,6 +55,7 @@
 
 extern int stages;
 menu_t *menuTop[] = MENU_LIST(
+    MENU_LEAF("Info", menuInfo),
     MENU_HIER("Network",
         MENU_HIER("Wifi",
             MENU_LEAF("SSID", menuSSID),
@@ -61,15 +63,21 @@ menu_t *menuTop[] = MENU_LIST(
         ),
         MENU_LEAF("Set NTP Server", menuNTP),
         MENU_LEAF("Set hostname", menuHostname),
+#ifdef MATTER_ENABLED
+        MENU_LEAF("Matter", menuMatter),
+#endif
         MENU_HIER("MQTT",
+            MENU_LEAF("MQTT Enable", menuMQTTEnable),
             MENU_LEAF("MQTT Hostname", menuMQTTHostname),
             MENU_LEAF("MQTT Username", menuMQTTUsername),
-            MENU_LEAF("MQTT Password", menuMQTTPassword)
-        ),
-        MENU_LEAF("Matter", menuMatter)
+            MENU_LEAF("MQTT Password", menuMQTTPassword),
+            MENU_CALLBACK(enableMQTTMenu)
+        )
     ),
     MENU_HIER("Setup",
         MENU_HIER("Interface",
+            MENU_LEAF("Temperature Units", menuTempUnits),
+            MENU_LEAF("Clock Format", menuClockFormat),
             MENU_LEAF("Brigtness", menuBrightness),
             MENU_LEAF("Dim", menuDim),
             MENU_LEAF("Beep", menuBeep)
@@ -80,6 +88,8 @@ menu_t *menuTop[] = MENU_LIST(
         MENU_WARN("HVAC", "Improperly changing these settings could damage your HVAC Equipment!",
             MENU_LEAF("Stages", menuHVACStages),
             MENU_LEAF("Reversing Valve", menuHVACRV),
+            MENU_LEAF("Air Conditioning", menuHVACCool),
+            MENU_LEAF("Fan", menuHVACFan),
             MENU_LEAF("Aux Heat", menuHVACAuxHeat)
         ),
         MENU_LEAF("Factory Reset", menuFactoryReset)

@@ -17,10 +17,11 @@
 #include "thermostat.hpp"
 #include "display.hpp"
 #include "ui.hpp"
+#include "ui/ui.h"
 
 #define OFF_BRIGHTNESS 0
-#define MIN_BRIGHTNESS 5
-#define FULL_BRIGHTNESS 255
+#define MIN_BRIGHTNESS 80
+#define FULL_BRIGHTNESS 4096
 
 static char thermostatModes[48] = {0};
 TaskHandle_t xTouchUIHandle;
@@ -85,6 +86,7 @@ void tftWakeDisplay(bool beep)
   ESP_LOGI(TAG, "TFT Wakeup");
   tftEnableTouchTimer();
   tftUpdateTouchTimestamp();
+  setBrightness(FULL_BRIGHTNESS);
   uiWake(beep);
   tftAwake = true;
 }
@@ -110,9 +112,10 @@ void tftDimDisplay()
 void tftPump(void * parameter)
 {
   ESP_LOGI(TAG, "Starting display update loop");
+  uiInit();
   for(;;) // infinite loop
   {
-    uiPeriodic();
+    uiUpdate();
 
     if (millis() - lastTouchDetected > OperatingParameters.thermostatSleepTime * 1000)
     {

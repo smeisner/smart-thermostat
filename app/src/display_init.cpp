@@ -18,6 +18,8 @@
 #include "gpio_defs.hpp"
 #include "display.hpp"
 #include "display_internal.hpp"
+#include "thermostat.hpp"
+#include "ui/ui.h"
 
 #define GPIO_NUM(x) ((gpio_num_t)x)
 static const char *TAG = "display";
@@ -25,6 +27,8 @@ static lv_display_t *lvgl_disp = NULL;
 static esp_lcd_touch_handle_t touch_handle = NULL;
 static esp_lcd_panel_io_handle_t io_handle = NULL;
 static esp_lcd_panel_handle_t panel_handle = NULL;
+
+static uint32_t last_raw_x, last_raw_y;
 
 
 void setBrightness(uint32_t level)
@@ -79,6 +83,38 @@ static void backlightInit(void)
   ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
 }
 
+void getRawPoint(int32_t *x, int32_t *y)
+{
+  *x = last_raw_x;
+  *y = last_raw_y;
+  if (TOUCH_MIRROR_X)
+      *x = 4096 - *x;
+  if (TOUCH_MIRROR_Y)
+      *y = 4096 - *y;
+}
+
+static void apply_calibration(esp_lcd_touch_handle_t tp, uint16_t *x, uint16_t *y, uint16_t *strength, uint8_t *point_num, uint8_t max_point_num)
+{
+  double alpha_x = OperatingParameters.tftCalibration.alpha_x;
+  double beta_x  = OperatingParameters.tftCalibration.beta_x;
+  double delta_x = OperatingParameters.tftCalibration.delta_x;
+  double alpha_y = OperatingParameters.tftCalibration.alpha_y;
+  double beta_y  = OperatingParameters.tftCalibration.beta_y;
+  double delta_y = OperatingParameters.tftCalibration.delta_y;
+
+  if (*point_num > 0) {
+    last_raw_x = x[0];
+    last_raw_y = y[0];
+  }
+  for (int i = 0; i < *point_num; i++)
+  {
+    ESP_LOGI(TAG, "Touch %d: %dx%d", i, x[i], y[i]);
+    x[i] = alpha_x * x[i] + beta_x * y[i] + delta_x;
+    y[i] = alpha_y * x[i] + beta_y * y[i] + delta_y;
+    ESP_LOGI(TAG, "-> %dx%d", x[i], y[i]);
+  }
+}
+
 static void touchInit(void)
 {
     // TODO: Handle calibration
@@ -103,7 +139,7 @@ static void touchInit(void)
             .mirror_x = TOUCH_MIRROR_X,
             .mirror_y = TOUCH_MIRROR_Y,
         },
-        .process_coordinates = NULL,
+        .process_coordinates = apply_calibration,
         .interrupt_callback = NULL,
         .user_data = NULL,
         .driver_data = NULL,
@@ -226,6 +262,16 @@ static void lvglInit()
       .handle = touch_handle,
   };  
   lvgl_port_add_touch(&touch_cfg);
+}
+
+void display_lock()
+{
+  lvgl_port_lock(0);
+}
+
+void display_unlock()
+{
+  lvgl_port_unlock();
 }
 
 void displayInit() {

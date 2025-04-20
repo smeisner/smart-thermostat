@@ -2,11 +2,11 @@
 #include "../ui.h"
 #include "menu_internal.h"
 
-lv_obj_t * scr_Menu;
-lv_obj_t * menu_m;
+static lv_obj_t * scr_Menu;
 lv_obj_t * scr_leaf;
-lv_obj_t * main_menu;
-lv_obj_t * ico;
+static lv_obj_t * menu_m;
+static lv_obj_t * main_menu;
+static lv_obj_t * ico;
 
 static void menu_cb(lv_event_t *e)
 {
@@ -21,10 +21,12 @@ static void menu_cb(lv_event_t *e)
     } else {
         // change back-button icon
         lv_obj_t * label = lv_obj_get_child(ico, 0);
-        if (main_menu == lv_menu_get_cur_main_page(menu_m)) {
+        lv_obj_t *page = lv_menu_get_cur_main_page(menu_m);
+        if (main_menu == page) {
             lv_label_set_text(label, HOME_SYMBOL);
         } else {
             lv_label_set_text(label, BACKMENU_SYMBOL);
+            lv_obj_send_event(page, LV_EVENT_VALUE_CHANGED, NULL);
         }
     }
 }
@@ -56,8 +58,13 @@ static lv_obj_t * create_menu(menu_t **items, const char *title)
     lv_obj_t *menu = lv_menu_page_create(menu_m, NULL);
     lv_menu_set_page_title_static(menu, title);
     lv_obj_set_style_pad_top(menu, 10, 0);
+    lv_obj_remove_flag(menu, LV_OBJ_FLAG_EVENT_BUBBLE);
     for (int i = 0; items[i] != NULL; i++) {
         menu_t *item = items[i];
+        if (item->type == CALLBACK) {
+            lv_obj_add_event_cb(menu, (void(*)(lv_event_t *))item->callback, LV_EVENT_VALUE_CHANGED, NULL);
+            continue;
+        }
         lv_obj_t * cont = lv_menu_cont_create(menu);
         lv_obj_t * label = lv_label_create(cont);
         lv_label_set_text_static(label, item->label);
@@ -82,11 +89,27 @@ static lv_obj_t * create_menu(menu_t **items, const char *title)
     return menu;
 }
 
-lv_obj_t * initLeafScr(const char *title, int x_offset)
+void transition_leaf_to_menu(void)
+{
+    lv_screen_load_anim(scr_Menu, LV_SCR_LOAD_ANIM_MOVE_TOP, 200, 0, 0);
+    lv_obj_send_event(lv_menu_get_cur_main_page(menu_m), LV_EVENT_VALUE_CHANGED, NULL);
+
+}
+
+static void leaf_back_cb(lv_event_t *e)
+{
+    // Cannot use load_page() because we don't want to reinitialize the menu
+    transition_leaf_to_menu();
+}
+
+lv_obj_t * initLeafScr(const char *title, int x_offset, void (*back_button_cb)(lv_event_t *))
 {
     lv_obj_clean(scr_leaf);
-    create_menu_icon(scr_leaf, BACKMENU_SYMBOL, &scr_Menu);
-    lv_scr_load_anim(scr_leaf, LV_SCR_LOAD_ANIM_MOVE_TOP, 200, 0, 0);
+    if (! back_button_cb)
+        back_button_cb = leaf_back_cb;
+    lv_obj_t * leaf_ico = create_menu_icon(scr_leaf, BACKMENU_SYMBOL, PAGE_NONE);
+    lv_obj_add_event_cb(leaf_ico, back_button_cb, LV_EVENT_CLICKED, NULL);
+    lv_screen_load_anim(scr_leaf, LV_SCR_LOAD_ANIM_MOVE_TOP, 200, 0, 0);
     lv_obj_t * label = lv_label_create(scr_leaf);
     lv_obj_align(label, LV_ALIGN_TOP_LEFT, 16, 0);
     lv_label_set_text_static(label, title);
@@ -96,20 +119,23 @@ lv_obj_t * initLeafScr(const char *title, int x_offset)
     return box;
 }
 
-void uiMenu()
+lv_obj_t * uiMenu()
 {
 
-    scr_Menu = lv_obj_create(NULL);
-    scr_leaf = lv_obj_create(NULL);
+    if (! scr_leaf)
+        scr_leaf = lv_obj_create(NULL);
+    scr_Menu = get_page();
     lv_obj_t * scr = scr_Menu;
 
 	lv_obj_set_style_bg_color(scr,lv_color_black(),LV_PART_MAIN);
     lv_obj_set_style_text_color(scr, lv_color_white(), 0);
     lv_obj_set_style_bg_color(scr_leaf,lv_color_black(),LV_PART_MAIN);
     lv_obj_set_style_text_color(scr_leaf, lv_color_white(), 0);
+    lv_obj_set_scrollbar_mode(scr_leaf, LV_SCROLLBAR_MODE_OFF);
 
-    ico = create_menu_icon(scr, HOME_SYMBOL, NULL);
-    lv_obj_add_event_cb(ico, menu_cb, LV_EVENT_CLICKED, &scr_MainPagePresent);
+
+    ico = create_menu_icon(scr, HOME_SYMBOL, PAGE_NONE);
+    lv_obj_add_event_cb(ico, menu_cb, LV_EVENT_CLICKED, (void *)PAGE_PRESENT);
 
     menu_m = lv_menu_create(scr);
     lv_obj_add_event_cb(menu_m, menu_cb, LV_EVENT_VALUE_CHANGED, 0);
@@ -123,4 +149,6 @@ void uiMenu()
 
     main_menu = create_menu(menuTop, "Main Menu");
     lv_menu_set_page(menu_m, main_menu);
+
+    return scr;
 }

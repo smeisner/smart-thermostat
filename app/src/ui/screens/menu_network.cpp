@@ -1,96 +1,240 @@
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "thermostat.hpp"
+#include "interface.hpp"
 #include "../ui.h"
 #include "menu_internal.h"
 
-char password[33];
-char hostname[17] = "thermostat";
-char ntp_server[33] = "pool.ntp.org";
-bool matter_enabled = false;
-char pairing_code[15] = "1234-5678-9012";
+static char textvalue[32];
+static bool enabled;
 
-char mqtt_host[33];
-char mqtt_user[33];
-char mqtt_password[33];
-int cur_ssid = 1;
-const char *ssids[] = {"ssid1", "ssid2", "ssid3", NULL};
+extern bool wifiScanActive;
+// Don't use extern bool wifiScanActive because it is asynchronoous
+static bool wifi_scanning = false;
+static lv_obj_t *ssid_state = NULL;
+static lv_obj_t *ssid_label;
+static lv_obj_t *ssid_roller;
+
+char ntp_server[33] = "pool.ntp.org";
+
+enum CB_TYPE {
+    HOSTNAME,
+    WIFI_SSID,
+    WIFI_PASSWORD,
+    MQTT_HOST,
+    MQTT_PORT,
+    MQTT_USERNAME,
+    MQTT_PASSWORD,
+};
+
+static void textbox_changed(enum CB_TYPE type)
+{
+    int value;
+    switch(type) {
+        case HOSTNAME:
+            updateFriendlyHost(textvalue);
+            break;
+        case WIFI_SSID:
+            updateWifiCreds(textvalue, WifiCreds.password);
+            break;
+        case WIFI_PASSWORD:
+            updateWifiCreds(WifiCreds.ssid, textvalue);
+            break;
+        case MQTT_HOST:
+            updateMqttParameters(OperatingParameters.MqttEnabled, textvalue, OperatingParameters.MqttBrokerPort, OperatingParameters.MqttBrokerUsername, OperatingParameters.MqttBrokerPassword);
+            break;
+        case MQTT_PORT:
+            value = atoi(textvalue);
+            updateMqttParameters(OperatingParameters.MqttEnabled, OperatingParameters.MqttBrokerHost, value, OperatingParameters.MqttBrokerUsername, OperatingParameters.MqttBrokerPassword);
+            break;
+        case MQTT_USERNAME:
+            updateMqttParameters(OperatingParameters.MqttEnabled, OperatingParameters.MqttBrokerHost, OperatingParameters.MqttBrokerPort, textvalue, OperatingParameters.MqttBrokerPassword);
+            break;
+        case MQTT_PASSWORD:
+            updateMqttParameters(OperatingParameters.MqttEnabled, OperatingParameters.MqttBrokerHost, OperatingParameters.MqttBrokerPort, OperatingParameters.MqttBrokerUsername, textvalue);
+            break;
+
+    }
+}
+
+static void textbox_changed_cb(lv_event_t *e)
+{
+    enum CB_TYPE type = (enum CB_TYPE)(long)lv_event_get_user_data(e);
+    textbox_changed(type);
+}
 
 void menuPassword(const char *title)
 {
     lv_obj_t *scr = initLeafScr(title, 0);
-    lv_obj_t * textentry = create_text_entry(scr, password, 32, true);
+    lv_strncpy(textvalue, WifiCreds.password, sizeof(textvalue));
+    lv_obj_t * textentry = create_text_entry(scr, textvalue, sizeof(WifiCreds.password)-1, false);
+    lv_obj_add_event_cb(textentry, textbox_changed_cb, LV_EVENT_READY, (void *)(long)WIFI_PASSWORD);
+}
+
+void update_ssid_state(bool refresh_roller)
+{
+    if (! ssid_state)
+        return;
+
+    if (refresh_roller) {
+        const char *ssids = Get_WiFiSSID_DD_List();
+        lv_roller_set_options(ssid_roller, ssids, LV_ROLLER_MODE_INFINITE);
+        lv_obj_align(ssid_roller, LV_ALIGN_TOP_MID, 0, 120);
+        // lvgl 9.2 does not have lv_roller_set_selected_str
+        // lv_roller_set_selected(ssid_roller, WifiCreds.ssid, LV_ANIM_OFF);
+        if (lv_strlen(WifiCreds.ssid) != 0) {
+            int i = 0;
+            const char *pos = ssids;
+            while (true) {
+                if (strncmp(pos, WifiCreds.ssid, lv_strlen(WifiCreds.ssid)) == 0) {
+                    lv_roller_set_selected(ssid_roller, i, LV_ANIM_OFF);
+                    break;
+                }
+                pos = strchr(pos, '\n');
+                if (pos == NULL) {
+                    break;
+                }
+                pos++;
+                i++;
+            }
+        }
+    }
+
+    lv_obj_t *label = lv_obj_get_child(ssid_label, 0);
+    lv_label_set_text(label, WifiCreds.ssid);
+    lv_obj_center(label);
+
+    label = lv_obj_get_child(ssid_state, 0);
+    if (wifi_scanning) {
+        lv_label_set_text(label, "Scannning");
+    } else {
+        lv_label_set_text(label, "Scan");
+    }
+    lv_obj_center(label);
+}
+
+static void wifi_scan_complete_cb()
+{
+    wifi_scanning = false;
+    update_ssid_state(true);
+}
+
+static void start_stop_scan_cb(lv_event_t *e)
+{
+    if (wifiScanActive) {
+      stopWifiScan();
+      wifi_scanning = false;
+    } else {
+      wifi_scanning = true;
+      StartWifiScan(wifi_scan_complete_cb);
+    }
+    update_ssid_state(false);
+}
+
+static void manual_ssid_back_cb(lv_event_t *e)
+{
+    menuSSID("SSID");
+}
+
+static void manual_ssid_cb(lv_event_t *e)
+{
+    lv_obj_t *scr = initLeafScr("SSID", 0, manual_ssid_back_cb);
+    ssid_state = NULL;
+    lv_strncpy(textvalue, WifiCreds.ssid, sizeof(textvalue));
+    lv_obj_t * textentry = create_text_entry(scr, textvalue, sizeof(WifiCreds.ssid)-1, false);
+    lv_obj_add_event_cb(textentry, textbox_changed_cb, LV_EVENT_READY, (void *)(long)WIFI_SSID);
+}
+
+static void ssid_roller_cb(lv_event_t *e)
+{
+    lv_roller_get_selected_str(ssid_roller, textvalue, sizeof(textvalue));
+    textbox_changed(WIFI_SSID);
+    update_ssid_state(false);
 }
 
 void menuSSID(const char *title)
 {
+    wifi_scanning = wifiScanActive;
     lv_obj_t *scr = initLeafScr(title);
-    // Do scan
-    int i = 0;
-    while(ssids[i]) {
-        i++;
+    ssid_state = label_button(scr, 240-32, 40, 0, 20, "");
+    lv_obj_add_event_cb(ssid_state, start_stop_scan_cb, LV_EVENT_CLICKED, NULL);
+
+    ssid_label = label_button(scr, 240-32, 40, 0, 70, "");
+    lv_obj_add_event_cb(ssid_label, manual_ssid_cb, LV_EVENT_CLICKED, NULL);
+
+    ssid_roller = lv_roller_create(scr);
+    lv_obj_add_event_cb(ssid_roller, ssid_roller_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    update_ssid_state(true);
+}
+
+static void mqtt_enable_cb(lv_event_t *e)
+{
+    updateMqttParameters(enabled, OperatingParameters.MqttBrokerHost, OperatingParameters.MqttBrokerPort, OperatingParameters.MqttBrokerUsername, OperatingParameters.MqttBrokerPassword);
+
+}
+
+void enableMQTTMenu(void *_e)
+{
+    lv_obj_t *page = lv_event_get_current_target_obj((lv_event_t *)_e);
+    bool enable = OperatingParameters.MqttEnabled;
+    int i = 1;  // item '0' is the enable menu
+    while (true) {
+        lv_obj_t *obj = lv_obj_get_child(page, i++);
+        if (! obj)
+            break;
+        if (enable) {
+            lv_obj_remove_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+        }
     }
-    create_radio(scr, &cur_ssid, i, ssids);
+}
+void menuMQTTEnable(const char *title)
+{
+    lv_obj_t *scr = initLeafScr(title, 0);
+    enabled = OperatingParameters.MqttEnabled;
+    lv_obj_t * enable = create_switch(scr, "Enable", &enabled);
+    lv_obj_add_event_cb(enable, mqtt_enable_cb, LV_EVENT_VALUE_CHANGED, NULL);
 }
 
 void menuMQTTHostname(const char *title)
 {
     lv_obj_t *scr = initLeafScr(title, 0);
-    lv_obj_t * textentry = create_text_entry(scr, mqtt_host, 32, false);
+    lv_strncpy(textvalue, OperatingParameters.MqttBrokerHost, sizeof(textvalue));
+    lv_obj_t * textentry = create_text_entry(scr, textvalue, sizeof(OperatingParameters.MqttBrokerHost)-1, false);
+    lv_obj_add_event_cb(textentry, textbox_changed_cb, LV_EVENT_READY, (void *)(long)MQTT_HOST);
+}
+void menuMQTTPort(const char *title)
+{
+    lv_obj_t *scr = initLeafScr(title, 0);
+    lv_snprintf(textvalue, sizeof(textvalue), "%d", OperatingParameters.MqttBrokerPort);
+    lv_strncpy(textvalue, OperatingParameters.MqttBrokerHost, sizeof(textvalue));
+    lv_obj_t * textentry = create_text_entry(scr, textvalue, 5, false, true);
+    lv_obj_add_event_cb(textentry, textbox_changed_cb, LV_EVENT_READY, (void *)(long)MQTT_PORT);
 }
 void menuMQTTUsername(const char *title)
 {
     lv_obj_t *scr = initLeafScr(title, 0);
-    lv_obj_t * textentry = create_text_entry(scr, mqtt_user, 32, false);
+    lv_strncpy(textvalue, OperatingParameters.MqttBrokerUsername, sizeof(textvalue));
+    lv_obj_t * textentry = create_text_entry(scr, textvalue, sizeof(OperatingParameters.MqttBrokerUsername)-1, false);
+    lv_obj_add_event_cb(textentry, textbox_changed_cb, LV_EVENT_READY, (void *)(long)MQTT_USERNAME);
 }
 void menuMQTTPassword(const char *title)
 {
     lv_obj_t *scr = initLeafScr(title, 0);
-    lv_obj_t * textentry = create_text_entry(scr, mqtt_password, 32, true);
+    lv_strncpy(textvalue, OperatingParameters.MqttBrokerPassword, sizeof(textvalue));
+    lv_obj_t * textentry = create_text_entry(scr, textvalue, sizeof(OperatingParameters.MqttBrokerPassword)-1, false);
+    lv_obj_add_event_cb(textentry, textbox_changed_cb, LV_EVENT_READY, (void *)(long)MQTT_PASSWORD);
 }
 
-static void update_matter_enabled(lv_obj_t *scr)
-{
-    lv_obj_t * label = lv_obj_get_child_by_type(scr, 0, &lv_label_class);
-    lv_obj_t * qr = lv_obj_get_child_by_type(scr, 0, &lv_qrcode_class);
-    if (matter_enabled) {
-        lv_obj_clear_flag(label, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(qr, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(label, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(qr, LV_OBJ_FLAG_HIDDEN);
-    }
-    //lv_obj_invalidate(label);
-    //lv_obj_invalidate(qr);
-}
-static void enable_matter_cb(lv_event_t *e)
-{
-    lv_obj_t *scr = (lv_obj_t *)lv_event_get_user_data(e);
-    update_matter_enabled(scr);
-}
-
-void menuMatter(const char *title) {
-    lv_obj_t *scr = initLeafScr(title);
-
-    lv_obj_t * enable = create_switch(scr, "Enable", &matter_enabled);
-    lv_obj_t * sw = lv_obj_get_child_by_type(enable, 0, &lv_switch_class);
-    lv_obj_add_event_cb(sw, enable_matter_cb, LV_EVENT_VALUE_CHANGED, (void *)scr);
-
-    lv_obj_t * qr = lv_qrcode_create(scr);
-    lv_qrcode_set_size(qr, 150);
-    lv_qrcode_set_light_color(qr, lv_color_white());
-    lv_qrcode_set_dark_color(qr, lv_color_black());
-    lv_qrcode_update(qr, pairing_code, 14);
-    lv_obj_align(qr, LV_ALIGN_TOP_MID, 0, 75);
-
-    lv_obj_t * manual = lv_label_create(scr);
-    lv_label_set_text_static(manual, pairing_code);
-    lv_obj_align_to(manual, qr, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
-
-    update_matter_enabled(scr);
-}
 
 void menuHostname(const char *title) {
     lv_obj_t * scr = initLeafScr(title, 0);
-    lv_obj_t * textentry = create_text_entry(scr, hostname, 16, false);
+    lv_strncpy(textvalue, OperatingParameters.FriendlyName, sizeof(textvalue));
+    lv_obj_t * textentry = create_text_entry(scr, textvalue, 31, false);
+    lv_obj_add_event_cb(textentry, textbox_changed_cb, LV_EVENT_READY, (void *)(long)HOSTNAME);
 }
 void menuNTP(const char *title) {
     lv_obj_t * scr = initLeafScr(title, 0);

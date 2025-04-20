@@ -54,6 +54,12 @@ typedef enum
     NR_HVAC_MODES
 } HVAC_MODE;
 
+typedef struct {
+  float alpha_x, alpha_y;
+  float beta_x, beta_y;
+  float delta_x, delta_y;
+} calibration_t;
+
 typedef struct
 {
     ERRORS Errors;
@@ -82,12 +88,15 @@ typedef struct
     bool hvacFanEnable;
     bool hvac2StageHeatEnable;
     bool hvacReverseValveEnable;
+    bool hvacAuxHeatEnable;
 
     bool thermostatBeepEnable;
     uint16_t thermostatSleepTime;
 
     char *timezone;
     uint16_t timezone_sel;
+
+    calibration_t tftCalibration;
 
 #ifdef MQTT_ENABLED
     bool MqttEnabled;
@@ -103,6 +112,8 @@ typedef struct
 #ifdef MATTER_ENABLED
     bool MatterEnabled;
     bool MatterStarted;
+    char MatterQR[32];
+    char MatterPairingCode[16];
 #endif
     //@@@ Zipcode for outside temp??
     //@@@ Calibration data for touchscreen?

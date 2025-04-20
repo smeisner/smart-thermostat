@@ -1,16 +1,14 @@
 #include "../ui.h"
 
-lv_obj_t * scr_HoldSettings;
 
-void uiHoldSettings()
+lv_obj_t * uiHoldSettings()
 {
-  scr_HoldSettings = lv_obj_create(NULL);
-  lv_obj_t * scr = scr_HoldSettings;
+  lv_obj_t * scr = get_page();
 
   lv_obj_set_style_bg_color(scr,lv_color_black(),LV_PART_MAIN);
   lv_obj_set_style_text_color(scr, lv_color_white(), 0);
 
-  create_menu_icon(scr, HOME_SYMBOL, &scr_MainPagePresent);
+  create_menu_icon(scr, HOME_SYMBOL, PAGE_PRESENT);
 
   lv_obj_t * l_hold = lv_label_create(scr);
     lv_obj_set_size(l_hold, 240, 150);
@@ -21,4 +19,6 @@ void uiHoldSettings()
     lv_obj_t * b_nohold = label_button(l_hold, 240-32, 40, 0, 16, "No Hold");
     lv_obj_t * b_hold_next = label_button(l_hold, 240-32, 40, 0, 60, "Until Next Event");
     lv_obj_t * b_hold_time = label_button(l_hold, 240-32, 40, 0, 104, "30 minutes");
+
+  return scr;
 }

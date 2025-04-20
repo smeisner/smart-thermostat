@@ -1,17 +1,16 @@
 #include <stdio.h>
+#include "thermostat.hpp"
 #include "../ui.h"
 #include "menu_internal.h"
 
+static int itemSelect;
+//FIXME : Need to be put in OperatingParameters
 bool auto_brightness;
 int brightness = 30;
 bool auto_dim;
 int dim = 50;
 int dim_delay = 20;
 int volume = 90;
-int reversingValve = 0;
-int stages = 0;
-int auxHeat = 0;
-int timezone = 0;
 bool dst = true;
 
 static void bool_clicked(lv_event_t *e)
@@ -28,6 +27,25 @@ static void slider_event_cb(lv_event_t * e)
     int *ptr = (int *)lv_event_get_user_data(e);
     *ptr = lv_slider_get_value(slider);
 }
+void change_temp_units(lv_event_t *e)
+{
+    if (itemSelect == 0) {
+        updateTempUnits('F');
+    } else {
+        updateTempUnits('C');
+    }
+}
+
+void menuTempUnits(const char *title) {
+    lv_obj_t * scr = initLeafScr(title);
+    if (TEMP_UNITS_C)
+        itemSelect = 1;
+    else
+        itemSelect = 0;
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, (const char *[]){"00 °F", "00.0 °C"});
+    lv_obj_add_event_cb(radio, change_temp_units, LV_EVENT_CLICKED, NULL);
+}
+void menuClockFormat(const char *title) {}
 
 static void menu_adjust_brightness(const char *title, bool *enable_auto, int min_value, int *value, int *delay)
 {
@@ -75,6 +93,13 @@ void menuDim(const char *title)
     menu_adjust_brightness(title, &auto_dim, 0, &dim, &dim_delay);
 }
 
+static void beep_changed_cb(lv_event_t *e)
+{
+    lv_obj_t *slider = lv_event_get_current_target_obj(e);
+    volume = lv_slider_get_value(slider);
+    updateBeepEnable(!!volume);
+}
+
 void menuBeep(const char *title) {
     lv_obj_t * scr = initLeafScr(title);
 
@@ -84,55 +109,108 @@ void menuBeep(const char *title) {
     /*Create a slider in the center of the display*/
     lv_obj_t * slider = lv_slider_create(scr);
     lv_obj_set_width(slider, 240-40);
-    lv_obj_add_event_cb(slider, slider_event_cb, LV_EVENT_VALUE_CHANGED, &volume);
+    lv_obj_add_event_cb(slider, beep_changed_cb, LV_EVENT_VALUE_CHANGED, &volume);
     lv_slider_set_value(slider, volume, LV_ANIM_OFF);
     lv_obj_set_style_anim_duration(slider, 2000, 0);
     lv_obj_align_to(slider, volume_l, LV_ALIGN_OUT_BOTTOM_LEFT, 10, 15);
 }
 
+enum RADIO_TYPE {
+    RADIO_TWOSTAGE,
+    RADIO_REVERSEVALVE,
+    RADIO_COOL,
+    RADIO_FAN,
+    RADIO_AUXHEAT,
+};
+
+static void hvac_change_cb(lv_event_t *e)
+{
+    enum RADIO_TYPE menu = (enum RADIO_TYPE)(long)lv_event_get_user_data(e);
+    bool newStage = OperatingParameters.hvac2StageHeatEnable;
+    bool newRV = OperatingParameters.hvacReverseValveEnable;
+    bool newAux = OperatingParameters.hvacAuxHeatEnable;
+    bool newCool = OperatingParameters.hvacCoolEnable;
+    bool newFan = OperatingParameters.hvacFanEnable;
+
+    if (menu == RADIO_TWOSTAGE) {
+        newStage = !! itemSelect;
+    } else if (menu == RADIO_REVERSEVALVE) {
+        newRV = !! itemSelect;
+    } else if (menu == RADIO_AUXHEAT) {
+        newAux = !! itemSelect;
+    } else if (menu == RADIO_COOL) {
+        newCool = !! itemSelect;
+    } else if (menu == RADIO_FAN) {
+        newFan = !! itemSelect;
+    }
+    updateHVACSettings(newStage, newRV, newAux, newCool, newFan);
+}
+
 void menuHVACStages(const char *title) {
     lv_obj_t * scr = initLeafScr(title);
-    lv_obj_t * radio = create_radio(scr, &stages, 2, (const char *[]){"1 Stage", "2 Stage"});
+    itemSelect = OperatingParameters.hvac2StageHeatEnable;
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, (const char *[]){"1 Stage", "2 Stage"});
+    lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_TWOSTAGE);
 }
+
 void menuHVACRV(const char *title) {
     lv_obj_t * scr = initLeafScr(title);
-    lv_obj_t * radio = create_radio(scr, &reversingValve, 3,
+    itemSelect = OperatingParameters.hvacReverseValveEnable;
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 3,
         (const char *[]){"None", "Active on cool", "Active on heat"});
-
-}
+    lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_REVERSEVALVE);
+    }
 void menuHVACAuxHeat(const char *title)
 {
     lv_obj_t * scr = initLeafScr(title);
-    lv_obj_t * radio = create_radio(scr, &auxHeat, 2,
+    itemSelect = OperatingParameters.hvacAuxHeatEnable;
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2,
         (const char *[]){"Disabled", "Available"});
+    lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_AUXHEAT);
+}
+void menuHVACCool(const char *title)
+{
+    lv_obj_t * scr = initLeafScr(title);
+    itemSelect = OperatingParameters.hvacCoolEnable;
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2,
+        (const char *[]){"Disabled", "Available"});
+    lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_COOL);
+}
+void menuHVACFan(const char *title)
+{
+    lv_obj_t * scr = initLeafScr(title);
+    itemSelect = OperatingParameters.hvacFanEnable;
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2,
+        (const char *[]){"Disabled", "Available"});
+    lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_FAN);
 }
 
 static void tz_handler(lv_event_t *e)
 {
     lv_obj_t * obj = lv_event_get_current_target_obj(e);
-    timezone = lv_roller_get_selected(obj);
+    updateTimezone(lv_roller_get_selected(obj), false);
 }
 void menuTimezone(const char *title) {
     lv_obj_t * scr = initLeafScr(title);
     lv_obj_set_size(scr, 240-32, 320-42);
     lv_obj_t * roller = lv_roller_create(scr);
     lv_roller_set_options(roller,
-        "+11\n"
-        "+10\n"
-        "+9\n"
-        "+8\n"
-        "+7\n"
-        "+6\n"
-        "+5\n"
-        "+4\n"
-        "+3 FET\n"
-        "+2 EET\n"
-        "+1 CET\n"
+        "GMT+11\n"
+        "GMT+10\n"
+        "GMT+9\n"
+        "GMT+8\n"
+        "GMT+7\n"
+        "GMT+6\n"
+        "GMT+5\n"
+        "GMT+4\n"
+        "GMT+3 (FET)\n"
+        "GMT+2 (EET)\n"
+        "GMT+1 (CET)\n"
         "GMT\n"
-        "-1\n"
-        "-2\n"
-        "-3\n"
-        "-4\n"
+        "GMT-1\n"
+        "GMT-2\n"
+        "GMT-3\n"
+        "GMT-4\n"
         "GMT-5 (EST)\n"
         "GMT-6 (CST)\n"
         "GMT-7 (MST)\n"
@@ -142,64 +220,18 @@ void menuTimezone(const char *title) {
         "GMT-11\n"
         "GMT-12",
         LV_ROLLER_MODE_INFINITE);
-    lv_roller_set_selected(roller, timezone, LV_ANIM_OFF);
+    lv_roller_set_selected(roller, OperatingParameters.timezone_sel, LV_ANIM_OFF);
     lv_obj_add_event_cb(roller, tz_handler, LV_EVENT_VALUE_CHANGED, NULL);
     lv_obj_align(roller, LV_ALIGN_CENTER, 0, -40);
 
     lv_obj_t *sw = create_switch(scr, "Enable DST", &dst);
     lv_obj_align(sw, LV_ALIGN_TOP_RIGHT, 0, 200);
 }
-#define ALIGN_OFFSET_X (5)
-#define ALIGN_OFFSET_Y (7)
 
-static int align_state = 0;
-static int align[6][2];
-static void align_cb(lv_event_t *e)
-{
-    lv_point_t p;
-    lv_obj_t *img = (lv_obj_t *)lv_event_get_user_data(e);
-    lv_indev_t * indev = lv_indev_get_act();
-    lv_indev_get_point(indev, &p);
-    printf("Got point %d: %d x %d\n", align_state, p.x, p.y);
-    align[align_state][0] = p.x;
-    align[align_state][1] = p.y;
-    align_state++;
-    if (align_state == 1) {
-        lv_obj_set_pos(img, 220-ALIGN_OFFSET_X, 20-ALIGN_OFFSET_Y);
-    } else if (align_state == 2) {
-        lv_obj_set_pos(img, 60-ALIGN_OFFSET_X, 167-ALIGN_OFFSET_Y);
-    } else if (align_state == 3) {
-        lv_obj_set_pos(img, 180-ALIGN_OFFSET_X, 155-ALIGN_OFFSET_Y);
-    } else if (align_state == 4) {
-        lv_obj_set_pos(img, 13-ALIGN_OFFSET_X, 300-ALIGN_OFFSET_Y);
-    } else if (align_state == 5) {
-        lv_obj_set_pos(img, 225-ALIGN_OFFSET_X, 295-ALIGN_OFFSET_Y);
-    } else if (align_state == 6) {
-        lv_obj_remove_event_cb(scr_leaf, align_cb);
-        //FIXME: Do calibration here
-        lv_screen_load_anim(scr_Menu, LV_SCR_LOAD_ANIM_MOVE_TOP, 200, 0, 0);
-    }
-}
-void menuCalibrateScreen(const char *title) {
-    lv_obj_clean(scr_leaf);
-    lv_scr_load_anim(scr_leaf, LV_SCR_LOAD_ANIM_MOVE_TOP, 200, 0, 0);
-
-    align_state = 0;
-    lv_obj_t *scr = scr_leaf;
-    lv_obj_t *img = lv_image_create(scr);
-    lv_obj_t *label = lv_label_create(scr);
-    lv_label_set_text_static(label, "press each " LV_SYMBOL_CLOSE);
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-
-    lv_image_set_src(img, LV_SYMBOL_CLOSE);
-    lv_obj_set_pos(img, 11-ALIGN_OFFSET_X, 13-ALIGN_OFFSET_Y);
-    lv_obj_add_flag(scr, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(scr, align_cb, LV_EVENT_CLICKED, img);
-}
 
 void cancel_back_cb(lv_event_t *e)
 {
-    lv_screen_load_anim(scr_Menu, LV_SCR_LOAD_ANIM_MOVE_TOP, 200, 0, 0);
+    transition_leaf_to_menu();
 }
 
 void reboot_cb(lv_event_t *e)

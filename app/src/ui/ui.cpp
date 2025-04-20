@@ -1,61 +1,35 @@
-#include "thermostat.hpp"
-#include "ui.hpp"
+#include "ui.h"
+#include "display.hpp"
 
-#include "lvgl.h"
-#include "esp_lvgl_port.h"
 
-static int64_t ui_WifiStatusLabel_timestamp = 0;
-static lv_obj_t *ui_WifiStatusLabel;
-static bool displayed = false;
-extern const lv_font_t roboto_semicond_medium_148_num;
-
-extern "C" void thermostat();
-
-void uiWake(bool beep)
+void my_timer(lv_timer_t * timer)
 {
-  if (beep)
-    audioBeep();
-}
-
-void uiDim()
-{
-
-}
-static void updateDisplay()
-{
-  lvgl_port_lock(0);
-  if(! displayed) {
-    thermostat();
-    displayed = true;
-    //lv_obj_t * label1 = lv_label_create(lv_screen_active());
-    //lv_obj_set_style_text_align(label1, LV_TEXT_ALIGN_CENTER, 0);
-    //lv_obj_align(label1, LV_ALIGN_CENTER, 0, 0);
-    //lv_label_set_text(label1, "55");
-    //lv_obj_set_style_text_font(label1, &roboto_semicond_medium_148_num, 0);
-    
+    load_page(PAGE_PRESENT, TRANSITION_FADE);
   }
-  lvgl_port_unlock();
+
+// extern "C"
+void uiInit()
+{
+  uiMainPagePresent();
+  //uiHVACSettings();
+  //uiHoldSettings();
+  //uiMainPageAbsent();
+  //uiMenu();
+  load_page(PAGE_ABSENT, TRANSITION_NONE);
+  lv_timer_t * timer = lv_timer_create(my_timer, 1000, NULL);
+  lv_timer_set_repeat_count(timer, 1);
 }
 
-void uiPeriodic()
+void uiUpdate()
 {
-  //lv_timer_handler();
-
-  updateDisplay();
-#if 0
-      // Do we need to update the display and remove the "Scanning..." message?
-      if ((ui_WifiStatusLabel_timestamp > 0) && (millis() - ui_WifiStatusLabel_timestamp > UI_TEXT_DELAY))
-      {
-        lv_label_set_text(ui_WifiStatusLabel, "");
-        ui_WifiStatusLabel_timestamp = 0;
-      }
-#endif
-  
+  display_lock();
+  uiUpdateMainPage();
+  display_unlock();
 }
 
-void uiUpdateTemperatureUnits()
+void displayUpdate()
 {
-  if (OperatingParameters.tempUnits == 'C')
-  {
-  }
+  display_lock();
+  uiUpdate();
+  display_unlock();
 }
