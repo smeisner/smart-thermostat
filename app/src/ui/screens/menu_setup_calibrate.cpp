@@ -11,6 +11,7 @@ static lv_obj_t *img;
 
 calibration_t calibrate(const lv_point_t *t, const lv_point_t *s)
 {
+    // calibration algorithm: https://www.ti.com/lit/an/slyt277/slyt277.pdf
     // t = read points
     // s = screen points
     float a = 0, b = 0, c = 0, d = 0, e = 0;

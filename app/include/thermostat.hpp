@@ -124,7 +124,7 @@ typedef struct
 {
     // char hostname[24];   ...replaced by OperatingParameters.DeviceName
     char ssid[24];
-    char password[16];
+    char password[32];
 
 } WIFI_CREDS;
 

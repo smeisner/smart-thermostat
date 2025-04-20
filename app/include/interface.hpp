@@ -9,7 +9,7 @@ void updateHVACSettings(bool newStages, bool newRV, bool newAux, bool newCool, b
 void updateBeepEnable(bool enabled);
 void updateTimezone(int idx, bool hasDST);
 void updateFriendlyHost(const char *host);
-void updateWifiCreds(const char *ssid, const char *password);
+void updateWifiCreds(const char *ssid, const char *password, bool updateNVS=true);
 void updateMqttParameters(bool enabled, const char *host, int port, const char *user, const char *password);
 void updateMatterEnabled(bool enable);
 

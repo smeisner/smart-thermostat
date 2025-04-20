@@ -110,11 +110,14 @@ void updateFriendlyHost(const char *host)
   updateThermostatParams();
 }
 
-void updateWifiCreds(const char *ssid, const char *password)
+void updateWifiCreds(const char *ssid, const char *password, bool writeNVS)
 {
-  strcpy(WifiCreds.ssid, ssid);
-  strcpy(WifiCreds.password, password);
-  setWifiCreds();
+  if (WifiCreds.ssid != ssid)
+    strcpy(WifiCreds.ssid, ssid);
+  if (WifiCreds.password != password)
+    strcpy(WifiCreds.password, password);
+  if (writeNVS)
+    setWifiCreds();
 }
 
 void updateMqttParameters(bool enabled, const char *host, int port, const char *user, const char *password)
@@ -140,10 +143,9 @@ void wifiScanner(void *pvParameters)
   void (*callback)() = (void (*)())pvParameters;
   WiFi_ScanSSID();
   //audioBeep();
-    
+  callback();
   ntScanTaskHandler = NULL;
   vTaskDelete(NULL);
-  callback();
 } 
     
 void StartWifiScan(void (*callback)(void))

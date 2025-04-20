@@ -28,7 +28,7 @@ enum CB_TYPE {
     MQTT_PASSWORD,
 };
 
-static void textbox_changed(enum CB_TYPE type)
+static void textbox_changed(enum CB_TYPE type, bool writeNVS=true)
 {
     int value;
     switch(type) {
@@ -36,10 +36,10 @@ static void textbox_changed(enum CB_TYPE type)
             updateFriendlyHost(textvalue);
             break;
         case WIFI_SSID:
-            updateWifiCreds(textvalue, WifiCreds.password);
+            updateWifiCreds(textvalue, WifiCreds.password, writeNVS);
             break;
         case WIFI_PASSWORD:
-            updateWifiCreds(WifiCreds.ssid, textvalue);
+            updateWifiCreds(WifiCreds.ssid, textvalue, writeNVS);
             break;
         case MQTT_HOST:
             updateMqttParameters(OperatingParameters.MqttEnabled, textvalue, OperatingParameters.MqttBrokerPort, OperatingParameters.MqttBrokerUsername, OperatingParameters.MqttBrokerPassword);
@@ -149,14 +149,21 @@ static void manual_ssid_cb(lv_event_t *e)
 static void ssid_roller_cb(lv_event_t *e)
 {
     lv_roller_get_selected_str(ssid_roller, textvalue, sizeof(textvalue));
-    textbox_changed(WIFI_SSID);
+    textbox_changed(WIFI_SSID, false);
     update_ssid_state(false);
+}
+
+static void ssid_back_cb(lv_event_t *e)
+{
+    // Delay writing ssid until exiting menu
+    updateWifiCreds(WifiCreds.ssid, WifiCreds.password);
+    transition_leaf_to_menu();
 }
 
 void menuSSID(const char *title)
 {
     wifi_scanning = wifiScanActive;
-    lv_obj_t *scr = initLeafScr(title);
+    lv_obj_t *scr = initLeafScr(title, 16, ssid_back_cb);
     ssid_state = label_button(scr, 240-32, 40, 0, 20, "");
     lv_obj_add_event_cb(ssid_state, start_stop_scan_cb, LV_EVENT_CLICKED, NULL);
 
@@ -165,6 +172,7 @@ void menuSSID(const char *title)
 
     ssid_roller = lv_roller_create(scr);
     lv_obj_add_event_cb(ssid_roller, ssid_roller_cb, LV_EVENT_VALUE_CHANGED, NULL);
+    lv_obj_set_width(ssid_roller, 240-32);
 
     update_ssid_state(true);
 }
