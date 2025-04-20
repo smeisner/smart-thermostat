@@ -13,6 +13,8 @@ int dim_delay = 20;
 int volume = 90;
 bool dst = true;
 
+static const char *diable_available_txt[] = {"Disabled", "Available"};
+
 static void bool_clicked(lv_event_t *e)
 {
     lv_obj_t * obj = lv_event_get_target_obj(e);
@@ -37,12 +39,13 @@ void change_temp_units(lv_event_t *e)
 }
 
 void menuTempUnits(const char *title) {
+    static const char *degrees[] = {"00 °F", "00.0 °C"};
     lv_obj_t * scr = initLeafScr(title);
     if (TEMP_UNITS_C)
         itemSelect = 1;
     else
         itemSelect = 0;
-    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, (const char *[]){"00 °F", "00.0 °C"});
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, degrees);
     lv_obj_add_event_cb(radio, change_temp_units, LV_EVENT_CLICKED, NULL);
 }
 void menuClockFormat(const char *title) {}
@@ -147,41 +150,41 @@ static void hvac_change_cb(lv_event_t *e)
 }
 
 void menuHVACStages(const char *title) {
+    static const char *stages[] = {"1 Stage", "2 Stage"};
     lv_obj_t * scr = initLeafScr(title);
     itemSelect = OperatingParameters.hvac2StageHeatEnable;
-    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, (const char *[]){"1 Stage", "2 Stage"});
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, stages);
     lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_TWOSTAGE);
 }
 
 void menuHVACRV(const char *title) {
+    static const char *valve[] ={"None", "Active on cool", "Active on heat"};
+
     lv_obj_t * scr = initLeafScr(title);
     itemSelect = OperatingParameters.hvacReverseValveEnable;
-    lv_obj_t * radio = create_radio(scr, &itemSelect, 3,
-        (const char *[]){"None", "Active on cool", "Active on heat"});
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 3, valve);
     lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_REVERSEVALVE);
     }
+
 void menuHVACAuxHeat(const char *title)
 {
     lv_obj_t * scr = initLeafScr(title);
     itemSelect = OperatingParameters.hvacAuxHeatEnable;
-    lv_obj_t * radio = create_radio(scr, &itemSelect, 2,
-        (const char *[]){"Disabled", "Available"});
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, diable_available_txt);
     lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_AUXHEAT);
 }
 void menuHVACCool(const char *title)
 {
     lv_obj_t * scr = initLeafScr(title);
     itemSelect = OperatingParameters.hvacCoolEnable;
-    lv_obj_t * radio = create_radio(scr, &itemSelect, 2,
-        (const char *[]){"Disabled", "Available"});
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, diable_available_txt);
     lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_COOL);
 }
 void menuHVACFan(const char *title)
 {
     lv_obj_t * scr = initLeafScr(title);
     itemSelect = OperatingParameters.hvacFanEnable;
-    lv_obj_t * radio = create_radio(scr, &itemSelect, 2,
-        (const char *[]){"Disabled", "Available"});
+    lv_obj_t * radio = create_radio(scr, &itemSelect, 2, diable_available_txt);
     lv_obj_add_event_cb(radio, hvac_change_cb, LV_EVENT_CLICKED, (void *)(long)RADIO_FAN);
 }
 

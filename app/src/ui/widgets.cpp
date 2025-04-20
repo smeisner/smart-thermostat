@@ -233,7 +233,7 @@ lv_obj_t * create_radio(lv_obj_t *scr, int *value, int count, const char **items
         lv_checkbox_set_text(obj, items[i]);
         lv_obj_add_flag(obj, LV_OBJ_FLAG_EVENT_BUBBLE);
         lv_obj_set_style_radius(obj, LV_RADIUS_CIRCLE, LV_PART_INDICATOR);
-        lv_obj_set_style_bg_image_src(obj, NULL, LV_PART_INDICATOR | LV_STATE_CHECKED);
+        lv_obj_set_style_bg_image_src(obj, NULL, (int)LV_PART_INDICATOR | (int)LV_STATE_CHECKED);
         if (*value == i) {
             lv_obj_add_state(obj, LV_STATE_CHECKED);
         }
