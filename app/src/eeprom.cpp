@@ -131,7 +131,7 @@ void nvs_writeFloat(nvs_handle_t handle, const char *key, float _value)
 
 void nvs_writeRaw(nvs_handle_t handle, const char *key, void *value, int len)
 {
-  writeNVS(handle, NVS_TYPE_BLOB, key, &value, len);
+  writeNVS(handle, NVS_TYPE_BLOB, key, value, len);
 }
 
 void nvs_writeChar(nvs_handle_t handle, const char *key, char _value)
@@ -441,9 +441,9 @@ void getThermostatParams()
   nvs_readBool(my_handle, "hvacFanEnable", &OperatingParameters.hvacFanEnable, DEF_HVAC_FAN_ENABLE);
   nvs_readBool(my_handle, "twoStageEnable", &OperatingParameters.hvac2StageHeatEnable, DEF_HVAC_2STAGE_ENABLE);
   nvs_readBool(my_handle, "reverseEnable", &OperatingParameters.hvacReverseValveEnable, DEF_HVAC_REVERSE_ENABLE);
-  //nvs_readRaw(my_handle, "tftCalibration", (void *)&OperatingParameters.tftCalibration, (void *)&DEF_TFT_CALIBRATION, sizeof(calibration_t));
-  OperatingParameters.tftCalibration = DEF_TFT_CALIBRATION;
-  #ifdef MQTT_ENABLED
+  nvs_readRaw(my_handle, "tftCalibration", (void *)&OperatingParameters.tftCalibration, (void *)&DEF_TFT_CALIBRATION, sizeof(calibration_t));
+  // OperatingParameters.tftCalibration = DEF_TFT_CALIBRATION;
+#ifdef MQTT_ENABLED
   nvs_readBool(my_handle, "MqttEn", &OperatingParameters.MqttEnabled, DEF_MQTT_ENABLE);
   nvs_readStr(my_handle, "MqttBroker", DEF_MQTT_BROKER, OperatingParameters.MqttBrokerHost, sizeof(OperatingParameters.MqttBrokerHost));
   nvs_readStr(my_handle, "MqttUsername", DEF_MQTT_USER, OperatingParameters.MqttBrokerUsername, sizeof(OperatingParameters.MqttBrokerUsername));
