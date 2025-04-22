@@ -6,7 +6,7 @@
 #include "../ui.h"
 #include "menu_internal.h"
 
-static char textvalue[32];
+static char textvalue[33];
 static bool enabled;
 
 extern bool wifiScanActive;

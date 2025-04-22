@@ -53,7 +53,7 @@ static const char *TAG = "WIFI";
 /////////////////////////////////////////////////////////////////////
 
 #define WIFI_MAX_SSID (6u)
-#define WIFI_SSID_LEN (32u)
+#define WIFI_SSID_LEN (33u) // 32 characters + \n
 #define DEFAULT_SCAN_LIST_SIZE WIFI_MAX_SSID
 
 /* The event group allows multiple bits for each event, but we only care about two events:
@@ -138,7 +138,7 @@ void WiFi_SsidScanExisting(void)
 
   memset(ap_info, 0, sizeof(ap_info));
 
-  if ((!WifiStatus.wifi_started) || !WifiStarted)
+  if ((!WifiStatus.wifi_started) || !WifiStarted())
   {
     if (!WifiStart("", "", ""))
     {

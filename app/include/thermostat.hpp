@@ -123,7 +123,7 @@ typedef struct
 typedef struct
 {
     // char hostname[24];   ...replaced by OperatingParameters.DeviceName
-    char ssid[24];
+    char ssid[33];  // align with wifi_ap_record_t
     char password[32];
 
 } WIFI_CREDS;

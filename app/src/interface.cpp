@@ -92,7 +92,9 @@ void updateTimezone(int idx, bool hasDST)
 
 void updateFriendlyHost(const char *host)
 {
-  strcpy(OperatingParameters.FriendlyName, host);
+  if (strlcpy(OperatingParameters.FriendlyName, host, sizeof(OperatingParameters.FriendlyName)) >= sizeof(OperatingParameters.FriendlyName))
+    ESP_LOGE(TAG, "FriendlyName was trancated");
+
   char *p = (char *)OperatingParameters.FriendlyName;
   char *t = (char *)OperatingParameters.DeviceName;
   // Make DeviceName the same as FriendlyName just with all lower
@@ -113,20 +115,26 @@ void updateFriendlyHost(const char *host)
 void updateWifiCreds(const char *ssid, const char *password, bool writeNVS)
 {
   if (WifiCreds.ssid != ssid)
-    strcpy(WifiCreds.ssid, ssid);
+    if (strlcpy(WifiCreds.ssid, ssid, sizeof(WifiCreds.ssid)) >= sizeof(WifiCreds.ssid))
+      ESP_LOGE(TAG, "Wifi SSID was trancated");
   if (WifiCreds.password != password)
-    strcpy(WifiCreds.password, password);
-  if (writeNVS)
+    if (strlcpy(WifiCreds.password, password, sizeof(WifiCreds.password)) >= sizeof(WifiCreds.password))
+      ESP_LOGE(TAG, "Wifi password was trancated");
+  if (writeNVS) {
     setWifiCreds();
+  }
 }
 
 void updateMqttParameters(bool enabled, const char *host, int port, const char *user, const char *password)
 {
   OperatingParameters.MqttEnabled = enabled;
-  strcpy(OperatingParameters.MqttBrokerHost, host);
+  if (strlcpy(OperatingParameters.MqttBrokerHost, host, sizeof(OperatingParameters.MqttBrokerHost)) >= sizeof(OperatingParameters.MqttBrokerHost))
+    ESP_LOGE(TAG, "MQTT broker hostname was truncated");
   OperatingParameters.MqttBrokerPort = port;
-  strcpy(OperatingParameters.MqttBrokerUsername, user);
-  strcpy(OperatingParameters.MqttBrokerPassword, password);
+  if (strlcpy(OperatingParameters.MqttBrokerUsername, user, sizeof(OperatingParameters.MqttBrokerUsername)) >= sizeof(OperatingParameters.MqttBrokerUsername))
+    ESP_LOGE(TAG, "MQTT broker username was trancated");
+  if (strlcpy(OperatingParameters.MqttBrokerPassword, password, sizeof(OperatingParameters.MqttBrokerPassword)) >= sizeof(OperatingParameters.MqttBrokerPassword))
+    ESP_LOGE(TAG, "MQTT broker password was trancated");
   updateThermostatParams();
 }
 
