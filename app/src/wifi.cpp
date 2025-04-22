@@ -543,7 +543,7 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
   esp_log_level_set("pp", ESP_LOG_WARN);
   //
   //@@@
-  esp_log_level_set(TAG, ESP_LOG_DEBUG);
+  // esp_log_level_set(TAG, ESP_LOG_DEBUG);
 
   ESP_LOGI(TAG, "WifiStart()");
 

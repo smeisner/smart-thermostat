@@ -594,6 +594,11 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     break;
   case LOG_LEVEL:
     ptr = strchr((char *)buffer, (int)' ');
+    if (ptr == NULL)
+    {
+      telnet_esp32_printf("Invalid Log Level: Please specify [E]rror, [W]arn, [I]nfo or [D]ebug\n");
+      break;
+    }
     ptr++; // Move past ' '
     switch (*ptr)
     {
