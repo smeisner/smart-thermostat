@@ -117,7 +117,9 @@ void update_ssid_state(bool refresh_roller)
 static void wifi_scan_complete_cb()
 {
     wifi_scanning = false;
+    display_lock();
     update_ssid_state(true);
+    display_unlock();
 }
 
 static void start_stop_scan_cb(lv_event_t *e)
