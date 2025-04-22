@@ -147,7 +147,11 @@ void WiFi_SsidScanExisting(void)
     }
   }
 
-  esp_wifi_scan_start(&scan_config, true);
+  esp_err_t res = esp_wifi_scan_start(&scan_config, true);
+  if (res != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to start wifi scan: %s", esp_err_to_name(res));
+    return;
+  }
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
   ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
 
@@ -648,12 +652,14 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
     ESP_LOGE(TAG, "Failed to connect to SSID:%s, Pre-shared key: %c%c****", 
       WifiCreds.ssid, WifiCreds.password[0], WifiCreds.password[1]);
     ret_value = ESP_FAIL;
+    WifiStatus.wifi_started = false;
   }
   else if (bits & WIFI_FAIL_ABORTED)
   {
     ESP_LOGE(TAG, "Aborted connect to SSID:%s, Pre-shared key: %c%c****", 
       WifiCreds.ssid, WifiCreds.password[0], WifiCreds.password[1]);
     ret_value = ESP_FAIL;
+    WifiStatus.wifi_started = false;
   }
   else
   {
