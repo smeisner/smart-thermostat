@@ -54,6 +54,12 @@ typedef enum
     NR_HVAC_MODES
 } HVAC_MODE;
 
+typedef struct {
+  float alpha_x, alpha_y;
+  float beta_x, beta_y;
+  float delta_x, delta_y;
+} calibration_t;
+
 typedef struct
 {
     ERRORS Errors;
@@ -82,12 +88,15 @@ typedef struct
     bool hvacFanEnable;
     bool hvac2StageHeatEnable;
     bool hvacReverseValveEnable;
+    bool hvacAuxHeatEnable;
 
     bool thermostatBeepEnable;
     uint16_t thermostatSleepTime;
 
     char *timezone;
     uint16_t timezone_sel;
+
+    calibration_t tftCalibration;
 
 #ifdef MQTT_ENABLED
     bool MqttEnabled;
@@ -103,6 +112,8 @@ typedef struct
 #ifdef MATTER_ENABLED
     bool MatterEnabled;
     bool MatterStarted;
+    char MatterQR[32];
+    char MatterPairingCode[16];
 #endif
     //@@@ Zipcode for outside temp??
     //@@@ Calibration data for touchscreen?
@@ -112,8 +123,8 @@ typedef struct
 typedef struct
 {
     // char hostname[24];   ...replaced by OperatingParameters.DeviceName
-    char ssid[24];
-    char password[16];
+    char ssid[33];  // align with wifi_ap_record_t
+    char password[32];
 
 } WIFI_CREDS;
 
@@ -137,7 +148,6 @@ typedef struct
 
 extern OPERATING_PARAMETERS OperatingParameters;
 extern WIFI_CREDS WifiCreds;
-extern int64_t ui_WifiStatusLabel_timestamp;
 
 #ifdef MQTT_ENABLED
 #define MQTT_RECONNECT_DELAY 75000
@@ -225,9 +235,6 @@ char *Get_WiFiSSID_DD_List( void );
 void WiFi_ScanSSID( void );
 
 // TFT
-void tftInit();
-void tftCalibrateTouch();
-void tftCreateTask();
 HVAC_MODE strToHvacMode(char *mode);
 HVAC_MODE convertSelectedHvacMode();
 void setHvacModesDropdown();

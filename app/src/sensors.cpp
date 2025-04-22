@@ -54,24 +54,6 @@ adc_unit_t adcUnit;
 adc_channel_t adcChannel;
 adc_oneshot_unit_handle_t adcHandle;
 
-void updateHvacMode(HVAC_MODE mode)
-{
-  OperatingParameters.hvacSetMode = mode;
-  eepromUpdateHvacSetMode();
-#ifdef MQTT_ENABLED
-  MqttUpdateStatusTopic();
-#endif
-}
-
-void updateHvacSetTemp(float setTemp)
-{
-  OperatingParameters.tempSet = setTemp;
-  eepromUpdateHvacSetTemp();
-  ESP_LOGI(TAG, "Set temp: %.1f", setTemp);
-#ifdef MQTT_ENABLED
-  MqttUpdateStatusTopic();
-#endif
-}
 
 /*---------------------------------------------------------------
         ADC Code (for light sensor)

@@ -45,7 +45,7 @@
   "name": "Espressif ESP32-S3-Thermostat (16 MB QD, No PSRAM)",
   "upload": {
     "flash_size": "16MB",
-    "maximum_ram_size": 327680,
+    "maximum_ram_size": 524288,
     "maximum_size": 16777216,
     "require_upload_port": true,
     "speed": 460800

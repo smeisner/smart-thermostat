@@ -21,6 +21,7 @@
 #include "thermostat.hpp"
 #include "driver/gpio.h"
 
+#define TAG "StateMachine"
 OPERATING_PARAMETERS OperatingParameters;
 extern int64_t lastTimeUpdate;
 int64_t lastWifiReconnect;
@@ -265,13 +266,17 @@ void stateMachine(void *parameter)
   }
 }
 
+#define STACK_WORDS 8192
+static StaticTask_t xTaskBuffer;
+static StackType_t xStack[ STACK_WORDS ];
 void stateCreateTask()
 {
-  xTaskCreate(
+  xTaskCreateStatic(
       stateMachine,
       "State Machine",
-      8192,
+      STACK_WORDS,
       NULL,
       tskIDLE_PRIORITY, // - 1,
-      NULL);
+      xStack,
+      &xTaskBuffer);
 }

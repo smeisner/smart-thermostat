@@ -52,6 +52,7 @@
 #define DEF_MQTT_PASS "mqtt"
 #define DEF_MQTT_PORT 1883
 #define DEF_MATTER_ENABLE false
+static const calibration_t DEF_TFT_CALIBRATION = {240 / 4096.0, 0, 0, 320 / 4096.0, 0, 0};
 
 //@@@
 //Timezone info, such as "America/New York"
@@ -128,6 +129,11 @@ void nvs_writeFloat(nvs_handle_t handle, const char *key, float _value)
   writeNVS(handle, NVS_TYPE_BLOB, key, &value, sizeof(float));
 }
 
+void nvs_writeRaw(nvs_handle_t handle, const char *key, void *value, int len)
+{
+  writeNVS(handle, NVS_TYPE_BLOB, key, value, len);
+}
+
 void nvs_writeChar(nvs_handle_t handle, const char *key, char _value)
 {
   char value = _value;
@@ -185,7 +191,7 @@ bool readNVS(nvs_handle_t handle, nvs_type_t type, const char *key, void *out_va
       break;
     case NVS_TYPE_BLOB:
       len = _len;
-      if ((nvs_get_blob(handle, key, (float *)out_value, (size_t *)&len)) != ESP_OK)
+      if ((nvs_get_blob(handle, key, out_value, (size_t *)&len)) != ESP_OK)
         return false;
       break;
     default:
@@ -204,6 +210,12 @@ void nvs_readFloat(nvs_handle_t handle, const char *key, float *out_value, float
 {
   if (!readNVS(handle, NVS_TYPE_BLOB, key, out_value, sizeof(float)))
     *out_value = def;
+}
+
+void nvs_readRaw(nvs_handle_t handle, const char *key, void *out_value, void *def, int len)
+{
+  if (!readNVS(handle, NVS_TYPE_BLOB, key, out_value, len))
+    memcpy(out_value, def, len);
 }
 
 void nvs_readChar(nvs_handle_t handle, const char *key, char *out_value, char def)
@@ -315,7 +327,8 @@ void setDefaultThermostatParams()
   nvs_writeBool(my_handle, "hvacFanEnable", DEF_HVAC_FAN_ENABLE);
   nvs_writeBool(my_handle, "twoStageEnable", DEF_HVAC_2STAGE_ENABLE);
   nvs_writeBool(my_handle, "reverseEnable", DEF_HVAC_REVERSE_ENABLE);
-  #ifdef MQTT_ENABLED
+  nvs_writeRaw(my_handle, "tftCalibration", (void *)&DEF_TFT_CALIBRATION, sizeof(calibration_t));
+#ifdef MQTT_ENABLED
   nvs_writeBool(my_handle, "MqttEn", DEF_MQTT_ENABLE);
   nvs_writeString(my_handle, "MqttBroker", DEF_MQTT_BROKER);
   nvs_writeString(my_handle, "MqttUsername", DEF_MQTT_USER);
@@ -346,6 +359,7 @@ void setDefaultThermostatParams()
   OperatingParameters.hvacFanEnable = DEF_HVAC_FAN_ENABLE;
   OperatingParameters.hvac2StageHeatEnable = DEF_HVAC_2STAGE_ENABLE;
   OperatingParameters.hvacReverseValveEnable = DEF_HVAC_REVERSE_ENABLE;
+  OperatingParameters.tftCalibration = DEF_TFT_CALIBRATION;
 #ifdef MQTT_ENABLED
   OperatingParameters.MqttEnabled = DEF_MQTT_ENABLE;
   strncpy (OperatingParameters.MqttBrokerHost, DEF_MQTT_BROKER, sizeof(OperatingParameters.MqttBrokerHost));
@@ -382,6 +396,7 @@ void updateThermostatParams()
   nvs_writeBool(my_handle, "hvacFanEnable", OperatingParameters.hvacFanEnable);
   nvs_writeBool(my_handle, "twoStageEnable", OperatingParameters.hvac2StageHeatEnable);
   nvs_writeBool(my_handle, "reverseEnable", OperatingParameters.hvacReverseValveEnable);
+  nvs_writeRaw(my_handle, "tftCalibration", (void *)&OperatingParameters.tftCalibration, sizeof(calibration_t));
   #ifdef MQTT_ENABLED
   nvs_writeBool(my_handle, "MqttEn", OperatingParameters.MqttEnabled);
   nvs_writeString(my_handle, "MqttBroker", OperatingParameters.MqttBrokerHost);
@@ -426,7 +441,9 @@ void getThermostatParams()
   nvs_readBool(my_handle, "hvacFanEnable", &OperatingParameters.hvacFanEnable, DEF_HVAC_FAN_ENABLE);
   nvs_readBool(my_handle, "twoStageEnable", &OperatingParameters.hvac2StageHeatEnable, DEF_HVAC_2STAGE_ENABLE);
   nvs_readBool(my_handle, "reverseEnable", &OperatingParameters.hvacReverseValveEnable, DEF_HVAC_REVERSE_ENABLE);
-  #ifdef MQTT_ENABLED
+  nvs_readRaw(my_handle, "tftCalibration", (void *)&OperatingParameters.tftCalibration, (void *)&DEF_TFT_CALIBRATION, sizeof(calibration_t));
+  // OperatingParameters.tftCalibration = DEF_TFT_CALIBRATION;
+#ifdef MQTT_ENABLED
   nvs_readBool(my_handle, "MqttEn", &OperatingParameters.MqttEnabled, DEF_MQTT_ENABLE);
   nvs_readStr(my_handle, "MqttBroker", DEF_MQTT_BROKER, OperatingParameters.MqttBrokerHost, sizeof(OperatingParameters.MqttBrokerHost));
   nvs_readStr(my_handle, "MqttUsername", DEF_MQTT_USER, OperatingParameters.MqttBrokerUsername, sizeof(OperatingParameters.MqttBrokerUsername));
@@ -558,4 +575,8 @@ void eepromInit()
   getThermostatParams();
   ESP_LOGI(TAG, "Loading wifi credentials from NVS");
   getWifiCreds();
+  ESP_LOGI(TAG, "Calibration: %.3f %.3f %.3f    %.3f %.3f %.3f",
+      OperatingParameters.tftCalibration.alpha_x, OperatingParameters.tftCalibration.beta_x, OperatingParameters.tftCalibration.delta_x,
+      OperatingParameters.tftCalibration.alpha_y, OperatingParameters.tftCalibration.beta_y, OperatingParameters.tftCalibration.delta_y
+    );
 }
