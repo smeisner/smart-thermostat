@@ -410,6 +410,8 @@ void tftInit()
   lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
   if (OperatingParameters.tempUnits == 'C')
   {
+    lv_arc_set_range(ui_TempArc, 7*10, 33*10);
+    lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
   }
 
