@@ -333,6 +333,11 @@ static void event_handler(void* arg, esp_event_base_t event_base,
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
+    if (esp_wifi_connect() == ESP_OK)
+    {
+      ESP_LOGI(TAG, "Wifi reconnect worked!");
+      return;
+    }
     // The next call has a side effect of disabling logging via telnet...
 #ifdef TELNET_ENABLED
     if (telnetServiceRunning())
