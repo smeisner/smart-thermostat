@@ -507,20 +507,92 @@ void configTime(const char* server)
 
 #include <ArduinoJson.h>
 #include "esp_http_client.h"
-#define MAX_HTTP_RECV_BUFFER 512
+// #define MAX_HTTP_RECV_BUFFER 512
+#define MAX_HTTP_RECV_BUFFER 1023
 
+/**
+ * Macro defining default configuration of HTTP client structure.
+ */
+#define HTTP_CLIENT_CONFIG_DEFAULT() {\
+    .url = NULL,                  /*!< HTTP URL, the information on the URL is most important, it overrides the other fields below, if any */ \
+    .host = NULL,                 /*!< Domain or IP as string */ \
+    .port = 0,                    /*!< Port to connect, default depend on esp_http_client_transport_t (80 or 443) */ \
+    .username = NULL,             /*!< Using for Http authentication */ \
+    .password = NULL,             /*!< Using for Http authentication */ \
+    .auth_type = HTTP_AUTH_TYPE_NONE,  /*!< Http authentication type, see `esp_http_client_auth_type_t` */ \
+    .path = NULL,                 /*!< HTTP Path, if not set, default is `/` */ \
+    .query = NULL,                /*!< HTTP query */ \
+    .cert_pem = NULL,             /*!< SSL server certification, PEM format as string, if the client requires to verify server */ \
+    .cert_len = 0,                /*!< Length of the buffer pointed to by cert_pem. May be 0 for null-terminated pem */ \
+    .client_cert_pem = NULL,      /*!< SSL client certification, PEM format as string, if the server requires to verify client */ \
+    .client_cert_len = 0,         /*!< Length of the buffer pointed to by client_cert_pem. May be 0 for null-terminated pem */ \
+    .client_key_pem = NULL,       /*!< SSL client key, PEM format as string, if the server requires to verify client */ \
+    .client_key_len = 0,          /*!< Length of the buffer pointed to by client_key_pem. May be 0 for null-terminated pem */ \
+    .client_key_password = NULL,  /*!< Client key decryption password string */ \
+    .client_key_password_len = 0, /*!< String length of the password pointed to by client_key_password */ \
+    .tls_version = ESP_HTTP_CLIENT_TLS_VER_ANY, /*!< TLS protocol version of the connection, e.g., TLS 1.2, TLS 1.3 (default - no preference) */ \
+    .user_agent = NULL,           /*!< The User Agent string to send with HTTP requests */ \
+    .method = HTTP_METHOD_GET,    /*!< HTTP Method */ \
+    .timeout_ms = 0,              /*!< Network timeout in milliseconds */ \
+    .disable_auto_redirect = false, /*!< Disable HTTP automatic redirects */ \
+    .max_redirection_count = 0,   /*!< Max number of redirections on receiving HTTP redirect status code, using default value if zero*/ \
+    .max_authorization_retries = 0, /*!< Max connection retries on receiving HTTP unauthorized status code, using default value if zero. Disables authorization retry if -1*/ \
+    .event_handler = NULL,             /*!< HTTP Event Handle  (http_event_handle_cb) */ \
+    .transport_type = HTTP_TRANSPORT_UNKNOWN, /*!< HTTP transport type, see `esp_http_client_transport_t` */ \
+    .buffer_size = 0,             /*!< HTTP receive buffer size */ \
+    .buffer_size_tx = 0,          /*!< HTTP transmit buffer size */ \
+    .user_data = NULL,            /*!< HTTP user_data context */ \
+    .is_async = false,            /*!< Set asynchronous mode, only supported with HTTPS for now */ \
+    .use_global_ca_store = false, /*!< Use a global ca_store for all the connections in which this bool is set. */ \
+    .skip_cert_common_name_check = false, /*!< Skip any validation of server certificate CN field */ \
+    .common_name = NULL,          /*!< Pointer to the string containing server certificate common name. */ \
+    .crt_bundle_attach = NULL,    /*!< Function pointer to esp_crt_bundle_attach. Enables the use of certification */ \
+    .keep_alive_enable = false,   /*!< Enable keep-alive timeout */ \
+    .keep_alive_idle = 0,         /*!< Keep-alive idle time. Default is 5 (second) */ \
+    .keep_alive_interval = 0,     /*!< Keep-alive interval time. Default is 5 (second) */ \
+    .keep_alive_count = 0,        /*!< Keep-alive packet retry send count. Default is 3 counts */ \
+    .if_name = NULL,              /*!< The name of interface for data to go through. Use the default interface without setting */ \
+    .ds_data = NULL,              /*!< Pointer for digital signature peripheral context, see ESP-TLS Documentation for more details */ \
+}
+
+//     .tls_version = ESP_HTTP_CLIENT_TLS_VER_ANY, /*!< TLS protocol version of the connection, e.g., TLS 1.2, TLS 1.3 (default - no preference) */ \
+// // #ifdef CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN \
+// //     .use_ecdsa_peripheral = false, /*!< Use ECDSA peripheral to use private key. */ \
+// //     .ecdsa_key_efuse_blk = 0,      /*!< The efuse block where ECDSA key is stored. */ \
+// // #endif \
+//     .user_agent = NULL,           /*!< The User Agent string to send with HTTP requests */ \
+
+
+//     .if_name = NULL,              /*!< The name of interface for data to go through. Use the default interface without setting */ \
+// // #if CONFIG_ESP_TLS_USE_SECURE_ELEMENT \
+// //     .use_secure_element = false,  /*!< Enable this option to use secure element */ \
+// // #endif \
+
+
+/*
+
+To disable cert/CA auth in an HTTPS request:
+
+Open a terminal in your project's root directory.
+Run pio run -t menuconfig.
+Navigate through the menu options: Component config -> ESP-TLS.
+Enable the option "Allow potentially insecure options".
+Enable the option "Skip server certificate verification by default" (accepting the risks).
+
+*/
 bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
 {
-  char *timeServer = (char *)"http://worldtimeapi.org/api/ip";
+  // char *timeServer = (char *)"http://worldtimeapi.org/api/ip";
+  char *timeServer = (char *)"https://ipapi.co/json/";
   char *buffer = (char *)malloc(MAX_HTTP_RECV_BUFFER + 1);
-  
-  esp_http_client_config_t config = {
-      .url = timeServer,
-      .path = "/"
-      // .transport_type = HTTP_TRANSPORT_OVER_SSL,
-      // .event_handler = _http_event_handler,
-      // .cert_pem = howsmyssl_com_root_cert_pem_start,
-  };
+
+  esp_http_client_config_t config = HTTP_CLIENT_CONFIG_DEFAULT();
+  config.url = timeServer;
+  config.path = "/";
+  config.transport_type = HTTP_TRANSPORT_OVER_SSL;
+  // .event_handler = _http_event_handler,
+  // .cert_pem = howsmyssl_com_root_cert_pem_start,
+  config.buffer_size = MAX_HTTP_RECV_BUFFER;
   esp_http_client_handle_t client = esp_http_client_init(&config);
   esp_err_t err;
   if ((err = esp_http_client_open(client, 0)) != ESP_OK)
@@ -529,7 +601,7 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
     free(buffer);
     return false;
   }
-  int content_length =  esp_http_client_fetch_headers(client);
+  int content_length = esp_http_client_fetch_headers(client);
   int total_read_len = 0, read_len;
   if (total_read_len < content_length && content_length <= MAX_HTTP_RECV_BUFFER)
   {
@@ -541,9 +613,20 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
       buffer[read_len] = 0;
       ESP_LOGD(__FUNCTION__, ">> read_len = %d", read_len);
   }
+
   ESP_LOGI(__FUNCTION__, "HTTP Stream reader Status = %d, content_length = %ld",
                   esp_http_client_get_status_code(client),
                   esp_http_client_get_content_length(client));
+
+  if ((esp_http_client_get_status_code(client) == -1) ||
+      (esp_http_client_get_content_length(client) == 0))
+  {
+    ESP_LOGE(__FUNCTION__, "esp_http_client_fetch_headers failed!\n");
+    free(buffer);
+    esp_http_client_close(client);
+    esp_http_client_cleanup(client);
+    return false;
+  }
   ESP_LOGI(__FUNCTION__, "HTTP Stream Content: \"%s\"", buffer);
 
   esp_http_client_close(client);
@@ -551,6 +634,7 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
 
   JsonDocument doc;
   deserializeJson(doc, buffer);
+  free(buffer);
 
   const char* datetime = doc["timezone"];
   // DateTime dt = parseISO8601(String(datetime));
@@ -559,7 +643,7 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
   // Generate GMT-xx format timzeone string
   {
     // "utc_offset":"-04:00" ===> Etc/GMT-4
-    const char *offset=doc["utc_offset"];
+    const char *offset = doc["utc_offset"];
     char gmt_tz[16], tmp[8] = "";
     strncpy (tmp, offset, 3);
     // Quick trick to remove leading zeros
@@ -584,8 +668,6 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
   // Send data back to user
   strncpy (TimeZone, datetime, MaxLen);
 
-  free(buffer);
-
   return true;
 }
 
@@ -593,6 +675,8 @@ void initTimeSntp()
 {
   ESP_LOGI(TAG, "Time server: %s", ntpServer);
   char TimeZone[32];
+
+  if (!WifiConnected()) return;
 
   if (lookupGeoIpTimezone(TimeZone, sizeof(TimeZone)))
     updateTimezone(TimeZone);

@@ -138,18 +138,20 @@ void WiFi_SsidScanExisting(void)
 
   memset(ap_info, 0, sizeof(ap_info));
 
-  if ((!WifiStatus.wifi_started) || !WifiStarted)
+  esp_wifi_stop();
+  WifiStatus.wifi_started = false;
+
+  if (!WifiStart("", "", ""))
   {
-    if (!WifiStart("", "", ""))
-    {
-      ESP_LOGE (TAG, "Failed to start wifi to perform scan.");
-      ap_count = 0;
-    }
+    ESP_LOGE (TAG, "Failed to start wifi to perform scan.");
+    ap_count = 0;
   }
 
   esp_wifi_scan_start(&scan_config, true);
-  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
-  ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+  // ESP_ERROR_CHECK(esp_wifi_scan_get_ap_num(&ap_count));
+  esp_wifi_scan_get_ap_num(&ap_count);
+  // ESP_ERROR_CHECK(esp_wifi_scan_get_ap_records(&number, ap_info));
+  esp_wifi_scan_get_ap_records(&number, ap_info);
 
   ESP_LOGI(TAG, "Total APs scanned = %u", ap_count);
   if (ap_count == 0)
@@ -369,8 +371,6 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     if (WifiStatus.reconnect_requested)
     {
       WifiStatus.reconnect_requested = false;
-
-      initTimeSntp();
 
       //@@@ This is causing a crash since MQTT is not re-connected yet.....
       // #ifdef MQTT_ENABLED
@@ -642,6 +642,8 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
       WifiCreds.ssid, WifiCreds.password[0], WifiCreds.password[1]);
     WifiStatus.Connected = true;
     ret_value = ESP_OK;
+    // Start SNTP service
+    initTimeSntp();
   }
   else if (bits & WIFI_FAIL_BIT)
   {

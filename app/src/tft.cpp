@@ -52,7 +52,7 @@ extern "C" {
 
 void tftDisableTouchTimer()
 {
-  ESP_LOGI(TAG, "Disabling touch/motion timer");
+  ESP_LOGD(TAG, "Stopping touch/motion timer");
   tftTouchTimerEnabled = false;
 #ifdef MQTT_ENABLED
   // Stay in synch with display
@@ -63,7 +63,7 @@ void tftDisableTouchTimer()
 
 void tftEnableTouchTimer()
 {
-  ESP_LOGI(TAG, "Enabling touch/motion timer");
+  ESP_LOGD(TAG, "Starting touch/motion timer");
   tftTouchTimerEnabled = true;
 }
 
@@ -123,6 +123,7 @@ void tftAutoBrightness()
 
 void tftWakeDisplay(bool beep)
 {
+  ESP_LOGD(TAG, "Waking display");
   if (beep)
     audioBeep();
   tftShowDisplayItems();
@@ -133,6 +134,7 @@ void tftWakeDisplay(bool beep)
 
 void tftWakeDisplayMotion()
 {
+  ESP_LOGD(TAG, "Waking display due to motion");
   if (!tftTouchTimerEnabled)
   {
     tftShowDisplayItems();
@@ -374,6 +376,9 @@ Cal data:
 
 void tftInit()
 {
+  // The TFT display IRQ pin must be pulled up
+  gpio_set_pull_mode((gpio_num_t)TOUCH_IRQ_PIN, GPIO_PULLUP_ONLY);
+
   lv_init();
 
   tft.begin();
@@ -399,7 +404,7 @@ void tftInit()
   indev_drv.type = LV_INDEV_TYPE_POINTER;
   indev_drv.read_cb = my_touch_read;
   lv_indev_drv_register(&indev_drv);
-
+  
   ui_init();
 
   setHvacModesDropdown();
