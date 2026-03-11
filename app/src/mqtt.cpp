@@ -536,7 +536,8 @@ void MqttInit()
     // esp_log_level_set("TRANSPORT_SSL", ESP_LOG_VERBOSE);
     // esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     // esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
-    esp_log_level_set("MQTT_CLIENT", ESP_LOG_INFO);
+//    esp_log_level_set("MQTT_CLIENT", ESP_LOG_INFO);
+    esp_log_level_set("MQTT_CLIENT", ESP_LOG_WARN);
 
     /* Initialize event group */
     s_mqtt_event_group = xEventGroupCreate();
@@ -553,6 +554,7 @@ void MqttInit()
     {
         ESP_LOGW(TAG, "MQTT is not enabled!");
         // No need to count this as an error
+        return;
     }
 
     if (!WifiConnected())

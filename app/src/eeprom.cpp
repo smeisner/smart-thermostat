@@ -37,7 +37,7 @@
 #define DEF_CURR_HUMIDITY 50.0
 #define DEF_SET_UNITS 'F'
 #define DEF_SET_SWING 3.0
-#define DEF_TEMP_CORR -4.8
+#define DEF_TEMP_CORR -4.2
 #define DEF_HUMIDITY_CORR 10
 #define DEF_SLEEP_TIME 30
 #define DEF_TZ_SEL 15

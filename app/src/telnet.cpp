@@ -1019,7 +1019,7 @@ esp_err_t telnetStart()
   xTaskCreate(
       &telnetListenTask,
       "TelnetTask",
-      8048,
+      8192,
       NULL,
       tskIDLE_PRIORITY,
       &telnetTaskHandle);
