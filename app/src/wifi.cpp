@@ -539,16 +539,10 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
   // See comments at top of module.
   //
   // Enable debug logging
-  // esp_log_level_set("*", ESP_LOG_NONE);
-  // esp_log_level_set(TAG, ESP_LOG_WARN);
-  // esp_log_level_set("wifi", ESP_LOG_INFO);
-  esp_log_level_set("wifi_init", ESP_LOG_WARN);
-  esp_log_level_set("wifi", ESP_LOG_ERROR);
-  esp_log_level_set("net80211", ESP_LOG_WARN);
-  esp_log_level_set("pp", ESP_LOG_WARN);
-  //
-  //@@@
-  // esp_log_level_set(TAG, ESP_LOG_DEBUG);
+  //@@@esp_log_level_set("wifi_init", ESP_LOG_WARN);
+
+  esp_log_level_set("wifi_init", ESP_LOG_INFO);
+  esp_log_level_set("wifi", ESP_LOG_ERROR); // Suppresses ADDBA and DELBA messages
 
   ESP_LOGI(TAG, "WifiStart()");
 
@@ -677,6 +671,8 @@ bool WifiStart(const char *hostname, const char *ssid, const char *pass)
   //
 
   wifiConnecting = false;
+
+  esp_log_level_set("wifi_init", ESP_LOG_ERROR);
 
   ESP_LOGD(TAG, "wifi_connect_sta finished.");
   return (ret_value == ESP_OK);

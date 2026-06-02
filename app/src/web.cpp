@@ -255,7 +255,7 @@ esp_err_t handleXML(httpd_req_t *req)
   xmlSpace -= snprintf(buf, sizeof(buf), "<reverseEnable>%d</reverseEnable>\n", OperatingParameters.hvacReverseValveEnable);
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   CAT_IF_SPACE(xml, "</Data>", xmlSpace, req);
-  ESP_LOGD(TAG, "Remaining XML space: %ld", xmlSpace);
+  // ESP_LOGD(TAG, "Remaining XML space: %ld", xmlSpace);
   return httpd_resp_send(req, xml, strlen(xml));
 }
 
