@@ -284,3 +284,8 @@ General to-do:
 * Average temp change rate
     * Detects when filter / furnace needs servicing
     * Used to calculate time to temp
+
+#### Analyze core dump core:
+
+* Example;
+  ```esp-coredump info_corefile --rom-elf ~/.espressif/tools/esp-rom-elfs/20241011/esp32s3_rev0_rom.elf -c ~/COREDUMP.BIN ~/projects/smart-thermostat/app/.pio/build/esp32s3/firmware.elf```
