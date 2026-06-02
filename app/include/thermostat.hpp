@@ -1,5 +1,7 @@
 #pragma once
 
+#define LOG_LOCAL_LEVEL ESP_LOG_DEBUG
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -168,6 +170,17 @@ int64_t millis();   // Defined in main.cpp
 
 void showConfigurationData();
 void scanI2cBus();
+
+// Logging
+void loggerEnableLocalLogging();
+int localLogger(const char *fmt, va_list list);
+int sdcard_esp32_vprintf(const char *fmt, va_list va);  //@@@ This is in the wrong spot
+
+// SD Card
+int sd_init(void);
+esp_err_t saveConfig();
+esp_err_t loadConfig();
+void sdcard_check_and_save_coredump(const char* sd_file_path);
 
 #ifdef MATTER_ENABLED
 bool MatterInit();

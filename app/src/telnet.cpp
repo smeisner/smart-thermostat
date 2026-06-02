@@ -53,6 +53,7 @@
 #include "string.h"
 #include "telnet.h"
 #include "version.h"
+#include "logger.h"
 
 #include <esp_heap_caps.h>
 
@@ -68,7 +69,7 @@ typedef enum {
   LISTENING
 } TELNET_STATE;
 
-static vprintf_like_t OrigEsplogger = NULL;
+// static vprintf_like_t OrigEsplogger = NULL;
 static bool telnetLoggerActive = false;
 static bool disconnectPending = false;
 static TELNET_STATE telnetState = NOT_LISTENING;
@@ -95,7 +96,9 @@ typedef enum
   TEMP_UP,
   TEMP_DOWN,
   TEMP_SET,
-  LOG_LEVEL,
+  CONSOLE_LOG_LEVEL,
+  SD_LOG_LEVEL,
+  TELNET_LOG_LEVEL,
   MODE_SET,
   MONITOR_LOG,
   STATUS,
@@ -106,7 +109,7 @@ typedef enum
 } CMD;
 
 // List of valid command strings
-const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "LOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "QUIT", NULL};
+const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "CONLOG", "SDLOG", "TELLOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "QUIT", NULL};
 
 #define min(x, y) ((x > y) ? y : x)
 
@@ -116,15 +119,15 @@ typedef struct
 } TELNET_USER_DATA;
 
 
-void revertTelnetLogger()
-{
-  // Shutdown the telnet logger, if active;
-  if (telnetLoggerActive == true)
-  {
-    telnetLoggerActive = false;
-    esp_log_set_vprintf(OrigEsplogger);
-  }
-}
+// void revertTelnetLogger()
+// {
+//   // Shutdown the telnet logger, if active;
+//   if (telnetLoggerActive == true)
+//   {
+//     telnetLoggerActive = false;
+//     esp_log_set_vprintf(OrigEsplogger);
+//   }
+// }
 
 /**
  * Convert a telnet event type to its string representation.
@@ -505,29 +508,30 @@ static CMD lookupCommnd(char *buffer, size_t len)
   return UNKNOWN;
 }
 
-static int telnetLogger(const char *fmt, va_list list)
-{
-  static char telnetBuffer[256];
+// static int telnetLogger(const char *fmt, va_list list)
+// {
+//   static char telnetBuffer[256];
 
-  if (telnetLoggerActive == false)
-  {
-    printf("telnetLogger: Telnet logger is not enabled!! Restoring original\n");
-    if (OrigEsplogger == NULL)
-    {
-      printf("telnetLogger: No original logger defined - Restarting...\n");
-      esp_restart();
-    }
-    esp_log_set_vprintf(OrigEsplogger);
-    return ESP_OK;
-  }
+//   if (telnetLoggerActive == false)
+//   {
+//     printf("telnetLogger: Telnet logger is not enabled!! Restoring original\n");
+//     if (OrigEsplogger == NULL)
+//     {
+//       printf("telnetLogger: No original logger defined - Restarting...\n");
+//       esp_restart();
+//     }
+//     esp_log_set_vprintf(OrigEsplogger);
+//     return ESP_OK;
+//   }
 
-  OrigEsplogger(fmt, list);
+//   OrigEsplogger(fmt, list);
 
-  int res = vsprintf(telnetBuffer, fmt, list);
-  telnet_esp32_printf(telnetBuffer);
+//   int res = vsnprintf(telnetBuffer, sizeof(telnetBuffer), fmt, list);
+//   // int res = vsprintf(telnetBuffer, fmt, list);
+//   telnet_esp32_printf(telnetBuffer);
 
-  return res;
-}
+//   return res;
+// }
 
 static void recvData(int sock, uint8_t *buffer, size_t _size)
 {
@@ -540,7 +544,8 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     if (telnetLoggerActive)
     {
       telnet_esp32_printf("Log monitoring disabled\n");
-      revertTelnetLogger();
+      // revertTelnetLogger();
+      enableTelnetLogging(false);
       ESP_LOGI(tag, "Log monitoring via telnet disabled");
     }
     return;
@@ -561,18 +566,20 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
   case HELP:
   case HELP_2:
     telnet_esp32_printf("Valid commands:\n");
-    telnet_esp32_printf("  Config:      Change configuration\n");
-    telnet_esp32_printf("  Help:        This!\n");
-    telnet_esp32_printf("  Up:          Increase set temp\n");
-    telnet_esp32_printf("  Down:        Decrease set temp\n");
-    telnet_esp32_printf("  Temp <temp>: Set arbitrary temp\n");
-    telnet_esp32_printf("  Log <level>: Set log level for serial console\n");
-    telnet_esp32_printf("  Mode <mode>: Set operating mode\n");
-    telnet_esp32_printf("  Monitor:     Monitor log output\n");
-    telnet_esp32_printf("  Status:      Dump status counters\n");
-    telnet_esp32_printf("  Error:       Dump error counters\n");
-    telnet_esp32_printf("  Quit:        Close telnet session\n");
-    telnet_esp32_printf("  Reboot:      Reboot the ESP32\n");
+    telnet_esp32_printf("  Config:         Change configuration\n");
+    telnet_esp32_printf("  Help:           This!\n");
+    telnet_esp32_printf("  Up:             Increase set temp\n");
+    telnet_esp32_printf("  Down:           Decrease set temp\n");
+    telnet_esp32_printf("  Temp <temp>:    Set arbitrary temp\n");
+    telnet_esp32_printf("  ConLog <level>: Set log level for serial console\n");
+    telnet_esp32_printf("  SDLog <level>:  Set log level for SD card log\n");
+    telnet_esp32_printf("  TelLog <level>: Set log level for telnet session\n");
+    telnet_esp32_printf("  Mode <mode>:    Set thermostat operating mode\n");
+    telnet_esp32_printf("  Monitor:        Monitor log output\n");
+    telnet_esp32_printf("  Status:         Dump status counters\n");
+    telnet_esp32_printf("  Error:          Dump error counters\n");
+    telnet_esp32_printf("  Quit:           Close telnet session\n");
+    telnet_esp32_printf("  Reboot:         Reboot the ESP32\n");
     break;
   case CONFIG:
     doConfiguration(sock);
@@ -592,7 +599,7 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     telnet_esp32_printf("Set temperature to %d\n", i);
     updateHvacSetTemp((float)i);
     break;
-  case LOG_LEVEL:
+  case CONSOLE_LOG_LEVEL:
     ptr = strchr((char *)buffer, (int)' ');
     if (ptr == NULL)
     {
@@ -604,26 +611,70 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     {
       case 'E':
       case 'e':
-        esp_log_level_set("*", ESP_LOG_ERROR);
+        // esp_log_level_set("*", ESP_LOG_ERROR);
+        setConsoleLogLevel(ESP_LOG_ERROR);
         telnet_esp32_printf("Log level set to ERROR\n");
         break;
       case 'W':
       case 'w':
-        esp_log_level_set("*", ESP_LOG_WARN);
+        // esp_log_level_set("*", ESP_LOG_WARN);
+        // esp_log_level_set("wifi", ESP_LOG_ERROR);
+        setConsoleLogLevel(ESP_LOG_WARN);
         telnet_esp32_printf("Log level set to WARN\n");
         break;
       case 'I':
       case 'i':
-        esp_log_level_set("*", ESP_LOG_INFO);
+        // esp_log_level_set("*", ESP_LOG_INFO);
+        // esp_log_level_set("wifi", ESP_LOG_ERROR);
+        setConsoleLogLevel(ESP_LOG_INFO);
         telnet_esp32_printf("Log level set to INFO\n");
         break;
       case 'D':
       case 'd':
-        esp_log_level_set("*", ESP_LOG_DEBUG);
+        // esp_log_level_set("*", ESP_LOG_DEBUG);
+        // esp_log_level_set("wifi", ESP_LOG_ERROR);
+        setConsoleLogLevel(ESP_LOG_DEBUG);
         telnet_esp32_printf("Log level set to DEBUG\n");
         break;
       default:
         telnet_esp32_printf("Invalid Log Level: %c - Log level unchanged\n", *ptr);
+        break;
+    }
+    ESP_LOGD(tag, "Console log level changed by telnet command"); //@@@
+    break;
+  case SD_LOG_LEVEL:
+  case TELNET_LOG_LEVEL:
+    ptr = strchr((char *)buffer, (int)' ');
+    if (ptr == NULL)
+    {
+      telnet_esp32_printf("Invalid Log Level: Please specify [E]rror, [W]arn, [I]nfo or [D]ebug\n");
+      break;
+    }
+    ptr++; // Move past ' '
+    switch (*ptr)
+    {
+      case 'E':
+      case 'e':
+        setTelnetLogLevel(ESP_LOG_ERROR);
+        telnet_esp32_printf("Telnet log level set to ERROR\n");
+        break;
+      case 'W':
+      case 'w':
+        setTelnetLogLevel(ESP_LOG_WARN);
+        telnet_esp32_printf("Telnet log level set to WARN\n");
+        break;
+      case 'I':
+      case 'i':
+        setTelnetLogLevel(ESP_LOG_INFO);
+        telnet_esp32_printf("Telnet log level set to INFO\n");
+        break;
+      case 'D':
+      case 'd':
+        setTelnetLogLevel(ESP_LOG_DEBUG);
+        telnet_esp32_printf("Telnet log level set to DEBUG\n");
+        break;
+      default:
+        telnet_esp32_printf("Invalid Log Level: %c - Telnet log level unchanged\n", *ptr);
         break;
     }
     break;
@@ -648,17 +699,18 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
   }
   break;
   case MONITOR_LOG:
-    if (telnetLoggerActive == false)
-    {
-      telnet_esp32_printf("Enable log monitoring (CR to exit)\n");
-      ESP_LOGI(tag, "Log monitoring via telnet enabled");
-      telnetLoggerActive = true;
-      OrigEsplogger = esp_log_set_vprintf(telnetLogger);
-    }
-    else
-    {
-      telnet_esp32_printf("Error: log monitoring already active\n");
-    }
+    // if (telnetLoggerActive == false)
+    // {
+    //   telnet_esp32_printf("Enable log monitoring (CR to exit)\n");
+    //   ESP_LOGI(tag, "Log monitoring via telnet enabled");
+    //   telnetLoggerActive = true;
+    //   OrigEsplogger = esp_log_set_vprintf(telnetLogger);
+    // }
+    // else
+    // {
+    //   telnet_esp32_printf("Error: log monitoring already active\n");
+    // }
+    enableTelnetLogging(telnetLoggerActive = true);
     break;
   case STATUS:
     DisplayStatus();
@@ -696,7 +748,7 @@ static void telnetCallbackHandler(
   int rc;
   TELNET_USER_DATA *telnetUserData = (TELNET_USER_DATA *)userData;
 
-  ESP_LOGD(tag, "telnet event: %s", eventToString(event->type));
+  // ESP_LOGD(tag, "telnet event: %s", eventToString(event->type));
 
   switch (event->type)
   {
@@ -705,7 +757,8 @@ static void telnetCallbackHandler(
     {
       if (telnetUserData->sockfd != -1)
       {
-        revertTelnetLogger();
+        // revertTelnetLogger();
+        enableTelnetLogging(false);
         ESP_LOGW(tag, "wifi detected down! Dropping telnet connection");
         closesocket(telnetUserData->sockfd);
         telnetUserData->sockfd = -1;
@@ -719,7 +772,8 @@ static void telnetCallbackHandler(
         rc = send(telnetUserData->sockfd, event->data.buffer, event->data.size, 0);
         if (rc < 0)
         {
-          revertTelnetLogger();
+          // revertTelnetLogger();
+          enableTelnetLogging(false);
           ESP_LOGE(tag, "send: %d (%s)", errno, strerror(errno));
           closesocket(telnetUserData->sockfd);
           telnetUserData->sockfd = -1;
@@ -801,7 +855,8 @@ void terminateTelnetSession()
   {
     ESP_LOGW(tag, "Active telnet session -- waiting for it to terminate");
 
-    revertTelnetLogger();
+    // revertTelnetLogger();
+    enableTelnetLogging(false);
 
     // Set the flag to start exiting telnet task
     disconnectPending = true;
@@ -867,7 +922,8 @@ static void doTelnet(int partnerSocket)
     {
       ESP_LOGI(tag, "telnet disconect requested");
       disconnectPending = false;
-      revertTelnetLogger();
+      // revertTelnetLogger();
+      enableTelnetLogging(false);
       closesocket(pTelnetUserData->sockfd);
       pTelnetUserData->sockfd = -1;
       break;
@@ -906,7 +962,8 @@ static void doTelnet(int partnerSocket)
     telnet_esp32_printf("> ");
     vTaskDelay(pdMS_TO_TICKS(50));
   }
-  revertTelnetLogger();
+  // revertTelnetLogger();
+  enableTelnetLogging(false);
   ESP_LOGI(tag, "Telnet client finished");
   telnet_free(tnHandle);
   free (pTelnetUserData);
@@ -916,7 +973,7 @@ static void doTelnet(int partnerSocket)
 /**
  * Listen for telnet clients and handle them.
  */
-void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buffer, size_t size))
+ bool telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buffer, size_t size))
 {
   // ESP_LOGD(tag, ">> telnet_listenForClients");
   receivedDataCallback = callbackParam;
@@ -927,7 +984,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
     OperatingParameters.Errors.telnetNetworkErrors++;
     telnetState = NOT_LISTENING;
     telnetTaskHandle = NULL;
-    return;
+    return false;
   }
 
   BaseType_t xTrueValue = pdTRUE;
@@ -946,7 +1003,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
     telnetState = NOT_LISTENING;
     telnetTaskHandle = NULL;
     close(serverSocket);
-    return;
+    return false;
   }
 
   rc = listen(serverSocket, 5);
@@ -957,7 +1014,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
     telnetState = NOT_LISTENING;
     telnetTaskHandle = NULL;
     close(serverSocket);
-    return;
+    return false;
   }
 
   telnetState = LISTENING;
@@ -973,7 +1030,7 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
       telnetState = NOT_LISTENING;
       telnetTaskHandle = NULL;
       close(serverSocket);
-      return;
+      return false;
     }
 
     ESP_LOGI(tag, "We have a new client connection!");
@@ -982,6 +1039,8 @@ void telnet_esp32_listenForClients(void (*callbackParam)(int sock, uint8_t *buff
   }
 
   telnetState = NOT_LISTENING;
+
+  return true;
 }
 
 static void telnetListenTask(void *data)
@@ -996,7 +1055,17 @@ static void telnetListenTask(void *data)
     return;
   }
 
-  telnet_esp32_listenForClients(recvData);
+  if (telnet_esp32_listenForClients(recvData) == false)
+  {
+    // Failed to start listener - clean up and exit task
+    ESP_LOGE(tag, "@@@ Failed to start telnet listener");
+    telnetState = NOT_LISTENING;
+    telnetTaskHandle = NULL;
+    // Disconnect from wifi to reestablish the network stack
+    WifiDisconnect();
+    vTaskDelete(NULL);
+    return; // Not really needed since we are deleting the task, but just to be safe...
+  }
 
   ESP_LOGI(tag, "Stopping telnetTask()");
   telnet_esp32_CloseSocket();
