@@ -287,5 +287,17 @@ General to-do:
 
 #### Analyze core dump core:
 
+Be sure ESP tools are installed:
+```~/.platformio/packages/framework-espidf/install.sh```
+<br><br>
+Then run export:
+```source ~/.platformio/packages/framework-espidf/export.sh```
+<br><br>
+Then run the ```esp-coredump``` utility to analyze a core dump file. It will be stored on the SD card in the event of a crash.
+<br><br>
 * Example;
   ```esp-coredump info_corefile --rom-elf ~/.espressif/tools/esp-rom-elfs/20241011/esp32s3_rev0_rom.elf -c ~/COREDUMP.BIN ~/projects/smart-thermostat/app/.pio/build/esp32s3/firmware.elf```
+<br><br>
+Another possible location for chip ELF files:
+```~/.platformio/tools/tool-esp-rom-elfs/```
+
