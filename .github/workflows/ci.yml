@@ -40,10 +40,12 @@ jobs:
         with:
           name: firmware
           path: app/.pio/build/esp32s3/firmware.bin
+          path: app/.pio/build/esp32s3/firmware.elf
           if-no-files-found: error
 
       - name: Add firmware.bin to release
         run: gh release upload ${{github.event.release.tag_name}} app/.pio/build/esp32s3/firmware.bin
+        run: gh release upload ${{github.event.release.tag_name}} app/.pio/build/esp32s3/firmware.elf
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
         if: ${{startsWith(github.ref, 'refs/tags/') }}
