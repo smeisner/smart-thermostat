@@ -118,15 +118,17 @@ void WiFi_SsidScanExisting(void)
     .active = active,
     .passive = 360
   };
-  wifi_scan_config_t scan_config = {
-    .ssid = 0,
-    .bssid = 0,
-    .channel = 0,
-    .show_hidden = false,
-    .scan_type = WIFI_SCAN_TYPE_ACTIVE,
-    .scan_time = scan_time,
-    .home_chan_dwell_time = 0
-  };
+  wifi_scan_config_t scan_config = {};
+  scan_config.ssid = 0;
+  scan_config.bssid = 0;
+  scan_config.channel = 0;
+  scan_config.show_hidden = false;
+  scan_config.scan_type = WIFI_SCAN_TYPE_ACTIVE;
+  scan_config.scan_time = scan_time;
+  scan_config.home_chan_dwell_time = 0;
+  scan_config.coex_background_scan = false;
+  scan_config.channel_bitmap.ghz_2_channels = 0x3FFF; // scan all 2.4 GHz channels
+  scan_config.channel_bitmap.ghz_5_channels = 0xFFFFFFFF; // scan all 5 GHz channels
 
   if (wifiConnecting)
   {

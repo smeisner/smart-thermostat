@@ -25,6 +25,7 @@ OPERATING_PARAMETERS OperatingParameters;
 extern int64_t lastTimeUpdate;
 int64_t lastWifiReconnect;
 static bool MqttConnectCalled = false;
+static int64_t lastFanOnTime = 0;
 
 struct gpio_pin_desc {
   short pin;
@@ -45,10 +46,10 @@ const struct gpio_pin_desc hvac_mode_gpio[NR_HVAC_MODES][NR_GPIO_PINS] = {
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
             PIN(HVAC_STAGE2_PIN, LOW)),
   DESC(HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
-             PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
+             PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
              PIN(HVAC_STAGE2_PIN, LOW)),
   DESC(COOL, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, HIGH), PIN(HVAC_FAN_PIN, LOW),
-             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, HIGH), PIN(LED_FAN_PIN, LOW),
+             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, HIGH), PIN(LED_FAN_PIN, HIGH),
              PIN(HVAC_STAGE2_PIN, LOW)),
   DESC(DRY, INVALID_PIN()),
   DESC(IDLE, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
@@ -69,6 +70,111 @@ static inline bool is_invalid_desc(const struct gpio_pin_desc desc)
   return false;
 }
 
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// #include <stdio.h>
+// #include <time.h>
+// #include <stdbool.h>
+
+#define WINDOW_MINUTES 60
+#define BUFFER_SIZE 1024 // Adjust based on expected max frequency of data points
+
+// Structure to hold individual data points
+typedef struct
+{
+  time_t timestamp;
+  int64_t value;
+} DataPoint;
+
+// Structure for the rolling window tracker
+typedef struct
+{
+  DataPoint buffer[BUFFER_SIZE];
+  int head;
+  int tail;
+  int count;
+  int64_t cumulative_sum;
+} RollingTracker;
+
+RollingTracker tracker;
+
+// Initialize the tracker
+void tracker_init(RollingTracker *tracker)
+{
+  tracker->head = 0;
+  tracker->tail = 0;
+  tracker->count = 0;
+  tracker->cumulative_sum = 0;
+}
+
+// Internal function to remove expired data points
+void evict_expired(RollingTracker *tracker, time_t current_time)
+{
+  time_t cutoff_time = current_time - (WINDOW_MINUTES * 60);
+
+  while (tracker->count > 0 && tracker->buffer[tracker->tail].timestamp < cutoff_time)
+  {
+    tracker->cumulative_sum -= tracker->buffer[tracker->tail].value;
+    tracker->tail = (tracker->tail + 1) % BUFFER_SIZE;
+    tracker->count--;
+  }
+}
+
+// Add a new value to the tracker
+bool tracker_add_value(RollingTracker *tracker, int64_t value)
+{
+  time_t current_time = time(NULL);
+  
+  // First, clean up any data points older than 60 minutes
+  evict_expired(tracker, current_time);
+
+  // Check if buffer is full
+  if (tracker->count >= BUFFER_SIZE)
+  {
+    printf("Error: Buffer full, data point dropped.\n");
+    return false;
+  }
+
+  // Add new value
+  tracker->buffer[tracker->head].timestamp = current_time;
+  tracker->buffer[tracker->head].value = value;
+  tracker->cumulative_sum += value;
+
+  tracker->head = (tracker->head + 1) % BUFFER_SIZE;
+  tracker->count++;
+
+  return true;
+}
+
+// Get the current cumulative sum
+int64_t tracker_get_sum(RollingTracker *tracker)
+{
+  evict_expired(tracker, time(NULL));
+  return tracker->cumulative_sum;
+}
+
+// // Example usage
+// int main() {
+//     RollingTracker tracker;
+//     tracker_init(&tracker);
+
+//     // Simulate adding values
+//     tracker_add_value(&tracker, 15.5);
+//     tracker_add_value(&tracker, 20.0);
+
+//     // Display the current sum
+//     printf("Current cumulative sum: %.2f\n", tracker_get_sum(&tracker));
+
+//     return 0;
+// }
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
 static void set_hvac_mode(HVAC_MODE mode)
 {
   const struct gpio_pin_desc *desc = hvac_mode_gpio[mode];
@@ -79,6 +185,21 @@ static void set_hvac_mode(HVAC_MODE mode)
 
     gpio_set_level((gpio_num_t)desc[i].pin, (uint32_t)desc[i].level);
   }
+
+  // Changing modes so the fan will start running. Mark the time so we can track how long the fan is running
+  if ((mode == HEAT || mode == COOL || mode == FAN_ONLY) &&
+      (OperatingParameters.hvacOpMode == OFF || OperatingParameters.hvacOpMode == IDLE))
+    lastFanOnTime = millis();
+
+
+  // Going to turn off the FAN. Keep track of how long the fan is run
+  if ((mode == OFF || mode == IDLE) &&
+      (OperatingParameters.hvacOpMode == FAN_ONLY || OperatingParameters.hvacOpMode == HEAT || OperatingParameters.hvacOpMode == COOL))
+    {
+      tracker_add_value(&tracker, millis() - lastFanOnTime);
+      ESP_LOGI(__FUNCTION__, "Fan run time: %lld ms", millis() - lastFanOnTime);
+      ESP_LOGI(__FUNCTION__, "Hourly Fan run time: %.2f min", (tracker_get_sum(&tracker) / 1000.0 / 60.0));
+    }
 
   OperatingParameters.hvacOpMode = mode;
 }
@@ -215,6 +336,7 @@ void stateMachine(void *parameter)
 {
   lastTimeUpdate = millis();
   lastWifiReconnect = millis();
+  tracker_init(&tracker);
 
   for (;;) {
     // Update sensor readings

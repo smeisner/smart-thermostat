@@ -510,50 +510,49 @@ void configTime(const char* server)
 // #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_HTTP_RECV_BUFFER 1023
 
-/**
- * Macro defining default configuration of HTTP client structure.
- */
-#define HTTP_CLIENT_CONFIG_DEFAULT() {\
-    .url = NULL,                  /*!< HTTP URL, the information on the URL is most important, it overrides the other fields below, if any */ \
-    .host = NULL,                 /*!< Domain or IP as string */ \
-    .port = 0,                    /*!< Port to connect, default depend on esp_http_client_transport_t (80 or 443) */ \
-    .username = NULL,             /*!< Using for Http authentication */ \
-    .password = NULL,             /*!< Using for Http authentication */ \
-    .auth_type = HTTP_AUTH_TYPE_NONE,  /*!< Http authentication type, see `esp_http_client_auth_type_t` */ \
-    .path = NULL,                 /*!< HTTP Path, if not set, default is `/` */ \
-    .query = NULL,                /*!< HTTP query */ \
-    .cert_pem = NULL,             /*!< SSL server certification, PEM format as string, if the client requires to verify server */ \
-    .cert_len = 0,                /*!< Length of the buffer pointed to by cert_pem. May be 0 for null-terminated pem */ \
-    .client_cert_pem = NULL,      /*!< SSL client certification, PEM format as string, if the server requires to verify client */ \
-    .client_cert_len = 0,         /*!< Length of the buffer pointed to by client_cert_pem. May be 0 for null-terminated pem */ \
-    .client_key_pem = NULL,       /*!< SSL client key, PEM format as string, if the server requires to verify client */ \
-    .client_key_len = 0,          /*!< Length of the buffer pointed to by client_key_pem. May be 0 for null-terminated pem */ \
-    .client_key_password = NULL,  /*!< Client key decryption password string */ \
-    .client_key_password_len = 0, /*!< String length of the password pointed to by client_key_password */ \
-    .tls_version = ESP_HTTP_CLIENT_TLS_VER_ANY, /*!< TLS protocol version of the connection, e.g., TLS 1.2, TLS 1.3 (default - no preference) */ \
-    .user_agent = NULL,           /*!< The User Agent string to send with HTTP requests */ \
-    .method = HTTP_METHOD_GET,    /*!< HTTP Method */ \
-    .timeout_ms = 0,              /*!< Network timeout in milliseconds */ \
-    .disable_auto_redirect = false, /*!< Disable HTTP automatic redirects */ \
-    .max_redirection_count = 0,   /*!< Max number of redirections on receiving HTTP redirect status code, using default value if zero*/ \
-    .max_authorization_retries = 0, /*!< Max connection retries on receiving HTTP unauthorized status code, using default value if zero. Disables authorization retry if -1*/ \
-    .event_handler = NULL,             /*!< HTTP Event Handle  (http_event_handle_cb) */ \
-    .transport_type = HTTP_TRANSPORT_UNKNOWN, /*!< HTTP transport type, see `esp_http_client_transport_t` */ \
-    .buffer_size = 0,             /*!< HTTP receive buffer size */ \
-    .buffer_size_tx = 0,          /*!< HTTP transmit buffer size */ \
-    .user_data = NULL,            /*!< HTTP user_data context */ \
-    .is_async = false,            /*!< Set asynchronous mode, only supported with HTTPS for now */ \
-    .use_global_ca_store = false, /*!< Use a global ca_store for all the connections in which this bool is set. */ \
-    .skip_cert_common_name_check = false, /*!< Skip any validation of server certificate CN field */ \
-    .common_name = NULL,          /*!< Pointer to the string containing server certificate common name. */ \
-    .crt_bundle_attach = NULL,    /*!< Function pointer to esp_crt_bundle_attach. Enables the use of certification */ \
-    .keep_alive_enable = false,   /*!< Enable keep-alive timeout */ \
-    .keep_alive_idle = 0,         /*!< Keep-alive idle time. Default is 5 (second) */ \
-    .keep_alive_interval = 0,     /*!< Keep-alive interval time. Default is 5 (second) */ \
-    .keep_alive_count = 0,        /*!< Keep-alive packet retry send count. Default is 3 counts */ \
-    .if_name = NULL,              /*!< The name of interface for data to go through. Use the default interface without setting */ \
-    .ds_data = NULL,              /*!< Pointer for digital signature peripheral context, see ESP-TLS Documentation for more details */ \
-}
+// /**
+//  * Macro defining default configuration of HTTP client structure.
+//  */
+// #define HTTP_CLIENT_CONFIG_DEFAULT() {\
+//     .url = NULL,                  /*!< HTTP URL, the information on the URL is most important, it overrides the other fields below, if any */ \
+//     .host = NULL,                 /*!< Domain or IP as string */ \
+//     .port = 0,                    /*!< Port to connect, default depend on esp_http_client_transport_t (80 or 443) */ \
+//     .username = NULL,             /*!< Using for Http authentication */ \
+//     .password = NULL,             /*!< Using for Http authentication */ \
+//     .auth_type = HTTP_AUTH_TYPE_NONE,  /*!< Http authentication type, see `esp_http_client_auth_type_t` */ \
+//     .path = NULL,                 /*!< HTTP Path, if not set, default is `/` */ \
+//     .query = NULL,                /*!< HTTP query */ \
+//     .cert_pem = NULL,             /*!< SSL server certification, PEM format as string, if the client requires to verify server */ \
+//     .cert_len = 0,                /*!< Length of the buffer pointed to by cert_pem. May be 0 for null-terminated pem */ \
+//     .client_cert_pem = NULL,      /*!< SSL client certification, PEM format as string, if the server requires to verify client */ \
+//     .client_cert_len = 0,         /*!< Length of the buffer pointed to by client_cert_pem. May be 0 for null-terminated pem */ \
+//     .client_key_pem = NULL,       /*!< SSL client key, PEM format as string, if the server requires to verify client */ \
+//     .client_key_len = 0,          /*!< Length of the buffer pointed to by client_key_pem. May be 0 for null-terminated pem */ \
+//     .client_key_password = NULL,  /*!< Client key decryption password string */ \
+//     .client_key_password_len = 0, /*!< String length of the password pointed to by client_key_password */ \
+//     .tls_version = ESP_HTTP_CLIENT_TLS_VER_ANY, /*!< TLS protocol version of the connection, e.g., TLS 1.2, TLS 1.3 (default - no preference) */ \
+//     .user_agent = NULL,           /*!< The User Agent string to send with HTTP requests */ \
+//     .method = HTTP_METHOD_GET,    /*!< HTTP Method */ \
+//     .timeout_ms = 0,              /*!< Network timeout in milliseconds */ \
+//     .disable_auto_redirect = false, /*!< Disable HTTP automatic redirects */ \
+//     .max_redirection_count = 0,   /*!< Max number of redirections on receiving HTTP redirect status code, using default value if zero*/ \
+//     .max_authorization_retries = 0, /*!< Max connection retries on receiving HTTP unauthorized status code, using default value if zero. Disables authorization retry if -1*/ \
+//     .event_handler = NULL,             /*!< HTTP Event Handle  (http_event_handle_cb) */ \
+//     .transport_type = HTTP_TRANSPORT_UNKNOWN, /*!< HTTP transport type, see `esp_http_client_transport_t` */ \
+//     .buffer_size = 0,             /*!< HTTP receive buffer size */ \
+//     .buffer_size_tx = 0,          /*!< HTTP transmit buffer size */ \
+//     .user_data = NULL,            /*!< HTTP user_data context */ \
+//     .is_async = false,            /*!< Set asynchronous mode, only supported with HTTPS for now */ \
+//     .use_global_ca_store = false, /*!< Use a global ca_store for all the connections in which this bool is set. */ \
+//     .skip_cert_common_name_check = false, /*!< Skip any validation of server certificate CN field */ \
+//     .common_name = NULL,          /*!< Pointer to the string containing server certificate common name. */ \
+//     .crt_bundle_attach = NULL,    /*!< Function pointer to esp_crt_bundle_attach. Enables the use of certification */ \
+//     .keep_alive_enable = false,   /*!< Enable keep-alive timeout */ \
+//     .keep_alive_idle = 0,         /*!< Keep-alive idle time. Default is 5 (second) */ \
+//     .keep_alive_interval = 0,     /*!< Keep-alive interval time. Default is 5 (second) */ \
+//     .keep_alive_count = 0,        /*!< Keep-alive packet retry send count. Default is 3 counts */ \
+//     .if_name = NULL,              /*!< The name of interface for data to go through. Use the default interface without setting */ \
+// }
 
 //     .tls_version = ESP_HTTP_CLIENT_TLS_VER_ANY, /*!< TLS protocol version of the connection, e.g., TLS 1.2, TLS 1.3 (default - no preference) */ \
 // // #ifdef CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN \
@@ -586,7 +585,9 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
   char *timeServer = (char *)"https://ipapi.co/json/";
   char *buffer = (char *)malloc(MAX_HTTP_RECV_BUFFER + 1);
 
-  esp_http_client_config_t config = HTTP_CLIENT_CONFIG_DEFAULT();
+  // esp_http_client_config_t config = HTTP_CLIENT_CONFIG_DEFAULT();
+  esp_http_client_config_t config = {};
+  memset(&config, 0, sizeof(config));
   config.url = timeServer;
   config.path = "/";
   config.transport_type = HTTP_TRANSPORT_OVER_SSL;

@@ -178,6 +178,7 @@ int sdcard_esp32_vprintf(const char *fmt, va_list va);  //@@@ This is in the wro
 
 // SD Card
 int sd_init(void);
+bool is_sd_card_present();
 esp_err_t saveConfig();
 esp_err_t loadConfig();
 void sdcard_check_and_save_coredump(const char* sd_file_path);

@@ -257,6 +257,8 @@ void DisplayStatus()
   telnet_esp32_printf ("Free Heap size: %d\n", esp_get_free_heap_size());
   telnet_esp32_printf ("[Memory] %.1f%% free - %d of %d bytes free\n", percentageHeapFree, freeHeapBytes, totalHeapBytes);
 
+  telnet_esp32_printf("SD Card present: %s\n", is_sd_card_present() ? "Yes" : "No");
+
   telnet_esp32_printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
                       OperatingParameters.mac[0],
                       OperatingParameters.mac[1],
@@ -643,6 +645,8 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     ESP_LOGD(tag, "Console log level changed by telnet command"); //@@@
     break;
   case SD_LOG_LEVEL:
+    telnet_esp32_printf("SD log level command received - Not implemented yet\n");
+    break;
   case TELNET_LOG_LEVEL:
     ptr = strchr((char *)buffer, (int)' ');
     if (ptr == NULL)
