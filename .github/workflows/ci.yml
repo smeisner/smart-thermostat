@@ -24,7 +24,7 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
           key: ${{ runner.os }}-pio
-          save-always: true
+          # save-always: true
 
       - uses: actions/setup-python@v5
         with:
