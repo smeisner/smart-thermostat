@@ -1,13 +1,10 @@
----
 name: CI
+
 on:
   push:
-    branches:
-      - main
-    paths:
-      - app/**
-  workflow_dispatch:
-  release:
+    tags:
+      - 'v*' # Triggers on semantic version tags like v1.0.0, v2.1, etc.
+    #  *      # OR use '*' if you want it to trigger on ANY tag name
 
 jobs:
   build:
@@ -24,7 +21,6 @@ jobs:
             ~/.cache/pip
             ~/.platformio/.cache
           key: ${{ runner.os }}-pio
-          # save-always: true
 
       - uses: actions/setup-python@v5
         with:
@@ -44,13 +40,14 @@ jobs:
             app/.pio/build/esp32s3/firmware.elf
           if-no-files-found: error
 
+      # Changed github.event.release.tag_name to github.ref_name
       - name: Add firmware.bin to release
-        run: gh release upload ${{github.event.release.tag_name}} app/.pio/build/esp32s3/firmware.bin
+        run: gh release upload ${{ github.ref_name }} app/.pio/build/esp32s3/firmware.bin
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
-        if: ${{startsWith(github.ref, 'refs/tags/') }}
+
+      # Changed github.event.release.tag_name to github.ref_name
       - name: Add firmware.elf to release
-        run: gh release upload ${{github.event.release.tag_name}} app/.pio/build/esp32s3/firmware.elf
+        run: gh release upload ${{ github.ref_name }} app/.pio/build/esp32s3/firmware.elf
         env:
           GITHUB_TOKEN: ${{ github.TOKEN }}
-        if: ${{startsWith(github.ref, 'refs/tags/') }}
