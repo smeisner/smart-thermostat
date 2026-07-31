@@ -5,6 +5,8 @@ on:
     tags:
       - 'v*' # Triggers on semantic version tags like v1.0.0, v2.1, etc.
     #  *      # OR use '*' if you want it to trigger on ANY tag name
+  workflow_dispatch:
+#  release:
 
 jobs:
   build:
