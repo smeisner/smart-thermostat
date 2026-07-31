@@ -39,12 +39,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: firmware
-          path: app/.pio/build/esp32s3/firmware.bin
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        with:
-          name: firmware
-          path: app/.pio/build/esp32s3/firmware.elf
+          path: |
+            app/.pio/build/esp32s3/firmware.bin
+            app/.pio/build/esp32s3/firmware.elf
           if-no-files-found: error
 
       - name: Add firmware.bin to release
