@@ -26,10 +26,10 @@ bool Stream::begin(uart_port_t _uart_port, int baud_rate, int gpio_tx, int gpio_
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         .rx_flow_ctrl_thresh = 0, //122,
         .source_clk = UART_SCLK_DEFAULT,
-        .flags = {
-            .allow_pd = 1,
-            .backup_before_sleep = 0,
-        },
+        // .flags = {
+        //     .allow_pd = 1,
+        //     .backup_before_sleep = 0,
+        // },
     };
     int intr_alloc_flags = 0;
 
