@@ -1,0 +1,35 @@
+services:
+  devcontainer:
+    image: mcr.microsoft.com/devcontainers/base:trixie
+    environment:
+      PLATFORMIO_BUILD_CACHE_DIR: /home/vscode/.cache/platformio-build
+
+    volumes:
+      # Access serial devices on the host machine for flashing and debugging.
+      - /dev:/dev
+
+      # Read host group information to align the container user with the host user for serial device access.
+      - /etc/group:/run/host/etc/group:ro
+
+      # Persist PlatformIO downloads, frameworks and toolchains.
+      - platformio-core:/home/vscode/.platformio
+
+      # Persist compiled-object cache across container rebuilds.
+      - platformio-build-cache:/home/vscode/.cache/platformio-build
+
+    device_cgroup_rules:
+      # Allow access to /dev/ttyACM* on the host machine for flashing and debugging.
+      - "c 166:* rw"
+
+      # Allow access to /dev/ttyUSB* on the host machine for flashing and debugging.
+      - "c 188:* rw"
+
+    entrypoint:
+      - /bin/sh
+      - /workspaces/smart-thermostat/.devcontainer/setup-serial-access.sh
+
+    command: sleep infinity
+
+volumes:
+  platformio-core:
+  platformio-build-cache:
