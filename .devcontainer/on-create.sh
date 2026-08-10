@@ -3,7 +3,7 @@ set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
-sudo apt-get upgrade
+sudo apt-get upgrade -y
 sudo apt-get install -y git curl wget python3-pip python3-venv apt-transport-https gpg libusb-1.0-0
 
 sudo chown vscode:vscode ~/.platformio ~/.cache ~/.cache/platformio-build

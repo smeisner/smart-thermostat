@@ -32,7 +32,6 @@ services:
       - "c 189:* rw"
 
     entrypoint:
-      - /bin/sh
       - /workspaces/smart-thermostat/.devcontainer/setup-serial-access.sh
 
     command: sleep infinity
