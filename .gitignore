@@ -6,3 +6,4 @@ pcb/production/.nfs*
 *.DONOTCOMPILE
 *DO_NOT_COMPILE*
 Matter/
+venv/

@@ -1,0 +1,2 @@
+esphome
+pillow==10.2.0
