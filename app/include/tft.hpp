@@ -51,7 +51,7 @@ public:
       cfg.spi_host = SPI3_HOST;     // Select SPI to use ESP32-S2,C3 : SPI2_HOST or SPI3_HOST / ESP32 : VSPI_HOST or HSPI_HOST
       // * With the ESP-IDF version upgrade, the description of VSPI_HOST and HSPI_HOST will be deprecated, so if an error occurs, use SPI2_HOST and SPI3_HOST instead.
       cfg.spi_mode = 0;             // Set SPI communication mode (0 ~ 3)
-      cfg.freq_write = 40000000;    // SPI clock for transmission (up to 80MHz, rounded to the value obtained by dividing 80MHz by an integer)
+      cfg.freq_write = 26666666;    // SPI clock for transmission (up to 80MHz, rounded to the value obtained by dividing 80MHz by an integer)
       cfg.freq_read  = 16000000;    // SPI clock when receiving
       cfg.spi_3wire  = true;        // Set to true if reception is done on the MOSI pin
       cfg.use_lock   = true;        // Set true to use transaction lock
@@ -66,6 +66,7 @@ public:
       // cfg.pin_dc   = 27;            // Set SPI D/C pin number (-1 = disable)
       cfg.pin_dc   = TFT_DC_PIN;            // Set SPI D/C pin number (-1 = disable)
      // When using the same SPI bus as the SD card, be sure to set MISO without omitting it.
+     cfg.dma_channel = SPI_DMA_CH_AUTO;
 
       _bus_instance.config(cfg);    // Reflects the set value on the bus
       _panel_instance.setBus(&_bus_instance);      // set the bus on the panel
