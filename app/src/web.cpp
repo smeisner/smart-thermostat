@@ -155,8 +155,10 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     updateEnabledHvacModes();
     #endif
   }
-  else if (!strncmp(content, "unitToggle", BUTTON_CONTENT_SIZE)) {
-    if (OperatingParameters.tempUnits == 'F') {
+  else if (!strncmp(content, "unitToggle", BUTTON_CONTENT_SIZE))
+  {
+    if (OperatingParameters.tempUnits == 'F')
+    {
       OperatingParameters.tempSet = (OperatingParameters.tempSet - 32.0) / (9.0/5.0);
       OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent - 32.0) / (9.0/5.0);
       OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 5.0 / 9.0;
@@ -166,7 +168,8 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
       lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
       OperatingParameters.tempUnits = 'C';
     }
-    else {
+    else
+    {
       OperatingParameters.tempSet = (OperatingParameters.tempSet * 9.0/5.0) + 32.0;
       OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent * 9.0/5.0) + 32.0;
       OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 1.8;

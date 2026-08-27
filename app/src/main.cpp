@@ -38,6 +38,8 @@ int64_t millis() { return esp_timer_get_time() / 1000;}
 
 void app_main()
 {
+  BlinkyStart();
+
   vTaskDelay(pdMS_TO_TICKS(10000)); //@@@
 
   // Set default log level for all components
@@ -115,6 +117,8 @@ void app_main()
 
   ESP_LOGI (TAG, "Saving config info");
   saveConfig();
+
+  BlinkyStop();
 
   // Play the startup sound
   audioStartupBeep();

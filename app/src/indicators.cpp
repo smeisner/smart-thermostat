@@ -23,7 +23,7 @@
 
 #define LEDC_TIMER LEDC_TIMER_0
 #define LEDC_MODE LEDC_LOW_SPEED_MODE
-#define LEDC_OUTPUT_IO (BUZZER_PIN) // Define the output GPIO
+#define LEDC_OUTPUT_IO (BUZZER_PIN)     // Define the output GPIO
 #define LEDC_CHANNEL LEDC_CHANNEL_0
 #define LEDC_DUTY_RES LEDC_TIMER_13_BIT // Set duty resolution to 8 bits
 #define LEDC_DUTY (4095)                // Set duty to 50%. ((2 ** 13) - 1) * 50% = 4095
@@ -101,44 +101,76 @@ void audioBeep()
   }
 }
 
-// void pinMode(int _pin, gpio_mode_t mode)
-// {
-//   // gpio_config_t pin = (gpio_config_t)_pin;
+void BlinkyTask(void *parameter)
+{
+  gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+  gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
+  gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
 
-//   //zero-initialize the config structure.
-//   gpio_config_t io_conf = {};
-//   //disable interrupt
-//   io_conf.intr_type = GPIO_INTR_DISABLE;
-//   //set as output mode
-//   io_conf.mode = mode;
-//   //bit mask of the pins that you want to set,e.g.GPIO18/19
-//   io_conf.pin_bit_mask = (1ULL<<_pin);
-//   //configure GPIO with the given settings
-//   gpio_config(&io_conf);
-// }
+  while (true)
+  {
+    // Toggle the mode LEDs
+    gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(250));
+    gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+    gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(250));
+    gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
+    gpio_set_level((gpio_num_t)LED_FAN_PIN, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(250));
+    gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+  }
+}
+
+TaskHandle_t BlinkyTaskHandle = NULL;
+
+void BlinkyStart()
+{
+  // Initialize the HVAC mode LEDs
+  gpio_set_direction((gpio_num_t)LED_HEAT_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_direction((gpio_num_t)LED_COOL_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_direction((gpio_num_t)LED_FAN_PIN, GPIO_MODE_OUTPUT);
+
+    xTaskCreate(
+      BlinkyTask,           // Function that should be called
+      "Blinky Task",        // Name of the task (for debugging)
+      1024,                 // Stack size (bytes)
+      NULL,                 // Parameter to pass
+      tskIDLE_PRIORITY,     // Task priority
+      &BlinkyTaskHandle     // Task handle
+    );
+}
+
+void BlinkyStop()
+{
+  if (BlinkyTaskHandle != NULL)
+  {
+    vTaskDelete(BlinkyTaskHandle);
+    BlinkyTaskHandle = NULL;
+  }
+
+  // Turn off the mode LEDs
+  gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+  gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
+  gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+}
 
 void initRelays()
 {
   gpio_set_direction((gpio_num_t)HVAC_HEAT_PIN, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)HVAC_HEAT_PIN, LOW);
-  // gpio_reset_pin((gpio_num_t)HVAC_HEAT_PIN);
 
   gpio_set_direction((gpio_num_t)HVAC_COOL_PIN, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)HVAC_COOL_PIN, LOW);
-  // gpio_reset_pin((gpio_num_t)HVAC_COOL_PIN);
 
   gpio_set_direction((gpio_num_t)HVAC_FAN_PIN, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)HVAC_FAN_PIN, LOW);
-  // gpio_reset_pin((gpio_num_t)HVAC_FAN_PIN);
 
   gpio_set_direction((gpio_num_t)HVAC_RVALV_PIN, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)HVAC_RVALV_PIN, LOW);
-  // gpio_reset_pin((gpio_num_t)HVAC_RVALV_PIN);
 
   gpio_set_direction((gpio_num_t)HVAC_STAGE2_PIN, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW);
-  // gpio_reset_pin((gpio_num_t)HVAC_STAGE2_PIN);
-
 }
 
 
@@ -152,15 +184,16 @@ void indicatorsInit()
   gpio_set_direction((gpio_num_t)LED_COOL_PIN, GPIO_MODE_OUTPUT);
   gpio_set_direction((gpio_num_t)LED_FAN_PIN, GPIO_MODE_OUTPUT);
 
-  // Change LED startup dance to be Blue, Green, Red
-  // since that's their physical order on the PCB.
-  gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
-  vTaskDelay(pdMS_TO_TICKS(750));
-  gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
-  gpio_set_level((gpio_num_t)LED_FAN_PIN, HIGH);
-  vTaskDelay(pdMS_TO_TICKS(750));
-  gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
-  gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
-  vTaskDelay(pdMS_TO_TICKS(750));
-  gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
+  // Replaced by Blinky...() functions above
+  // // Change LED startup dance to be Blue, Green, Red
+  // // since that's their physical order on the PCB.
+  // gpio_set_level((gpio_num_t)LED_COOL_PIN, HIGH);
+  // vTaskDelay(pdMS_TO_TICKS(750));
+  // gpio_set_level((gpio_num_t)LED_COOL_PIN, LOW);
+  // gpio_set_level((gpio_num_t)LED_FAN_PIN, HIGH);
+  // vTaskDelay(pdMS_TO_TICKS(750));
+  // gpio_set_level((gpio_num_t)LED_FAN_PIN, LOW);
+  // gpio_set_level((gpio_num_t)LED_HEAT_PIN, HIGH);
+  // vTaskDelay(pdMS_TO_TICKS(750));
+  // gpio_set_level((gpio_num_t)LED_HEAT_PIN, LOW);
 }
