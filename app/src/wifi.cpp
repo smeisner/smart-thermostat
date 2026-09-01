@@ -337,7 +337,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
   {
     if (esp_wifi_connect() == ESP_OK)
     {
-      // ESP_LOGI(TAG, "Wifi reconnect worked!");
+      ESP_LOGI(TAG, "Wifi reconnect initiated!");
       return;
     }
     // The next call has a side effect of disabling logging via telnet...
@@ -452,6 +452,7 @@ void WifiDeregisterEventCallbacks()
   if (s_wifi_event_group == NULL)
   {
     ESP_LOGW(TAG, "- Callbacks already deregistered");
+    return;
   }
   else
   {
@@ -708,6 +709,9 @@ void WifiDeinit()
 {
   // Set log level to 'W' (warn) as this function is quite destructive
   ESP_LOGW(TAG, "WifiDeinit()");
+
+  ESP_LOGD(TAG, "- Calling WifiDeregisterEventCallbacks()");
+  WifiDeregisterEventCallbacks();
 
   if (WifiStatus.wifi_started)
   {
