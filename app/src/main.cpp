@@ -40,7 +40,7 @@ void app_main()
 {
   BlinkyStart();
 
-  vTaskDelay(pdMS_TO_TICKS(10000)); //@@@
+  // vTaskDelay(pdMS_TO_TICKS(10000)); //@@@
 
   // Set default log level for all components
   // esp_log_level_set("*", ESP_LOG_WARN);

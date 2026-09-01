@@ -14,13 +14,15 @@ TaskHandle_t ntScanTaskHandler = NULL;
 
 void tftUpdateTempSet(lv_event_t * e)
 {
-//  char tmp[16];
-//  strncpy(tmp, lv_label_get_text(ui_SetTemp), sizeof(tmp));
+// //  char tmp[16];
+// //  strncpy(tmp, lv_label_get_text(ui_SetTemp), sizeof(tmp));
 
-  OperatingParameters.tempSet = (float)(lv_arc_get_value(ui_TempArc)) / 10.0;
-  printf ("Current temp set to: %.1f\n", OperatingParameters.tempSet);
+//   OperatingParameters.tempSet = (float)(lv_arc_get_value(ui_TempArc)) / 10.0;
+//   printf ("Current temp set to: %.1f\n", OperatingParameters.tempSet);
 
-//  OperatingParameters.tempSet = tmp)/10);
+// //  OperatingParameters.tempSet = tmp)/10);
+
+  updateHvacSetTemp((float)(lv_arc_get_value(ui_TempArc)) / 10.0);
   tftWakeDisplay(false);
 }
 
@@ -28,42 +30,46 @@ void tftDecreaseSetTemp(lv_event_t * e)
 {
   if (OperatingParameters.tempUnits == 'C')
   {
-    OperatingParameters.tempSet -= 0.5;
-    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
+    // OperatingParameters.tempSet -= 0.5;
+    updateHvacSetTemp(roundValue(requestedHvacSetTemp-0.5, 1));
   } else {
-    OperatingParameters.tempSet -= 1.0;
-    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
+    // OperatingParameters.tempSet -= 1.0;
+    updateHvacSetTemp(roundValue(requestedHvacSetTemp-1.0, 0));
   }
-  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
+  lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(requestedHvacSetTemp));
   if (OperatingParameters.tempUnits == 'C')
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp));
 }
 
 void tftIncreaseSetTemp(lv_event_t * e)
 {
   if (OperatingParameters.tempUnits == 'C')
   {
-    OperatingParameters.tempSet += 0.5;
-    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 1));
+    // OperatingParameters.tempSet += 0.5;
+    updateHvacSetTemp(roundValue(requestedHvacSetTemp+0.5, 1));
   } else {
-    OperatingParameters.tempSet += 1.0;
-    updateHvacSetTemp(roundValue(OperatingParameters.tempSet, 0));
+    // OperatingParameters.tempSet += 1.0;
+    updateHvacSetTemp(roundValue(requestedHvacSetTemp+1.0, 0));
   }
-  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
+  lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(requestedHvacSetTemp));
   if (OperatingParameters.tempUnits == 'C')
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp));
 }
 
 void tftHvacModeChange(lv_event_t * e)
 {
-//  OperatingParameters.hvacSetMode = (HVAC_MODE)(lv_dropdown_get_selected(ui_ModeDropdown));
-//  OperatingParameters.hvacSetMode = getHvacMode();
   char mode[12];
+  // Get the currently selected HVAC mode from the dropdown and update the requested HVAC mode
   lv_dropdown_get_selected_str(ui_ModeDropdown, mode, sizeof(mode));
   updateHvacMode(strToHvacMode(mode));
 
+  //
+  // Set color of outer circle representing the enabled or set mode, and not the
+  // requested mode. This way, when the mode is commited, the outer circle will change
+  // to the new color and acknowledge the change.
+  //
   switch (OperatingParameters.hvacSetMode)
   {
     // Set color of outer ring to represent set mode

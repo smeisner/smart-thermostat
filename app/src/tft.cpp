@@ -41,6 +41,8 @@ uint16_t calData_3_2[8] = { 3778, 359, 3786, 3803, 266, 347, 258, 3769 };
 uint16_t calData[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 int64_t lastMotionDetected = 0;
 bool tftAwake = true;
+extern float requestedHvacSetTemp;
+extern HVAC_MODE requestedHvacMode;
 
 volatile bool tftMotionTrigger = false;
 
@@ -181,11 +183,11 @@ void tftUpdateDisplay()
   lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());
   lv_label_set_text_fmt(ui_HumidityLabel, "%d%%", getHumidity());
 
-  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10.0);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
+  lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10.0);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)requestedHvacSetTemp);
   if (OperatingParameters.tempUnits == 'C')
   {
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp));
   }
 
   lv_dropdown_set_selected(ui_ModeDropdown, convertSelectedHvacMode());
@@ -197,15 +199,17 @@ void tftUpdateDisplay()
 
   switch (OperatingParameters.hvacOpMode)
   {
-    // Set color of inner circle representing the operating mode
+    // Set color of inner circle representing the operating mode.
     case HEAT:     lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0xa00b0b), LV_PART_MAIN); break;
     case COOL:     lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x435deb), LV_PART_MAIN); break;
     case FAN_ONLY: lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x3c8945), LV_PART_MAIN); break;  //@@@
     default:       lv_obj_set_style_bg_color(ui_SetTempBg, lv_color_hex(0x7a92b2), LV_PART_MAIN); break;
   }
-  switch (OperatingParameters.hvacSetMode)
+  switch (requestedHvacMode)
   {
-    // Set color of outer circle representing the enabled or set mode
+    // Set color of outer circle representing the enabled or set mode. Using requestedHvacMode is intentional,
+    // as the operating mode is what the user requested, so they get the feedback right away. The change will
+    // be reflected in the inner circle when the operating mode is actually changed.
     case AUX_HEAT:
     case HEAT:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0xc71b1b), LV_PART_MAIN); break;
     case COOL:     lv_obj_set_style_bg_color(ui_SetTempBg1, lv_color_hex(0x1b7dc7), LV_PART_MAIN); break;
@@ -221,11 +225,11 @@ static const char *__hvac_mode_to_str(HVAC_MODE mode, const char *mode_str[])
   case OFF:
   case HEAT:
   case COOL:
-  case DRY:
   case IDLE:
-  case AUTO:
   case FAN_ONLY:
+  case AUTO:
   case AUX_HEAT:
+  case DRY:
     return mode_str[mode];
   default:
     return mode_str[ERROR];
@@ -234,10 +238,10 @@ static const char *__hvac_mode_to_str(HVAC_MODE mode, const char *mode_str[])
 
 #ifdef MQTT_ENABLED
 const char *hvac_op_mode_str_mqtt[NR_HVAC_MODES] = {
-  "off", "heat", "cool", "dry", "idle", "fan_only", "auto", "aux heat", "error"
+  "off", "heat", "cool", "idle", "fan_only", "auto", "aux heat", "dry", "error"
 };
 const char *hvac_curr_mode_str_mqtt[NR_HVAC_MODES] = {
-  "off", "heating", "cooling", "drying", "idle", "fan", "error", "error", "error"
+  "off", "heating", "cooling", "idle", "fan", "error", "error", "drying", "error"
 };
 
 const char *hvacModeToMqttCurrMode(HVAC_MODE mode)
@@ -252,7 +256,7 @@ const char *hvacModeToMqttOpMode(HVAC_MODE mode)
 #endif
 
 const char *hvac_mode_str[NR_HVAC_MODES] = {
-  "Off", "Heat", "Cool", "Dry", "Idle", "Fan Only", "Auto", "Aux Heat", "Error"
+  "Off", "Heat", "Cool", "Idle", "Fan Only", "Auto", "Aux Heat", "Dry", "Error"
 };
 
 const char *hvacModeToString(HVAC_MODE mode)
@@ -277,18 +281,18 @@ HVAC_MODE convertSelectedHvacMode()
 {
   char selMode[12];
 
-  // Check to see if the selected HVAC mode is now disabled (after config menu)
-  if ((OperatingParameters.hvacSetMode == AUTO) && !OperatingParameters.hvacCoolEnable)
+  // Check to see if the requested HVAC mode is now disabled (after config menu)
+  if ((requestedHvacMode == AUTO) && !OperatingParameters.hvacCoolEnable)
     updateHvacMode(OFF);
-  if ((OperatingParameters.hvacSetMode == FAN_ONLY) && !OperatingParameters.hvacFanEnable)
+  if ((requestedHvacMode == FAN_ONLY) && !OperatingParameters.hvacFanEnable)
     updateHvacMode(OFF);
-  if ((OperatingParameters.hvacSetMode == COOL) && !OperatingParameters.hvacCoolEnable)
+  if ((requestedHvacMode == COOL) && !OperatingParameters.hvacCoolEnable)
     updateHvacMode(OFF);
-  if ((OperatingParameters.hvacSetMode == AUX_HEAT) && !OperatingParameters.hvac2StageHeatEnable)
+  if ((requestedHvacMode == AUX_HEAT) && !OperatingParameters.hvac2StageHeatEnable)
     updateHvacMode(OFF);
 
-  // Retrieve currently selected HVAC mode
-  strncpy (selMode, hvacModeToString(OperatingParameters.hvacSetMode), sizeof(selMode));
+  // Retrieve currently selected (via UI) HVAC mode
+  strncpy (selMode, hvacModeToString(requestedHvacMode), sizeof(selMode));
 
   char tempModes[48] = {0};
   memcpy (tempModes, thermostatModes, sizeof(thermostatModes));
@@ -306,6 +310,9 @@ HVAC_MODE convertSelectedHvacMode()
   return (HVAC_MODE)idx;
 }
 
+//
+// setHvacModesDropdown() - Build up HVAC mode dropdown from enum list
+//
 void setHvacModesDropdown()
 {
   // Build up HVAC mode dropdown from enum list
@@ -319,7 +326,14 @@ void setHvacModesDropdown()
       continue;
     if ((n == COOL) && !OperatingParameters.hvacCoolEnable)
       continue;
+    // AUX_HEAT only works if 2-stage heat is enabled
     if ((n == AUX_HEAT) && !OperatingParameters.hvac2StageHeatEnable)
+      continue;
+    // DRY only works if the reversing valve is enabled
+    if ((n == DRY) && !OperatingParameters.hvacReverseValveEnable)
+      continue;
+    // User cannot select IDLE mode, it is only used internally to indicate that the system is not heating or cooling
+    if (n == IDLE)
       continue;
     if (n != OFF)
       strcat (tempModes, "\n");
@@ -410,15 +424,19 @@ void tftInit()
   setHvacModesDropdown();
 
   ESP_LOGI (TAG, "Current temp set to %.1f°", OperatingParameters.tempSet);
-
-  lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)OperatingParameters.tempSet);
+  if (requestedHvacSetTemp == 0.0)
+    requestedHvacSetTemp = OperatingParameters.tempSet;
+  if (requestedHvacMode == ERROR)
+    requestedHvacMode = OperatingParameters.hvacSetMode;
+  lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10);
+  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)requestedHvacSetTemp);
   if (OperatingParameters.tempUnits == 'C')
   {
     lv_arc_set_range(ui_TempArc, 7*10, 33*10);
     lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp  ));
   }
+  lv_dropdown_set_selected(ui_ModeDropdown, convertSelectedHvacMode());
 
   tftWakeDisplay(true);
   tftUpdateDisplay();

@@ -33,10 +33,6 @@
 
 static const char *TAG = "SENSORS";
 
-// const char *gmt_timezones[] = 
-//   {"GMT-12", "GMT-11", "GMT-10", "GMT-9", "GMT-8", "GMT-7", "GMT-6", "GMT-5", "GMT-4", "GMT-3", "GMT-2",  "GMT-1"
-//    "GMT",    "GMT+1",  "GMT+2",  "GMT+3", "GMT+4", "GMT+5", "GMT+6", "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11"};
-
 const char *gmt_timezones[] = 
   {"GMT+11", "GMT+10", "GMT+9", "GMT+8", "GMT+7", "GMT+6", "GMT+5", "GMT+4", "GMT+3", "GMT+2", "GMT+1",
    "GMT", "GMT-1", "GMT-2", "GMT-3", "GMT-4", "GMT-5", "GMT-6", "GMT-7", "GMT-8", "GMT-9", "GMT-10", "GMT-11", "GMT-12"};
@@ -54,7 +50,14 @@ adc_unit_t adcUnit;
 adc_channel_t adcChannel;
 adc_oneshot_unit_handle_t adcHandle;
 
-void updateHvacMode(HVAC_MODE mode)
+HVAC_MODE requestedHvacMode = ERROR;
+float requestedHvacSetTemp = 0.0;
+bool ModeChangeRequested;
+int64_t ModeChangeRequestTime;
+bool TempChangeRequested;
+int64_t TempChangeRequestTime;
+
+void _updateHvacMode(HVAC_MODE mode)
 {
   OperatingParameters.hvacSetMode = mode;
   eepromUpdateHvacSetMode();
@@ -63,7 +66,7 @@ void updateHvacMode(HVAC_MODE mode)
 #endif
 }
 
-void updateHvacSetTemp(float setTemp)
+void _updateHvacSetTemp(float setTemp)
 {
   OperatingParameters.tempSet = setTemp;
   eepromUpdateHvacSetTemp();
@@ -71,6 +74,20 @@ void updateHvacSetTemp(float setTemp)
 #ifdef MQTT_ENABLED
   MqttUpdateStatusTopic();
 #endif
+}
+
+void updateHvacMode(HVAC_MODE mode)
+{
+  requestedHvacMode = mode;
+  ModeChangeRequested = true;
+  ModeChangeRequestTime = millis();
+}
+
+void updateHvacSetTemp(float setTemp)
+{
+  requestedHvacSetTemp = setTemp;
+  TempChangeRequested = true;
+  TempChangeRequestTime = millis();
 }
 
 /*---------------------------------------------------------------
@@ -211,14 +228,12 @@ bool ld2410_init()
     // for 0 - 0.75m, gate 1 will specify sensitivity for 0.75 - 1.5m, etc. Setting MaxValues (below) specifies
     // max distance based on the number of gates enabled. For example, specifying 1 for max gates will allow 1.5m (0 & 1).
     //
-    //bool setGateSensitivityThreshold(uint8_t gate, uint8_t moving, uint8_t stationary);
     radar.setGateSensitivityThreshold(0, 50, 30); // Default values (50 & 30)
     radar.setGateSensitivityThreshold(1, 50, 30);
     //
     // Each gate is ~0.75m, therefore moving gate should be limited to gate 1 (1.5m) and stationary gate should be
     // limited to 0 (0.75m). Use this to also change the inactivity timer.
     //
-    //bool setMaxValues(uint16_t moving, uint16_t stationary, uint16_t inactivityTimer);
     if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000)))
     {
       ESP_LOGI(TAG, "LD2410: Max gate values set");
@@ -466,27 +481,22 @@ void updateTimeSntp()
   if ((last_time != (time_t)-1) && (end != (time_t)-1))
   {
     diff_t = difftime(end, last_time);
-    // if (diff_t > 0.0)
-    // {
-    //   ESP_LOGW(TAG, "  Time changed by %f seconds", diff_t);
-    // }
 
     // If the time changed more than UPDATE_TIME_INTERVAL seconds ... plus a fudge factor (10 seconds)
-    if (diff_t > ((double)(UPDATE_TIME_INTERVAL) / 1000.0) + 10.0)
+    if ((last_time != (time_t)-1) && (diff_t > ((double)(UPDATE_TIME_INTERVAL) / 1000.0) + 10.0))
     {
       // To calculate the actual time adjustment, we need to subtract the
       // polling interval as defined by UPDATE_TIME_INTERVAL.
-      ESP_LOGE(TAG, ">>  Time changed by %.1f seconds! <<", 
+      ESP_LOGW(TAG, ">>  Time changed by %.1f seconds! <<", 
         (diff_t - ((double)(UPDATE_TIME_INTERVAL) / 1000.0)));
-      ESP_LOGE(TAG, "Prior current time: %s", asctime(gmtime(&last_time)));
-      ESP_LOGE(TAG, "New current time:   %s", asctime(gmtime(&end)));
+      ESP_LOGW(TAG, "Prior current time: %s", asctime(gmtime(&last_time)));
+      ESP_LOGW(TAG, "New current time:   %s", asctime(gmtime(&end)));
     }
   }
 
   if (OperatingParameters.wifiConnected)
   {
     if (getLocalTime(&local_time, 1000))
-    // if (updateTime(&local_time))
     {
       strftime(buffer, sizeof(buffer), "%H:%M:%S", &local_time);
       ESP_LOGI(TAG, "Current time: %s", buffer);
@@ -507,66 +517,7 @@ void configTime(const char* server)
 
 #include <ArduinoJson.h>
 #include "esp_http_client.h"
-// #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_HTTP_RECV_BUFFER 1023
-
-// /**
-//  * Macro defining default configuration of HTTP client structure.
-//  */
-// #define HTTP_CLIENT_CONFIG_DEFAULT() {\
-//     .url = NULL,                  /*!< HTTP URL, the information on the URL is most important, it overrides the other fields below, if any */ \
-//     .host = NULL,                 /*!< Domain or IP as string */ \
-//     .port = 0,                    /*!< Port to connect, default depend on esp_http_client_transport_t (80 or 443) */ \
-//     .username = NULL,             /*!< Using for Http authentication */ \
-//     .password = NULL,             /*!< Using for Http authentication */ \
-//     .auth_type = HTTP_AUTH_TYPE_NONE,  /*!< Http authentication type, see `esp_http_client_auth_type_t` */ \
-//     .path = NULL,                 /*!< HTTP Path, if not set, default is `/` */ \
-//     .query = NULL,                /*!< HTTP query */ \
-//     .cert_pem = NULL,             /*!< SSL server certification, PEM format as string, if the client requires to verify server */ \
-//     .cert_len = 0,                /*!< Length of the buffer pointed to by cert_pem. May be 0 for null-terminated pem */ \
-//     .client_cert_pem = NULL,      /*!< SSL client certification, PEM format as string, if the server requires to verify client */ \
-//     .client_cert_len = 0,         /*!< Length of the buffer pointed to by client_cert_pem. May be 0 for null-terminated pem */ \
-//     .client_key_pem = NULL,       /*!< SSL client key, PEM format as string, if the server requires to verify client */ \
-//     .client_key_len = 0,          /*!< Length of the buffer pointed to by client_key_pem. May be 0 for null-terminated pem */ \
-//     .client_key_password = NULL,  /*!< Client key decryption password string */ \
-//     .client_key_password_len = 0, /*!< String length of the password pointed to by client_key_password */ \
-//     .tls_version = ESP_HTTP_CLIENT_TLS_VER_ANY, /*!< TLS protocol version of the connection, e.g., TLS 1.2, TLS 1.3 (default - no preference) */ \
-//     .user_agent = NULL,           /*!< The User Agent string to send with HTTP requests */ \
-//     .method = HTTP_METHOD_GET,    /*!< HTTP Method */ \
-//     .timeout_ms = 0,              /*!< Network timeout in milliseconds */ \
-//     .disable_auto_redirect = false, /*!< Disable HTTP automatic redirects */ \
-//     .max_redirection_count = 0,   /*!< Max number of redirections on receiving HTTP redirect status code, using default value if zero*/ \
-//     .max_authorization_retries = 0, /*!< Max connection retries on receiving HTTP unauthorized status code, using default value if zero. Disables authorization retry if -1*/ \
-//     .event_handler = NULL,             /*!< HTTP Event Handle  (http_event_handle_cb) */ \
-//     .transport_type = HTTP_TRANSPORT_UNKNOWN, /*!< HTTP transport type, see `esp_http_client_transport_t` */ \
-//     .buffer_size = 0,             /*!< HTTP receive buffer size */ \
-//     .buffer_size_tx = 0,          /*!< HTTP transmit buffer size */ \
-//     .user_data = NULL,            /*!< HTTP user_data context */ \
-//     .is_async = false,            /*!< Set asynchronous mode, only supported with HTTPS for now */ \
-//     .use_global_ca_store = false, /*!< Use a global ca_store for all the connections in which this bool is set. */ \
-//     .skip_cert_common_name_check = false, /*!< Skip any validation of server certificate CN field */ \
-//     .common_name = NULL,          /*!< Pointer to the string containing server certificate common name. */ \
-//     .crt_bundle_attach = NULL,    /*!< Function pointer to esp_crt_bundle_attach. Enables the use of certification */ \
-//     .keep_alive_enable = false,   /*!< Enable keep-alive timeout */ \
-//     .keep_alive_idle = 0,         /*!< Keep-alive idle time. Default is 5 (second) */ \
-//     .keep_alive_interval = 0,     /*!< Keep-alive interval time. Default is 5 (second) */ \
-//     .keep_alive_count = 0,        /*!< Keep-alive packet retry send count. Default is 3 counts */ \
-//     .if_name = NULL,              /*!< The name of interface for data to go through. Use the default interface without setting */ \
-// }
-
-//     .tls_version = ESP_HTTP_CLIENT_TLS_VER_ANY, /*!< TLS protocol version of the connection, e.g., TLS 1.2, TLS 1.3 (default - no preference) */ \
-// // #ifdef CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN \
-// //     .use_ecdsa_peripheral = false, /*!< Use ECDSA peripheral to use private key. */ \
-// //     .ecdsa_key_efuse_blk = 0,      /*!< The efuse block where ECDSA key is stored. */ \
-// // #endif \
-//     .user_agent = NULL,           /*!< The User Agent string to send with HTTP requests */ \
-
-
-//     .if_name = NULL,              /*!< The name of interface for data to go through. Use the default interface without setting */ \
-// // #if CONFIG_ESP_TLS_USE_SECURE_ELEMENT \
-// //     .use_secure_element = false,  /*!< Enable this option to use secure element */ \
-// // #endif \
-
 
 /*
 
@@ -581,18 +532,14 @@ Enable the option "Skip server certificate verification by default" (accepting t
 */
 bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
 {
-  // char *timeServer = (char *)"http://worldtimeapi.org/api/ip";
   char *timeServer = (char *)"https://ipapi.co/json/";
   char *buffer = (char *)malloc(MAX_HTTP_RECV_BUFFER + 1);
 
-  // esp_http_client_config_t config = HTTP_CLIENT_CONFIG_DEFAULT();
   esp_http_client_config_t config = {};
   memset(&config, 0, sizeof(config));
   config.url = timeServer;
   config.path = "/";
   config.transport_type = HTTP_TRANSPORT_OVER_SSL;
-  // .event_handler = _http_event_handler,
-  // .cert_pem = howsmyssl_com_root_cert_pem_start,
   config.buffer_size = MAX_HTTP_RECV_BUFFER;
   esp_http_client_handle_t client = esp_http_client_init(&config);
   esp_err_t err;
@@ -653,7 +600,7 @@ bool lookupGeoIpTimezone(char *TimeZone, int MaxLen)
     snprintf (gmt_tz, sizeof(gmt_tz), "GMT%s", tmp);
     ESP_LOGI (__FUNCTION__, "GMT timezone: %s", gmt_tz);
 
-  // Save timezone in "GMTxxxx" format
+    // Save timezone in "GMTxxxx" format
     int i = 0;
     while ((strcmp(gmt_timezones[i], (const char *)gmt_tz) != 0) && (i < 24))
       i++;

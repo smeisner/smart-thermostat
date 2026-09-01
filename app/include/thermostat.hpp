@@ -47,11 +47,11 @@ typedef enum
     OFF = 0,
     HEAT,
     COOL,
-    DRY,
     IDLE,
     FAN_ONLY,
     AUTO,
     AUX_HEAT,
+    DRY,
     ERROR,
     NR_HVAC_MODES
 } HVAC_MODE;
@@ -151,6 +151,17 @@ extern int64_t ui_WifiStatusLabel_timestamp;
 
 extern const char *gmt_timezones[];
 
+//
+// Global variables to track requested changes to HVAC mode and set temperature
+//
+void _updateHvacMode(HVAC_MODE mode);
+void _updateHvacSetTemp(float setTemp);
+extern HVAC_MODE requestedHvacMode;
+extern bool ModeChangeRequested;
+extern int64_t ModeChangeRequestTime;
+extern float requestedHvacSetTemp;
+extern bool TempChangeRequested;
+extern int64_t TempChangeRequestTime;
 
 /////////////////////////////////////////////////////////////////////
 //          Forward Declarations
@@ -287,6 +298,8 @@ int readLightSensor();
 void audioStartupBeep();
 void indicatorsInit();
 void audioBeep();
+void BlinkyStart();
+void BlinkyStop();
 
 // SNTP Time Sync
 void updateTimezoneFromConfig();

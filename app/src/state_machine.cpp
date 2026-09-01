@@ -45,19 +45,27 @@ const struct gpio_pin_desc hvac_mode_gpio[NR_HVAC_MODES][NR_GPIO_PINS] = {
   DESC(OFF, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
             PIN(HVAC_STAGE2_PIN, LOW)),
-  DESC(HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
-             PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
-             PIN(HVAC_STAGE2_PIN, LOW)),
-  DESC(COOL, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, HIGH), PIN(HVAC_FAN_PIN, LOW),
-             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, HIGH), PIN(LED_FAN_PIN, HIGH),
-             PIN(HVAC_STAGE2_PIN, LOW)),
-  DESC(DRY, INVALID_PIN()),
+  DESC(HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, HIGH),
+            PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
+            PIN(HVAC_STAGE2_PIN, LOW)),
+  DESC(COOL, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, HIGH), PIN(HVAC_FAN_PIN, HIGH),
+            PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, HIGH), PIN(LED_FAN_PIN, HIGH),
+            PIN(HVAC_STAGE2_PIN, LOW)),
   DESC(IDLE, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
-             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
-             PIN(HVAC_STAGE2_PIN, LOW)),
+            PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
+            PIN(HVAC_STAGE2_PIN, LOW)),
   DESC(FAN_ONLY, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, HIGH),
-                 PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
-                 PIN(HVAC_STAGE2_PIN, LOW)),
+            PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
+            PIN(HVAC_STAGE2_PIN, LOW)),
+  DESC(AUTO, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
+            PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
+            PIN(HVAC_STAGE2_PIN, LOW)),
+  DESC(AUX_HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, HIGH),
+            PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
+            PIN(HVAC_STAGE2_PIN, HIGH)),
+  DESC(DRY, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
+            PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
+            PIN(HVAC_STAGE2_PIN, LOW)),
 };
 
 static inline bool is_invalid_desc(const struct gpio_pin_desc desc)
@@ -155,20 +163,6 @@ int64_t tracker_get_sum(RollingTracker *tracker)
   return tracker->cumulative_sum;
 }
 
-// // Example usage
-// int main() {
-//     RollingTracker tracker;
-//     tracker_init(&tracker);
-
-//     // Simulate adding values
-//     tracker_add_value(&tracker, 15.5);
-//     tracker_add_value(&tracker, 20.0);
-
-//     // Display the current sum
-//     printf("Current cumulative sum: %.2f\n", tracker_get_sum(&tracker));
-
-//     return 0;
-// }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -179,7 +173,8 @@ static void set_hvac_mode(HVAC_MODE mode)
 {
   const struct gpio_pin_desc *desc = hvac_mode_gpio[mode];
 
-  for (int i = 0; i < NR_GPIO_PINS; i++) {
+  for (int i = 0; i < NR_GPIO_PINS; i++)
+  {
     if (is_invalid_desc(desc[i]))
       break;
 
@@ -237,6 +232,20 @@ void hvacStateUpdate()
   float autoMinTemp, autoMaxTemp;
   HVAC_MODE prev_mode = OperatingParameters.hvacOpMode;
 
+  if (ModeChangeRequested && (millis() - ModeChangeRequestTime > 2000))
+  {
+    ESP_LOGI(__FUNCTION__, "Processing requested HVAC mode change to %s", hvacModeToString(requestedHvacMode));
+    _updateHvacMode(requestedHvacMode);
+    ModeChangeRequested = false;
+  }
+
+  if (TempChangeRequested && (millis() - TempChangeRequestTime > 2000))
+  {
+    ESP_LOGI(__FUNCTION__, "Processing requested HVAC set temperature change to %.2f", requestedHvacSetTemp);
+    _updateHvacSetTemp(requestedHvacSetTemp);
+    TempChangeRequested = false;
+  }
+
   currentTemp = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;
   minTemp = get_min_temp(&OperatingParameters, false);
   maxTemp = get_max_temp(&OperatingParameters, false);
@@ -253,18 +262,20 @@ void hvacStateUpdate()
     COND_LOG(prev_mode != FAN_ONLY, "Entering fan only mode: Current: %.2f", currentTemp);
     break;
   case HEAT:
-    if (currentTemp < minTemp) {
+    if (currentTemp < minTemp)
+    {
       set_hvac_mode(HEAT);
       COND_LOG(prev_mode != HEAT, "Entering heat mode: Current: %.2f  Lo Limit: %.2f", currentTemp, minTemp);
     } else {
       // Expected overshoot (where furnace continues to run to dissipate residual heat) is ~0.5F
       // Almost the same in Celcius.
-      if (currentTemp > maxTemp - 0.5) {
+      if (currentTemp > maxTemp - 0.5)
+      {
         set_hvac_mode(IDLE);
-        COND_LOG(prev_mode != IDLE, "Stopping heat mode: Current: %.2f  Hi Limit: %.2f", currentTemp, maxTemp);
+        COND_LOG(prev_mode != IDLE, "Target temp reached: Stopping heat mode: Current: %.2f  Hi Limit: %.2f", currentTemp, maxTemp);
       }
     }
-    break;
+  break;
   case AUX_HEAT:
     //
     // Set up for 2-stage, emergency or aux heat mode
@@ -277,7 +288,7 @@ void hvacStateUpdate()
       COND_LOG(prev_mode != HEAT, "Entering aux heat mode: Current: %.2f  Lo Limit: %.2f", currentTemp, minTemp);
     } else {
       set_hvac_mode(IDLE);
-      COND_LOG(prev_mode != IDLE, "Stopping aux heat mode: Current: %.2f  Hi Limit: %.2f", currentTemp, maxTemp);
+      COND_LOG(prev_mode != IDLE, "Target temp reached: Stopping aux heat mode: Current: %.2f  Hi Limit: %.2f", currentTemp, maxTemp);
     }
     break;
   case COOL:
@@ -286,7 +297,7 @@ void hvacStateUpdate()
       COND_LOG(prev_mode != COOL, "Entering cool mode: Current: %.2f  Hi Limit: %.2f", currentTemp, maxTemp);
     } else {
       set_hvac_mode(IDLE);
-      COND_LOG(prev_mode != IDLE, "Stopping cool mode: Current: %.2f  Lo Limit: %.2f", currentTemp, minTemp);
+      COND_LOG(prev_mode != IDLE, "Target temp reached: Stopping cool mode: Current: %.2f  Lo Limit: %.2f", currentTemp, minTemp);
     }
     break;
   case AUTO:
@@ -298,7 +309,8 @@ void hvacStateUpdate()
       COND_LOG(prev_mode != COOL, "Entering auto cool mode: Current: %.2f  auto max Limit: %.2f", currentTemp, autoMaxTemp);
     } else {
       set_hvac_mode(IDLE);
-      COND_LOG(prev_mode != COOL, "Exiting auto heat/cool mode: Current: %.2f  auto min Limit: %.2f  auto max Limit: %.2f", currentTemp, autoMinTemp, autoMaxTemp);
+      COND_LOG(prev_mode != IDLE, "Target temp reached: Exiting auto heat/cool mode: Current: %.2f  auto min Limit: %.2f"\
+          "  auto max Limit: %.2f", currentTemp, autoMinTemp, autoMaxTemp);
     }
     break;
   }

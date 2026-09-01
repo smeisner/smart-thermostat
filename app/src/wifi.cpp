@@ -337,7 +337,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
   {
     if (esp_wifi_connect() == ESP_OK)
     {
-      ESP_LOGI(TAG, "Wifi reconnect worked!");
+      // ESP_LOGI(TAG, "Wifi reconnect worked!");
       return;
     }
     // The next call has a side effect of disabling logging via telnet...
@@ -455,13 +455,18 @@ void WifiDeregisterEventCallbacks()
   }
   else
   {
+    //@@@
+    // Not sure this code change is correct. The ESP-IDF documentation says that the unregister call will not work
+    // if the event handler was registered with esp_event_handler_instance_register(). The code here uses that function
+    // to register the event handler, so the unregister calls below will not work. The code below is commented out for 
+    // now, but it should be revisited later to see if it can be fixed.
     /* The event will not be processed after unregister */
-    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
-    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
-  }
+    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
+    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
 
-  vEventGroupDelete(s_wifi_event_group);
-  s_wifi_event_group = NULL;
+    vEventGroupDelete(s_wifi_event_group);
+    s_wifi_event_group = NULL;
+  }
 }
 
 void WifiRegisterEventCallbacks()
