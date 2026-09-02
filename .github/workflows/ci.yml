@@ -13,17 +13,13 @@ jobs:
     permissions:
       contents: write
     
-    # Set the working directory globally for all steps in this job
     defaults:
       run:
         working-directory: app
 
     steps:
-      # Note: Checkout must happen at the root, it handles working-directory automatically
       - name: Checkout repo
         uses: actions/checkout@v4
-        with:
-          path: '.'
 
       - uses: actions/cache@v4
         with:
@@ -36,35 +32,21 @@ jobs:
         with:
           python-version: '3.11'
 
-      # Installed globally on the runner, but runs from the app/ context safely
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      # Removed '-d app/' because defaults.run makes the runner execute inside app/ automatically
       - name: Build
         run: pio run
 
-      - name: Build
-        run: pio run
-
-      # DEBUG STEP: This will list all files so we can see the exact path
-      - name: List Build Directory Structure
-        run: |
-          echo "=== Current Directory ==="
-          pwd
-          echo "=== Root Contents ==="
-          ls -la
-          echo "=== Searching for .bin files ==="
-          find . -name "*.bin" || echo "No .bin files found"
-
-      # Replaced hardcoded 'esp32s3' with a wildcard '**' to automatically catch the exact environment name
+      # Target the exact proven directory and force v4 to scan hidden dot-folders
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: firmware
           path: |
-            .pio/build/**/*.bin
-            .pio/build/**/*.elf
+            app/.pio/build/esp32s3/firmware.bin
+            app/.pio/build/esp32s3/firmware.elf
+          include-hidden-files: true
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -75,9 +57,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Wildcard usage here ensures gh upload finds the files regardless of the target folder name
+      # Point exactly to the verified build subfolder location
       - name: Upload firmware to release
         run: |
-          gh release upload ${{ github.ref_name }} .pio/build/**/*.bin .pio/build/**/*.elf
+          gh release upload ${{ github.ref_name }} \
+            .pio/build/esp32s3/firmware.bin \
+            .pio/build/esp32s3/firmware.elf
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
