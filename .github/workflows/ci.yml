@@ -38,7 +38,6 @@ jobs:
       - name: Build
         run: pio run
 
-      # Target the exact proven directory and force v4 to scan hidden dot-folders
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -51,14 +50,13 @@ jobs:
 
       - name: Create GitHub Release
         run: |
+          gh release delete ${{ github.ref_name }} --yes 2>/dev/null || true
           gh release create ${{ github.ref_name }} \
             --title "Release ${{ github.ref_name }}" \
-            --notes "Automated firmware release for ${{ github.ref_name }}" \
-            --overwrite
+            --notes "Automated firmware release for ${{ github.ref_name }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Point exactly to the verified build subfolder location
       - name: Upload firmware to release
         run: |
           gh release upload ${{ github.ref_name }} \
