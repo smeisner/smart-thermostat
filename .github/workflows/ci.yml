@@ -4,18 +4,26 @@ on:
   push:
     tags:
       - 'v*' # Triggers on semantic version tags like v1.0.0, v2.1, etc.
-    #  *      # OR use '*' if you want it to trigger on ANY tag name
+      - 'V*' # Triggers on semantic version tags like V1.0.0, V2.1, etc.
   workflow_dispatch:
-#  release:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    
+    # Set the working directory globally for all steps in this job
+    defaults:
+      run:
+        working-directory: app
+
     steps:
+      # Note: Checkout must happen at the root, it handles working-directory automatically
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          path: '.'
 
       - uses: actions/cache@v4
         with:
@@ -28,28 +36,35 @@ jobs:
         with:
           python-version: '3.11'
 
+      # Installed globally on the runner, but runs from the app/ context safely
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
+      # Removed '-d app/' because defaults.run makes the runner execute inside app/ automatically
       - name: Build
-        run: pio run -d app/
+        run: pio run
 
-      - uses: actions/upload-artifact@v4
+      # Replaced hardcoded 'esp32s3' with a wildcard '**' to automatically catch the exact environment name
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: firmware
           path: |
-            firmware.bin
-            firmware.elf
+            .pio/build/**/*.bin
+            .pio/build/**/*.elf
           if-no-files-found: error
 
-      # Changed github.event.release.tag_name to github.ref_name
-      - name: Add firmware.bin to release
-        run: gh release upload ${{ github.ref_name }} app/.pio/build/esp32s3/firmware.bin
+      - name: Create GitHub Release
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ github.ref_name }}" \
+            --notes "Automated firmware release for ${{ github.ref_name }}"
         env:
-          GITHUB_TOKEN: ${{ github.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Changed github.event.release.tag_name to github.ref_name
-      - name: Add firmware.elf to release
-        run: gh release upload ${{ github.ref_name }} app/.pio/build/esp32s3/firmware.elf
+      # Wildcard usage here ensures gh upload finds the files regardless of the target folder name
+      - name: Upload firmware to release
+        run: |
+          gh release upload ${{ github.ref_name }} .pio/build/**/*.bin .pio/build/**/*.elf
         env:
-          GITHUB_TOKEN: ${{ github.TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
