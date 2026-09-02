@@ -38,8 +38,8 @@ jobs:
         with:
           name: firmware
           path: |
-            app/.pio/build/esp32s3/firmware.bin
-            app/.pio/build/esp32s3/firmware.elf
+            .pio/build/esp32s3/firmware.bin
+            .pio/build/esp32s3/firmware.elf
           if-no-files-found: error
 
       # Changed github.event.release.tag_name to github.ref_name
