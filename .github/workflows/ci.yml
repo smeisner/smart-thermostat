@@ -53,7 +53,8 @@ jobs:
         run: |
           gh release create ${{ github.ref_name }} \
             --title "Release ${{ github.ref_name }}" \
-            --notes "Automated firmware release for ${{ github.ref_name }}"
+            --notes "Automated firmware release for ${{ github.ref_name }}" \
+            --overwrite
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
