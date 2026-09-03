@@ -2,6 +2,11 @@
 
 This document outlines the custom configurations used in this project's sdkconfig file.
 
+There is a file in the top level (```sdkconfig-thermostat-settings.txt```) that includes the settings described below. Since the sdkconfig file can get regenerated, 
+the script ```update-sdkconfig.sh``` should be used to apply these settings to any newly generated sdkconfig file.
+
+```./update-sdkconfig.sh sdkconfig-thermostat-settings.txt sdkconfig.esp32s3```
+
 ## **🛠️ System Performance & Environment**
 
 These settings define the core hardware speed, operating system boundaries, and framework versions.
