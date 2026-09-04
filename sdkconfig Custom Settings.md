@@ -11,8 +11,6 @@ the script ```update-sdkconfig.sh``` should be used to apply these settings to a
 
 These settings define the core hardware speed, operating system boundaries, and framework versions.
 
-> * **CONFIG\_IDF\_INIT\_VERSION="5.4.0"**  
-  * **Description:** Identifies the exact version of the Espressif IoT Development Framework (ESP-IDF) used to generate this configuration. Prevents toolchain mismatches across development machines.  
 > * **CONFIG\_ESP\_DEFAULT\_CPU\_FREQ\_MHZ=240**
 > * **CONFIG\_ESP\_DEFAULT\_CPU\_FREQ\_MHZ\_240=y**  
   * **Description:** Sets the default CPU frequency of the primary chip to its maximum performance level of 240 MHz instead of the lower 160 MHz option.  
