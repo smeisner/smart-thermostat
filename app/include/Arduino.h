@@ -4,7 +4,7 @@
 ---------------------------------------------------------------*/
 
 #include "thermostat.hpp"
-#include "Stream.h"
+#include "stream.h"
 
 #define F(x) (x)
 #define HEX "0x%x"

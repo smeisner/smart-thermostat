@@ -311,7 +311,7 @@ int sdcard_esp32_vprintf(const char *fmt, va_list va)
   const char *file_log = MOUNT_POINT "/log.txt";
 
   // Mount SDCARD
-  if (res = mount_sd_card() != ESP_OK)
+  if ((res = mount_sd_card()) != ESP_OK)
   {
     printf ("Failed to mount SD card: %s", esp_err_to_name(res));
     return res;
@@ -354,7 +354,7 @@ esp_err_t sd_init(void)
 
   gpio_cfg();
 
-  if (ret = mount_sd_card(true) != ESP_OK)
+  if ((ret = mount_sd_card(true)) != ESP_OK)
   {
     printf ("Failed to mount SD card: %s\n", esp_err_to_name(ret));
     enableSdcardLogging(false);

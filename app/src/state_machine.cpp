@@ -189,7 +189,8 @@ static void set_hvac_mode(HVAC_MODE mode)
 
   // Going to turn off the FAN. Keep track of how long the fan is run
   if ((mode == OFF || mode == IDLE) &&
-      (OperatingParameters.hvacOpMode == FAN_ONLY || OperatingParameters.hvacOpMode == HEAT || OperatingParameters.hvacOpMode == COOL))
+      (OperatingParameters.hvacOpMode == FAN_ONLY || OperatingParameters.hvacOpMode == HEAT || OperatingParameters.hvacOpMode == COOL) &&
+      lastFanOnTime != 0) // 0 is the value when it is allocated. If it's still 0, then the fan was never turned on and we don't need to track the time
     {
       tracker_add_value(&tracker, millis() - lastFanOnTime);
       ESP_LOGI(__FUNCTION__, "Fan run time: %lld ms", millis() - lastFanOnTime);
@@ -252,7 +253,14 @@ void hvacStateUpdate()
   autoMinTemp = get_min_temp(&OperatingParameters, true);
   autoMaxTemp = get_max_temp(&OperatingParameters, true);
 
-  switch (OperatingParameters.hvacSetMode) {
+  switch (OperatingParameters.hvacSetMode)
+  {
+  // These just make the compiler happy!!!
+  case NR_HVAC_MODES:
+  case IDLE:
+  case DRY:
+  case ERROR:
+    break;
   case OFF:
     set_hvac_mode(OFF);
     COND_LOG(prev_mode != OFF, "Entering off mode: Current: %.2f", currentTemp);
@@ -275,7 +283,7 @@ void hvacStateUpdate()
         COND_LOG(prev_mode != IDLE, "Target temp reached: Stopping heat mode: Current: %.2f  Hi Limit: %.2f", currentTemp, maxTemp);
       }
     }
-  break;
+    break;
   case AUX_HEAT:
     //
     // Set up for 2-stage, emergency or aux heat mode

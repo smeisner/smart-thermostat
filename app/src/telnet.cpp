@@ -411,10 +411,12 @@ void doConfiguration(int sock)
   len -= 2;
   buffer[len] = '\0';
   if ((len) && (len < sizeof(buffer)))
+  {
     if (lwip_stricmp("yes", buffer) == 0)
       OperatingParameters.thermostatBeepEnable = true;
     else
       OperatingParameters.thermostatBeepEnable = false;
+  }
 
       //@@@	HVAC modes
       // 2-stage heat
@@ -439,10 +441,12 @@ void doConfiguration(int sock)
   len -= 2;
   buffer[len] = '\0';
   if ((len) && (len < sizeof(buffer)))
+  {
     if (lwip_stricmp("yes", buffer) == 0)
       OperatingParameters.MqttEnabled = true;
     else
       OperatingParameters.MqttEnabled = false;
+  }
   if (OperatingParameters.MqttEnabled)
   {
     telnet_esp32_printf("MQTT Broker Hostname [%s]: ", OperatingParameters.MqttBrokerHost);

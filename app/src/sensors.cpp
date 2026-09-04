@@ -23,6 +23,8 @@
 #include "esp_adc/adc_continuous.h"
 #include "soc/adc_channel.h"
 #include "esp_sntp.h"
+#include "driver/i2c_types.h"
+#include "driver/i2c_master.h"
 #include <aht.h>
 #include <timezonedb_lookup.h>
 #include <ld2410.h>
@@ -157,35 +159,63 @@ float roundValue(float value, int places)
 
 static void IRAM_ATTR MotionDetect_ISR(void *arg)
 {
-  tftMotionTrigger = true;
-}
+  // Read the physical state. If it's 1, a voltage transition occurred.
+  if (gpio_get_level((gpio_num_t)MOTION_PIN) == 1)
+  {
 
+    // DE-BOUNCE/STABILITY CHECK:
+    // Loop briefly (approx 10-15 microseconds) to verify the line stays high.
+    // High-speed cross-talk noise spikes vanish instantly, but a real human 
+    // presence signal from the LD2410 remains a rock-solid 3.3V.
+    bool true_signal = true;
+    for (int i = 0; i < 50; i++)
+    {
+      if (gpio_get_level((gpio_num_t)MOTION_PIN) == 0)
+      {
+        true_signal = false;
+        break;
+      }
+    }
+
+    // Only trigger your thermostat's display if the signal is verified as real
+    if (true_signal)
+    {
+      tftMotionTrigger = true;
+    }
+  }
+}
 
 bool ld2410_init()
 {
-  bool rc;
+  bool rc = false;
 
-  gpio_install_isr_service(0);
+  // Initialize the UART hardware settings safely using stream.cpp
+  RadarPort.begin(UART_NUM_2, 256000, LD_RX, LD_TX); 
 
-  gpio_config_t io_conf;
-  io_conf.intr_type = GPIO_INTR_POSEDGE;
-  io_conf.mode = GPIO_MODE_INPUT;
-  io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-  io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-  io_conf.pin_bit_mask = (1ULL<<MOTION_PIN);
-  gpio_config(&io_conf);
+  int radar_retries = 5;
+  ESP_LOGI(TAG, "Attempting connection to LD2410 Radar Module...");
 
-  //attach isr handler
-  gpio_isr_handler_add((gpio_num_t)MOTION_PIN, MotionDetect_ISR, nullptr);
-
-  RadarPort.begin(UART_NUM_2, 256000, LD_RX, LD_TX); //UART for monitoring the radar
-  vTaskDelay(pdMS_TO_TICKS(500));
-
-  if (radar.begin(RadarPort))
+  for (int attempt = 1; attempt <= radar_retries; attempt++)
   {
-    ESP_LOGI(TAG, "LD2410: Sensor started");
-    rc = true;
+    vTaskDelay(pdMS_TO_TICKS(150)); 
+    uart_flush(UART_NUM_2);
+    uart_clear_intr_status(UART_NUM_2, 0xFFFFFFFF);
 
+    if (radar.begin(RadarPort))
+    {
+      ESP_LOGI(TAG, "LD2410: Sensor started successfully on attempt %d!", attempt);
+      rc = true;
+      break;
+    }
+    else
+    {
+      ESP_LOGW(TAG, "LD2410 handshake attempt %d failed. Retrying...", attempt);
+    }
+  }
+
+  // Process configurations ONLY if the loop caught a valid hardware signature
+  if (rc)
+  {
     if (radar.requestFirmwareVersion())
     {
       ESP_LOGI(TAG, "LD2410: Firmware: v%u.%02u.%08x",
@@ -228,8 +258,8 @@ bool ld2410_init()
     // for 0 - 0.75m, gate 1 will specify sensitivity for 0.75 - 1.5m, etc. Setting MaxValues (below) specifies
     // max distance based on the number of gates enabled. For example, specifying 1 for max gates will allow 1.5m (0 & 1).
     //
-    radar.setGateSensitivityThreshold(0, 50, 30); // Default values (50 & 30)
-    radar.setGateSensitivityThreshold(1, 50, 30);
+    radar.setGateSensitivityThreshold(0, 90, 80); 
+    radar.setGateSensitivityThreshold(1, 85, 75);
     //
     // Each gate is ~0.75m, therefore moving gate should be limited to gate 1 (1.5m) and stationary gate should be
     // limited to 0 (0.75m). Use this to also change the inactivity timer.
@@ -246,9 +276,14 @@ bool ld2410_init()
     //
     // Now request a restart to enable all the setting specified above
     //
+    // ... inside ld2410_init() after setMaxValues ...
     if (radar.requestRestart()) 
     {
-      ESP_LOGW(TAG, "LD2410: Restart requested");
+      ESP_LOGW(TAG, "LD2410: Restart requested. Waiting for sensor boot...");
+      // CRITICAL: Give the physical radar hardware time to reboot 
+      // BEFORE allowing the loop to flood the serial port!
+      vTaskDelay(pdMS_TO_TICKS(1500)); 
+      uart_flush(UART_NUM_2); // Flush any bootup bootloader junk characters
     }
     else
     {
@@ -258,7 +293,7 @@ bool ld2410_init()
   }
   else
   {
-    ESP_LOGE(TAG, "LD2410: Sensor not connected");
+    ESP_LOGE(TAG, "LD2410: Sensor not connected after maximum retries");
     OperatingParameters.Errors.hardwareErrors++;
     rc = false;
   }
@@ -267,21 +302,38 @@ bool ld2410_init()
 
 void ld2410_loop()
 {
-  if (!radar.isConnected())
-    return;
+  // Silently read bytes 1-by-1. ONLY execute logic when a complete frame (1) is ready.
+  // Do NOT log warnings if it returns 0; 0 just means "still waiting for full packet".
+  int readStatus = radar.read(); 
 
-  radar.read();
-  if (radar.isConnected() && millis() - last_ld2410_Reading > 1000)  //Report every 1000ms
+  if (readStatus == 1)
   {
-    last_ld2410_Reading = millis();
+    // A complete, valid data frame has arrived from the radar!
     if (radar.presenceDetected())
     {
-      ESP_LOGD (TAG, "LD2410: Presence detected");
-      if (radar.stationaryTargetDetected())
-        ESP_LOGD (TAG, "LD2410: Stationary target: %d in", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
-      if (radar.movingTargetDetected())
-        ESP_LOGD (TAG, "LD2410: Moving target: %d in", (int)((float)(radar.movingTargetDistance()) / 2.54));
+      tftMotionTrigger = true;
     }
+
+    // Report metrics every 1000ms
+    if (millis() - last_ld2410_Reading > 1000)  
+    {
+      last_ld2410_Reading = millis();
+      ESP_LOGD(TAG, "LD2410: Radar Active. Target Presence: %s", radar.presenceDetected() ? "YES" : "NO");
+      
+      if (radar.presenceDetected())
+      {
+        if (radar.stationaryTargetDetected())
+          ESP_LOGD(TAG, "LD2410: Stationary target: %d in", (int)((float)(radar.stationaryTargetDistance()) / 2.54));
+        if (radar.movingTargetDetected())
+          ESP_LOGD(TAG, "LD2410: Moving target: %d in", (int)((float)(radar.movingTargetDistance()) / 2.54));
+      }
+    }
+  }
+  else if (readStatus == -1)
+  {
+    // The underlying library encountered a completely corrupted packet frame
+    ESP_LOGE(TAG, "LD2410: Frame parsing checksum or formatting failure.");
+    OperatingParameters.Errors.hardwareErrors++;
   }
 }
 
@@ -293,94 +345,112 @@ void resetTempSmooth() { sensorTemp.clear(); }
 /*---------------------------------------------------------------
         AHT20 sensor (temp & humidity sensor)
 ---------------------------------------------------------------*/
-bool initAht()
+
+#include "soft_i2c.hpp"
+
+void process_aht20_data(const uint8_t *read_buffer, float *temperature, float *humidity)
 {
-  return i2cdev_init() == ESP_OK;
+  // 1. Extract the 20-bit raw Humidity integer value
+  // Combines Byte 1, Byte 2, and the high nibble (upper 4 bits) of Byte 3
+  uint32_t raw_humidity = ((uint32_t)read_buffer[1] << 12) | 
+                          ((uint32_t)read_buffer[2] << 4)  | 
+                          ((read_buffer[3] & 0xF0) >> 4);
+
+  // 2. Extract the 20-bit raw Temperature integer value
+  // Combines the low nibble (lower 4 bits) of Byte 3, Byte 4, and Byte 5
+  uint32_t raw_temperature = (((uint32_t)read_buffer[3] & 0x0F) << 16) | 
+                              ((uint32_t)read_buffer[4] << 8)   | 
+                              ((uint32_t)read_buffer[5]);
+
+  // 3. Apply floating-point math scaling calculations (2^20 = 1048576)
+  *humidity = ((float)raw_humidity / 1048576.0f) * 100.0f;
+  *temperature = ((float)raw_temperature / 1048576.0f) * 200.0f - 50.0f;
+
+
+
+  // // Humidity is 20 bits (data[1], data[2], data[3] upper nibble)
+  // uint32_t raw_humidity = ((uint32_t)data[1] << 16) | ((uint32_t)data[2] << 8) | (data[3] >> 4);
+  // *humidity = (float)(raw_humidity * 100 / 0x100000);
+
+  // // Temperature is 20 bits (data[3] lower nibble, data[4], data[5])
+  // uint32_t raw_temperature = ((uint32_t)(data[3] & 0x0F) << 16) | ((uint32_t)data[4] << 8) | data[5];
+  // *temperature = ((float)raw_temperature / 1048576) * 200.0 - 50.0;
+
+  ESP_LOGD(TAG, "Temperature: %.1f°C, Humidity: %.2f%%", *temperature, *humidity);
+
+  if (OperatingParameters.tempUnits == 'F')
+    *temperature = (*temperature * 9.0 / 5.0) + 32;
+
+  ESP_LOGD(TAG, "Temperature: %.1f°C, Humidity: %.2f%%", *temperature, *humidity);
+
+  sensorTemp.add(*temperature);
+  sensorHumidity.add(*humidity);
+
+  OperatingParameters.tempCurrent = sensorTemp.get();
+  OperatingParameters.humidCurrent = sensorHumidity.get();
+
+  ESP_LOGI(TAG, "Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)",
+          sensorTemp.get() + OperatingParameters.tempCorrection,
+          *temperature, OperatingParameters.tempUnits,
+          sensorHumidity.get() + OperatingParameters.humidityCorrection,
+          *humidity);
+
+#ifdef MQTT_ENABLED
+  MqttUpdateStatusTopic();
+#endif
 }
 
-void updateAht(void *parameter)
+// static const char *TAG = "AHT20_BITBANG";
+static SoftI2C software_i2c;
+
+void aht20_sensor_task(void *pvParameters)
 {
-  float humidity, temperature;
+  float humidity=0.0, temperature=0.0;
 
-  aht_t dev = {};
-  dev.mode = AHT_MODE_NORMAL;
-  dev.type = AHT_TYPE_AHT20;
+  // Initialize the software layers
+  software_i2c.init();
+  vTaskDelay(pdMS_TO_TICKS(150)); // Wake up delay window
 
-  ESP_ERROR_CHECK(aht_init_desc(&dev, AHT_I2C_ADDRESS_GND, (i2c_port_t)0, (gpio_num_t)SDA_PIN, (gpio_num_t)SCL_PIN));
-  esp_err_t res = aht_init(&dev);
-  if (res != ESP_OK)
+  // Initialize the AHT20 sensor
+  uint8_t init_cmd[] = {0xE1, 0x08, 0x00};
+  
+  ESP_LOGI(TAG, "Initializing AHT20 via Software Bit-Banging...");
+  if (software_i2c.transmit(AHT20_SENSOR_ADDR, init_cmd, sizeof(init_cmd)))
   {
-    ESP_LOGE(TAG, "Failed to initialize AHT device");
-    OperatingParameters.Errors.hardwareErrors++;
-    vTaskDelete(NULL);
-  }
-
-  bool calibrated;
-  ESP_ERROR_CHECK(aht_get_status(&dev, NULL, &calibrated));
-  if (calibrated)
-  {
-    ESP_LOGI(TAG, "AHT Sensor calibrated");
+    ESP_LOGI(TAG, "--> SUCCESS! The device acknowledged the software handshake!");
   }
   else
   {
-    ESP_LOGW(TAG, "AHT Sensor not calibrated!");
-    OperatingParameters.Errors.hardwareErrors++;
+    // This always fails on the first try, but subsequent calls work.
+    //@@@ ESP_LOGE(TAG, "--> FAILED! Device NACKed or traces could not be driven.");
   }
+
+  uint8_t read_buffer[6] = {0};
+  uint8_t trigger_cmd[] = {0xAC, 0x33, 0x00};
 
   while (1)
   {
-    esp_err_t res = aht_get_data(&dev, &temperature, &humidity);
-    if (res == ESP_OK)
+    // Trigger measurement
+    software_i2c.transmit(AHT20_SENSOR_ADDR, trigger_cmd, sizeof(trigger_cmd));
+    vTaskDelay(pdMS_TO_TICKS(80)); // Wait for hardware data conversion
+
+    // Read data packets back
+    if (software_i2c.receive(AHT20_SENSOR_ADDR, read_buffer, sizeof(read_buffer)))
     {
-      if (OperatingParameters.tempUnits == 'F')
-        temperature = (temperature * 9.0 / 5.0) + 32;
-
-      ESP_LOGD(TAG, "Temperature: %.1f°C, Humidity: %.2f%%", temperature, humidity);
-
-      sensorTemp.add(temperature);
-      sensorHumidity.add(humidity);
-
-      OperatingParameters.tempCurrent = sensorTemp.get();
-      OperatingParameters.humidCurrent = sensorHumidity.get();
-
-      ESP_LOGI(TAG, "Temp: %0.1f (raw: %0.2f %c)  Humidity: %0.1f (raw: %0.2f)",
-             sensorTemp.get() + OperatingParameters.tempCorrection,
-             temperature, OperatingParameters.tempUnits,
-             sensorHumidity.get() + OperatingParameters.humidityCorrection,
-             humidity);
-#ifdef MQTT_ENABLED
-      MqttUpdateStatusTopic();
-#endif
-    }
-    else
-    {
-      ESP_LOGE(TAG, "Error reading data: %d (%s)", res, esp_err_to_name(res));
-      OperatingParameters.Errors.hardwareErrors++;
+      process_aht20_data(read_buffer, &temperature, &humidity);
+    } else {
+      ESP_LOGE(TAG, "Packet read transaction failed.");
     }
 
-    vTaskDelay(pdMS_TO_TICKS(10000));
+    vTaskDelay(pdMS_TO_TICKS(10000)); // Sample loop execution window
   }
 }
 
 bool startAht()
 {
-  if (initAht())
-  {
-    xTaskCreate(
-        updateAht,            // Function that should be called
-        "Update AHT",         // Name of the task (for debugging)
-        4096,                 // Stack size (bytes)
-        NULL,                 // Parameter to pass
-        tskIDLE_PRIORITY + 1, // Task priority
-        NULL                  // Task handle
-    );
 
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  xTaskCreate(aht20_sensor_task, "aht20_sensor_task", 4096, NULL, 5, NULL);
+  return true;
 }
 
 // Read sensor temp and return rounded up and correction applied
@@ -398,8 +468,6 @@ int getHumidity()
         Time & NTP client code
 ---------------------------------------------------------------*/
 const char *ntpServer = "pool.ntp.org";
-// const char* timezone = "Africa/Luanda";
-// const char* timezone = "America/New York";
 
 void updateTimezoneFromConfig()
 {
@@ -469,6 +537,7 @@ bool getLocalTime(struct tm * info, uint64_t ms)
   return false;
 }
 
+// Init last_time to -1 so we can detect the first time update and not report a time change
 static time_t last_time = (time_t)-1;
 
 void updateTimeSntp()
