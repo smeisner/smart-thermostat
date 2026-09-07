@@ -59,6 +59,12 @@ int64_t ModeChangeRequestTime;
 bool TempChangeRequested;
 int64_t TempChangeRequestTime;
 
+float ftoc(float fahrenheit)
+{ return ((fahrenheit - 32.0) * (5.0 / 9.0)); }
+
+float ctof(float celsius)
+{ return ((celsius * 9.0 / 5.0) + 32.0); }
+
 void _updateHvacMode(HVAC_MODE mode)
 {
   OperatingParameters.hvacSetMode = mode;
@@ -378,10 +384,8 @@ void process_aht20_data(const uint8_t *read_buffer, float *temperature, float *h
 
   ESP_LOGD(TAG, "Temperature: %.1f°C, Humidity: %.2f%%", *temperature, *humidity);
 
-  if (OperatingParameters.tempUnits == 'F')
-    *temperature = (*temperature * 9.0 / 5.0) + 32;
-
-  ESP_LOGD(TAG, "Temperature: %.1f°C, Humidity: %.2f%%", *temperature, *humidity);
+  // if (OperatingParameters.tempUnits == 'F')
+    *temperature = ctof((*temperature));
 
   sensorTemp.add(*temperature);
   sensorHumidity.add(*humidity);

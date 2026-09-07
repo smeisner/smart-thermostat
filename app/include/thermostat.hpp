@@ -154,6 +154,8 @@ extern const char *gmt_timezones[];
 //
 // Global variables to track requested changes to HVAC mode and set temperature
 //
+float ftoc(float fahrenheit);
+float ctof(float celsius);
 void _updateHvacMode(HVAC_MODE mode);
 void _updateHvacSetTemp(float setTemp);
 extern HVAC_MODE requestedHvacMode;

@@ -358,7 +358,8 @@ void stateMachine(void *parameter)
   lastWifiReconnect = millis();
   tracker_init(&tracker);
 
-  for (;;) {
+  for (;;)
+  {
     // Update sensor readings
     OperatingParameters.lightDetected = readLightSensor();
 
@@ -377,7 +378,8 @@ void stateMachine(void *parameter)
       startReconnectTask();
     }
 
-    if (OperatingParameters.wifiConnected) {
+    if (OperatingParameters.wifiConnected)
+    {
       if (!telnetServiceRunning())
         telnetStart();
 
@@ -388,7 +390,8 @@ void stateMachine(void *parameter)
       // called once at startup. The MQTT subsystem handles reconnects.
       //
       if (is_mqtt_enabled(&OperatingParameters) &&
-          !is_mqtt_connected(&OperatingParameters) && !MqttConnectCalled) {
+          !is_mqtt_connected(&OperatingParameters) && !MqttConnectCalled)
+      {
         MqttConnectCalled = true;
         MqttConnect();
       }
@@ -397,7 +400,8 @@ void stateMachine(void *parameter)
     // Determine if it's time to update the SNTP sourced clock and
     // display the amount of available heap space.
     if (COND_LOG((millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL),
-                 ">>>> Heap size: %d", esp_get_free_heap_size())) {
+                 ">>>> Heap size: %d", esp_get_free_heap_size()))
+    {
       lastTimeUpdate = millis();
       updateTimeSntp();
     }
