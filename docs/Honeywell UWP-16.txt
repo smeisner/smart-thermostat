@@ -1,0 +1,31 @@
+The pins (terminals) on a Honeywell UWP (Universal Wall Plate) mounting system define where each low-voltage HVAC wire connects from your heating and cooling system. [1, 2]  
+Common Conventional & Power Terminals 
+
+• R / Rc / Rh: 24VAC power. (Note: The UWP uses an internal slider tab to jump R and Rc together for single-transformer systems, or separates them for dual-transformer setups). 
+• C: 24VAC Common wire (provides continuous power to smart/digital thermostats). 
+• W: Stage 1 Heating (gas, oil, or electric furnace). 
+• Y: Stage 1 Compressor/Cooling. 
+• G: Blower Fan relay. [3, 4, 5, 6]  
+
+Heat Pump & Advanced Terminals 
+
+• O/B: Changeover/reversing valve for heat pumps. 
+• AUX / W2: Auxiliary or second-stage heating. (Important: On UWP-based heat pumps, auxiliary heat connects here rather than the standard W terminal). 
+• E: Emergency heat. 
+• L / A-A: Heat pump fault input. 
+• K: Used for optional C-wire adapters (like the THP9045A). 
+• U / S: Specialized terminals for indoor/outdoor wired sensors or ventilation control depending on the specific T-series model. [4, 5, 7, 8, 9]  
+
+If you need help connecting a specific setup, tell me:Are you wiring a conventional furnace/AC or a heat pumpWhat wire letters do you have coming out of the wall? 
+AI responses may include mistakes.
+
+[1] https://towerequipmentco.com/2017/03/24/new-technology-honeywells-uwp-mounting-system/
+[2] https://www.quora.com/What-is-the-difference-between-R-and-RC-on-a-thermostat
+[3] https://docs.honeywellhome.com/elitepro-im/Trade/Wiring.htm
+[4] https://docs.honeywellhome.com/focuspro-p200-s200-im/en-us/Content/Installation-Manual/Wiring%20Considerations.htm
+[5] https://docs.honeywellhome.com/focuspro-n100-im/en-us/Content/Installation-Manual/Power%20Options.htm
+[6] https://meyerair.com/thermostat-wire-colors-a-simple-homeowners-guide/
+[7] https://docs.honeywellhome.com/t6-pro-ii/en-us/Content/Installation-Instructions/2.%20Wiring.htm
+[8] https://www.youtube.com/watch?v=TXhkbWJqtq4
+[9] https://www.honeywellstore.com/store/product-support/honeywell-thermostat-wiring-guide.htm
+

@@ -1,0 +1,30 @@
+Wiring:
+
+Common:
+R/Rc - 24VAC (Supply to send back on other lines. Rc used when separate 24V supply for cooling)
+C - 24VAC
+G - Fan relay
+
+No heat pump:
+W - Heat relay
+Y - Cooling relay
+
+Heat Pump: 
+W2 - Auxiliary heat
+O/B - Reversing valve (both)
+Y2 - Second stage cooling
+
+Operation:
+
+Common:
+- The thermostat will turn on the fan relay (G) when the thermostat is powered.
+
+No heat pump:
+- The thermostat will turn on the heat relay (W) when the thermostat calls for heat.
+- The thermostat will turn on the cooling relay (Y) when the thermostat calls for cooling.
+
+With heat pump:
+- The thermostat will turn on the auxiliary heat relay (W2) when the thermostat calls for auxiliary heat.
+- The thermostat will turn on the reversing valve relay (O/B) when the thermostat calls for heat or cooling.
+- The thermostat will turn on the second stage cooling relay (Y2) when the thermostat calls for second stage cooling.
+
