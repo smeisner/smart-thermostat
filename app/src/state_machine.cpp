@@ -45,8 +45,8 @@ const struct gpio_pin_desc hvac_mode_gpio[NR_HVAC_MODES][NR_GPIO_PINS] = {
   DESC(OFF, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
             PIN(HVAC_STAGE2_PIN, LOW)),
-  DESC(HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, HIGH),
-            PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
+  DESC(HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
+            PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
             PIN(HVAC_STAGE2_PIN, LOW)),
   DESC(COOL, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, HIGH), PIN(HVAC_FAN_PIN, HIGH),
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, HIGH), PIN(LED_FAN_PIN, HIGH),
@@ -189,7 +189,8 @@ static void set_hvac_mode(HVAC_MODE mode)
 
   // Going to turn off the FAN. Keep track of how long the fan is run
   if ((mode == OFF || mode == IDLE) &&
-      (OperatingParameters.hvacOpMode == FAN_ONLY || OperatingParameters.hvacOpMode == HEAT || OperatingParameters.hvacOpMode == COOL))
+      (OperatingParameters.hvacOpMode == FAN_ONLY || OperatingParameters.hvacOpMode == HEAT || OperatingParameters.hvacOpMode == COOL) &&
+      lastFanOnTime != 0) // 0 is the value when it is allocated. If it's still 0, then the fan was never turned on and we don't need to track the time
     {
       tracker_add_value(&tracker, millis() - lastFanOnTime);
       ESP_LOGI(__FUNCTION__, "Fan run time: %.2f min", (millis() - lastFanOnTime) / 1000.0 / 60.0);
@@ -258,7 +259,14 @@ void hvacStateUpdate()
   if (prev_mode != IDLE && prev_mode != OFF) 
     currentFanRuntime += millis() - lastFanOnTime;
 
-  switch (OperatingParameters.hvacSetMode) {
+  switch (OperatingParameters.hvacSetMode)
+  {
+  // These just make the compiler happy!!!
+  case NR_HVAC_MODES:
+  case IDLE:
+  case DRY:
+  case ERROR:
+    break;
   case OFF:
     set_hvac_mode(OFF);
     COND_LOG(prev_mode != OFF, "Entering off mode: Current: %.2f", currentTemp);
@@ -288,7 +296,7 @@ void hvacStateUpdate()
         );
       }
     }
-  break;
+    break;
   case AUX_HEAT:
     //
     // Set up for 2-stage, emergency or aux heat mode
@@ -377,7 +385,8 @@ void stateMachine(void *parameter)
   lastWifiReconnect = millis();
   tracker_init(&tracker);
 
-  for (;;) {
+  for (;;)
+  {
     // Update sensor readings
     OperatingParameters.lightDetected = readLightSensor();
 
@@ -396,7 +405,8 @@ void stateMachine(void *parameter)
       startReconnectTask();
     }
 
-    if (OperatingParameters.wifiConnected) {
+    if (OperatingParameters.wifiConnected)
+    {
       if (!telnetServiceRunning())
         telnetStart();
 
@@ -407,7 +417,8 @@ void stateMachine(void *parameter)
       // called once at startup. The MQTT subsystem handles reconnects.
       //
       if (is_mqtt_enabled(&OperatingParameters) &&
-          !is_mqtt_connected(&OperatingParameters) && !MqttConnectCalled) {
+          !is_mqtt_connected(&OperatingParameters) && !MqttConnectCalled)
+      {
         MqttConnectCalled = true;
         MqttConnect();
       }
@@ -416,7 +427,8 @@ void stateMachine(void *parameter)
     // Determine if it's time to update the SNTP sourced clock and
     // display the amount of available heap space.
     if (COND_LOG((millis() - lastTimeUpdate > UPDATE_TIME_INTERVAL),
-                 ">>>> Heap size: %d", esp_get_free_heap_size())) {
+                 ">>>> Heap size: %d", esp_get_free_heap_size()))
+    {
       lastTimeUpdate = millis();
       updateTimeSntp();
     }

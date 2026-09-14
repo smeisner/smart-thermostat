@@ -8,6 +8,15 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
+#include "freertos/FreeRTOS.h" // ADDED: Pulls in FreeRTOS scheduling handles
+#include "freertos/task.h"     // ADDED: Pulls in vTaskDelay for yielding
+
+// FIX FOR ARDUINO LIBRARY COMPILATION UNDER PURE ESP-IDF:
+// This defines a global inline yield() function that the ld2410 library can call.
+// It instructs the ESP32-S3 scheduler to cleanly yield CPU ticks exactly like Arduino.
+inline void yield() {
+    vTaskDelay(1);
+}
 
 #define GPIO_RTS (UART_PIN_NO_CHANGE)
 #define GPIO_CTS (UART_PIN_NO_CHANGE)
@@ -18,8 +27,9 @@ class Stream {
     Stream();      //Constructor function
     ~Stream();     //Destructor function
     bool begin(uart_port_t _uart_port, int baud_rate, int gpio_tx, int gpio_rx);
-    bool available();
-    uint8_t read();
+    int available();
+    // FIX: Change return type from uint8_t to int to support the -1 fallback spec
+    int read();
     bool write(uint8_t _ch);
 
     void print(uint8_t) {};

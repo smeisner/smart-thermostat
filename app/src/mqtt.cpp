@@ -161,6 +161,19 @@ static void MqttEventHandler(void* handler_args, esp_event_base_t base, int32_t 
         }
       }
       break;
+    default:
+      //
+      // The following events are not handled and throw comiler warnings
+      // Can be disabled by adding the following to platformio.ini: 
+      // -Werror=switch
+      //
+      // MQTT_EVENT_ANY
+      // MQTT_EVENT_BEFORE_CONNECT
+      // MQTT_EVENT_DELETED
+      // MQTT_USER_EVENT
+      //
+      ESP_LOGI(TAG, "Other event id:%d", event->event_id);
+      break;
     }
 }
 

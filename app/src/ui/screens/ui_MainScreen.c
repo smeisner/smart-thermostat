@@ -146,7 +146,7 @@ lv_obj_set_x( ui_SetTemp, -71 );
 lv_obj_set_y( ui_SetTemp, 11 );
 lv_obj_set_align( ui_SetTemp, LV_ALIGN_CENTER );
 lv_label_set_long_mode(ui_SetTemp,LV_LABEL_LONG_CLIP);
-lv_label_set_text(ui_SetTemp,"82°");
+lv_label_set_text(ui_SetTemp,"68°");
 lv_obj_clear_flag( ui_SetTemp, LV_OBJ_FLAG_PRESS_LOCK | LV_OBJ_FLAG_CLICK_FOCUSABLE | LV_OBJ_FLAG_GESTURE_BUBBLE | LV_OBJ_FLAG_SNAPPABLE | LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_SCROLL_ELASTIC | LV_OBJ_FLAG_SCROLL_MOMENTUM | LV_OBJ_FLAG_SCROLL_CHAIN );    /// Flags
 lv_obj_set_scrollbar_mode(ui_SetTemp, LV_SCROLLBAR_MODE_OFF);
 lv_obj_set_style_text_font(ui_SetTemp, &lv_font_montserrat_44, LV_PART_MAIN| LV_STATE_DEFAULT);

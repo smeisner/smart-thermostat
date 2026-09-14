@@ -100,7 +100,7 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     updateHvacMode(COOL);
   else if (!strncmp(content, "hvacModeFan", BUTTON_CONTENT_SIZE))
     updateHvacMode(FAN_ONLY);
-  else if (!strncmp(content, "clear", BUTTON_CONTENT_SIZE))
+  else if (!strncmp(content, "clearNVS", BUTTON_CONTENT_SIZE))
     clearNVS();
 #ifdef TELNET_ENABLED
   else if (!strncmp(content, "terminateTelnet", BUTTON_CONTENT_SIZE))
@@ -159,22 +159,22 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   {
     if (OperatingParameters.tempUnits == 'F')
     {
-      OperatingParameters.tempSet = (OperatingParameters.tempSet - 32.0) / (9.0/5.0);
-      OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent - 32.0) / (9.0/5.0);
-      OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 5.0 / 9.0;
-      OperatingParameters.tempSwing = OperatingParameters.tempSwing * 5.0 / 9.0;
-      resetTempSmooth();
+      // OperatingParameters.tempSet = (OperatingParameters.tempSet - 32.0) / (9.0/5.0);
+      // OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent - 32.0) / (9.0/5.0);
+      // OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 5.0 / 9.0;
+      // OperatingParameters.tempSwing = OperatingParameters.tempSwing * 5.0 / 9.0;
+      // resetTempSmooth();
       lv_arc_set_range(ui_TempArc, 7*10, 33*10);
       lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
       OperatingParameters.tempUnits = 'C';
     }
     else
     {
-      OperatingParameters.tempSet = (OperatingParameters.tempSet * 9.0/5.0) + 32.0;
-      OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent * 9.0/5.0) + 32.0;
-      OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 1.8;
-      OperatingParameters.tempSwing = OperatingParameters.tempSwing * 1.8;
-      resetTempSmooth();
+      // OperatingParameters.tempSet = (OperatingParameters.tempSet * 9.0/5.0) + 32.0;
+      // OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent * 9.0/5.0) + 32.0;
+      // OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 1.8;
+      // OperatingParameters.tempSwing = OperatingParameters.tempSwing * 1.8;
+      // resetTempSmooth();
       lv_arc_set_range(ui_TempArc, 45*10, 92*10);
       lv_obj_add_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
       OperatingParameters.tempUnits = 'F';
@@ -216,12 +216,15 @@ esp_err_t handleXML(httpd_req_t *req)
   xmlSpace -= snprintf(xml, xmlSpace, "<?xml version = '1.0'?><Data>\n");
   if (xmlSpace < 0)
     return httpd_resp_send_500(req);
-  xmlSpace -= snprintf(buf, sizeof(buf), "<curTemp>%.1f</curTemp>\n", OperatingParameters.tempCurrent + OperatingParameters.tempCorrection);
+  if (OperatingParameters.tempUnits == 'F')
+    xmlSpace -= snprintf(buf, sizeof(buf), "<curTemp>%.1f</curTemp>\n", OperatingParameters.tempCurrent + OperatingParameters.tempCorrection);
+  else
+    xmlSpace -= snprintf(buf, sizeof(buf), "<curTemp>%.1f</curTemp>\n", ftoc(OperatingParameters.tempCurrent + OperatingParameters.tempCorrection));
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   if (OperatingParameters.tempUnits == 'F')
     xmlSpace -= snprintf(buf, sizeof(buf), "<setTemp>%.0f</setTemp>\n", OperatingParameters.tempSet);
   else
-    xmlSpace -= snprintf(buf, sizeof(buf), "<setTemp>%.1f</setTemp>\n", OperatingParameters.tempSet);
+    xmlSpace -= snprintf(buf, sizeof(buf), "<setTemp>%.1f</setTemp>\n", ftoc(OperatingParameters.tempSet));
   CAT_IF_SPACE(xml, buf, xmlSpace, req);
   xmlSpace -= snprintf(buf, sizeof(buf), "<curMode>%s</curMode>\n", hvacModeToString(OperatingParameters.hvacOpMode));
   CAT_IF_SPACE(xml, buf, xmlSpace, req);

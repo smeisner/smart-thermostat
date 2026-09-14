@@ -14,14 +14,6 @@ TaskHandle_t ntScanTaskHandler = NULL;
 
 void tftUpdateTempSet(lv_event_t * e)
 {
-// //  char tmp[16];
-// //  strncpy(tmp, lv_label_get_text(ui_SetTemp), sizeof(tmp));
-
-//   OperatingParameters.tempSet = (float)(lv_arc_get_value(ui_TempArc)) / 10.0;
-//   printf ("Current temp set to: %.1f\n", OperatingParameters.tempSet);
-
-// //  OperatingParameters.tempSet = tmp)/10);
-
   updateHvacSetTemp((float)(lv_arc_get_value(ui_TempArc)) / 10.0);
   tftWakeDisplay(false);
 }
@@ -32,14 +24,15 @@ void tftDecreaseSetTemp(lv_event_t * e)
   {
     // OperatingParameters.tempSet -= 0.5;
     updateHvacSetTemp(roundValue(requestedHvacSetTemp-0.5, 1));
+    lv_arc_set_value(ui_TempArc, ftoc(requestedHvacSetTemp)*10);
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)(ftoc(requestedHvacSetTemp)));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp));
   } else {
     // OperatingParameters.tempSet -= 1.0;
     updateHvacSetTemp(roundValue(requestedHvacSetTemp-1.0, 0));
+    lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10);
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", int(requestedHvacSetTemp));
   }
-  lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(requestedHvacSetTemp));
-  if (OperatingParameters.tempUnits == 'C')
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp));
 }
 
 void tftIncreaseSetTemp(lv_event_t * e)
@@ -48,14 +41,14 @@ void tftIncreaseSetTemp(lv_event_t * e)
   {
     // OperatingParameters.tempSet += 0.5;
     updateHvacSetTemp(roundValue(requestedHvacSetTemp+0.5, 1));
+    lv_arc_set_value(ui_TempArc, ftoc(requestedHvacSetTemp)*10);
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)(ftoc(requestedHvacSetTemp)));
+    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp));
   } else {
     // OperatingParameters.tempSet += 1.0;
     updateHvacSetTemp(roundValue(requestedHvacSetTemp+1.0, 0));
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", int(requestedHvacSetTemp));
   }
-  lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(requestedHvacSetTemp));
-  if (OperatingParameters.tempUnits == 'C')
-    lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp));
 }
 
 void tftHvacModeChange(lv_event_t * e)
@@ -247,43 +240,50 @@ void SaveConfigSettings(lv_event_t * e)
   if (lv_obj_has_state(ui_TempUnitsSwitch, LV_STATE_CHECKED))
   {
     // Switch to Celcius
-    if (OperatingParameters.tempUnits == 'F')
-    {
-      OperatingParameters.tempSet = (OperatingParameters.tempSet - 32.0) / (9.0/5.0);
-      OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent - 32.0) / (9.0/5.0);
-      OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 5.0 / 9.0;
-      OperatingParameters.tempSwing = OperatingParameters.tempSwing * 5.0 / 9.0;
-      resetTempSmooth();
-    }
+    // if (OperatingParameters.tempUnits == 'F')
+    // {
+    //   OperatingParameters.tempSet = (OperatingParameters.tempSet - 32.0) / (9.0/5.0);
+    //   OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent - 32.0) / (9.0/5.0);
+    //   OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 5.0 / 9.0;
+    //   OperatingParameters.tempSwing = OperatingParameters.tempSwing * 5.0 / 9.0;
+    //   resetTempSmooth();
+    // }
     OperatingParameters.tempUnits = 'C';
-    lv_arc_set_range(ui_TempArc, 7*10, 33*10);
+    // lv_arc_set_range(ui_TempArc, 7*10, 33*10);
     lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
   } else {
     // Switch to Fahrenheit
-    if (OperatingParameters.tempUnits == 'C')
-    {
-      OperatingParameters.tempSet = (OperatingParameters.tempSet * 9.0/5.0) + 32.0;
-      OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent * 9.0/5.0) + 32.0;
-      OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 1.8;
-      OperatingParameters.tempSwing = OperatingParameters.tempSwing * 1.8;
-      resetTempSmooth();
-    }
+    // if (OperatingParameters.tempUnits == 'C')
+    // {
+    //   OperatingParameters.tempSet = (OperatingParameters.tempSet * 9.0/5.0) + 32.0;
+    //   OperatingParameters.tempCurrent = (OperatingParameters.tempCurrent * 9.0/5.0) + 32.0;
+    //   OperatingParameters.tempCorrection = OperatingParameters.tempCorrection * 1.8;
+    //   OperatingParameters.tempSwing = OperatingParameters.tempSwing * 1.8;
+    //   resetTempSmooth();
+    // }
     OperatingParameters.tempUnits = 'F';
-    lv_arc_set_range(ui_TempArc, 45*10, 92*10);
+    // lv_arc_set_range(ui_TempArc, 45*10, 92*10);
     lv_obj_add_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
   }
 
   // Update current temp
   // Do not use getTemp() since it won't have any data yet.
-  lv_label_set_text_fmt(ui_TempLabel, "%d°", int(OperatingParameters.tempCurrent));
+  if (OperatingParameters.tempUnits == 'C')
+    lv_label_set_text_fmt(ui_TempLabel, "%d°", int(ftoc(OperatingParameters.tempCurrent)));
+  else
+    lv_label_set_text_fmt(ui_TempLabel, "%d°", int(OperatingParameters.tempCurrent));
   // Update temp set arc
   lv_arc_set_value(ui_TempArc, OperatingParameters.tempSet*10);
   // ...and finally the text for the set temp
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
   if (OperatingParameters.tempUnits == 'C')
   {
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", int(ftoc(OperatingParameters.tempSet)));
     // Set smaller fractional part of temp rounded to nearest .5
     lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(OperatingParameters.tempSet));
+  }
+  else
+  {
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", int(OperatingParameters.tempSet));
   }
 
   OperatingParameters.hvacCoolEnable = lv_obj_has_state(ui_HvacCoolCheckbox, LV_STATE_CHECKED);

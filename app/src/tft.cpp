@@ -180,14 +180,19 @@ void tftUpdateDisplay()
   }
   lv_label_set_text(ui_TimeLabel, buffer);
 
-  lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());
   lv_label_set_text_fmt(ui_HumidityLabel, "%d%%", getHumidity());
 
   lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10.0);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)requestedHvacSetTemp);
   if (OperatingParameters.tempUnits == 'C')
   {
+    lv_label_set_text_fmt(ui_TempLabel, "%d°", (int)(ftoc(getTemp())));
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)(ftoc(requestedHvacSetTemp)));
     lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp));
+  }
+  else
+  {
+    lv_label_set_text_fmt(ui_TempLabel, "%d°", getTemp());
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)requestedHvacSetTemp);
   }
 
   lv_dropdown_set_selected(ui_ModeDropdown, convertSelectedHvacMode());
@@ -256,7 +261,7 @@ const char *hvacModeToMqttOpMode(HVAC_MODE mode)
 #endif
 
 const char *hvac_mode_str[NR_HVAC_MODES] = {
-  "Off", "Heat", "Cool", "Idle", "Fan Only", "Auto", "Aux Heat", "Dry", "Error"
+  "Off", "Heat", "Cool", "Idle", "Fan", "Auto", "AuxHeat", "Dry", "Error"
 };
 
 const char *hvacModeToString(HVAC_MODE mode)
@@ -429,12 +434,16 @@ void tftInit()
   if (requestedHvacMode == ERROR)
     requestedHvacMode = OperatingParameters.hvacSetMode;
   lv_arc_set_value(ui_TempArc, requestedHvacSetTemp*10);
-  lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)requestedHvacSetTemp);
   if (OperatingParameters.tempUnits == 'C')
   {
-    lv_arc_set_range(ui_TempArc, 7*10, 33*10);
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)(ftoc(requestedHvacSetTemp)));
+    //@@@ lv_arc_set_range(ui_TempArc, 7*10, 33*10);
     lv_obj_clear_flag(ui_SetTempFrac, LV_OBJ_FLAG_HIDDEN);
     lv_label_set_text_fmt(ui_SetTempFrac, "%d", (int)getRoundedFrac(requestedHvacSetTemp  ));
+  }
+  else
+  {
+    lv_label_set_text_fmt(ui_SetTemp, "%d°", (int)requestedHvacSetTemp);
   }
   lv_dropdown_set_selected(ui_ModeDropdown, convertSelectedHvacMode());
 
