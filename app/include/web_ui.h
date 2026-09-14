@@ -51,8 +51,8 @@ p{margin:0px;padding:0px}
 		<label for="fanCheckBox">Enable HVAC Fan</label>
 		<span id="fanCheckBox"></span>
 		<br>
-		<label for="twoStageCheckBox">Enable 2 Stage Heat</label>
-		<span id="twoStageCheckBox"></span>
+		<label for="auxHeatCheckBox">Enable Auxillary Heat</label>
+		<span id="auxHeatCheckBox"></span>
 		<br>
 		<label for="reverseCheckBox">Enable Reverse Valve</label>
 		<span id="reverseCheckBox"></span>
@@ -65,7 +65,7 @@ p{margin:0px;padding:0px}
 		<div id="firmwareDt"></div>
 		<button onclick='window.location.href="/upload"'>Update Firmware</button><br>
 		<button onclick=pressButton('terminateTelnet')>Abort Telnet</button>
-		<button onclick=pressButton('clearFirmware')>Clear Config</button><br>
+		<button onclick=pressButton('clearNVS')>Clear Config</button><br>
 	</div>
 </div><br><br><br>
 <footer>
@@ -118,7 +118,7 @@ function populateOptionalHvacSettings(hvacCoolEnable, hvacFanEnable, twoStageEna
 	twoStageHTML += twoStageEnable == "1" ? " checked>" : ">";
 	let reverseHTML = "<input type='checkbox' onclick=pressButton('reverseEnable')";
 	reverseHTML += reverseEnable == "1" ? " checked>" : ">";
-	document.getElementById("twoStageCheckBox").innerHTML = twoStageHTML;
+	document.getElementById("auxHeatCheckBox").innerHTML = twoStageHTML;
 	document.getElementById("reverseCheckBox").innerHTML = reverseHTML;
 
 	document.getElementById("hvacButtons").innerHTML = hvacButtons;

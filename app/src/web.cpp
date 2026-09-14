@@ -100,7 +100,7 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     updateHvacMode(COOL);
   else if (!strncmp(content, "hvacModeFan", BUTTON_CONTENT_SIZE))
     updateHvacMode(FAN_ONLY);
-  else if (!strncmp(content, "clear", BUTTON_CONTENT_SIZE))
+  else if (!strncmp(content, "clearNVS", BUTTON_CONTENT_SIZE))
     clearNVS();
 #ifdef TELNET_ENABLED
   else if (!strncmp(content, "terminateTelnet", BUTTON_CONTENT_SIZE))

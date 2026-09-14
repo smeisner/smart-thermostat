@@ -261,7 +261,7 @@ const char *hvacModeToMqttOpMode(HVAC_MODE mode)
 #endif
 
 const char *hvac_mode_str[NR_HVAC_MODES] = {
-  "Off", "Heat", "Cool", "Idle", "Fan Only", "Auto", "Aux Heat", "Dry", "Error"
+  "Off", "Heat", "Cool", "Idle", "Fan", "Auto", "AuxHeat", "Dry", "Error"
 };
 
 const char *hvacModeToString(HVAC_MODE mode)
