@@ -1,0 +1,49 @@
+---
+    name: ESPHome
+    on:
+      push:
+        branches:
+          - main
+        paths:
+          - esphome/**
+      workflow_dispatch:
+      release:
+
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        permissions:
+          contents: write
+        steps:
+          - name: Checkout repo
+            uses: actions/checkout@v4
+
+          - uses: actions/cache@v4
+            with:
+              path: |
+                ~/.cache/pip
+                ~/.platformio/.cache
+              key: ${{ runner.os }}-pio
+              save-always: true
+
+          - uses: actions/setup-python@v5
+            with:
+              python-version: '3.11'
+
+          - name: Install esphome Core
+            run: pip install -U -r esphome/requirements.txt
+
+          - name: Build for v0.5.2
+            run: esphome compile esphome/device-v0.5.2.yaml
+
+          - uses: actions/upload-artifact@v4
+            with:
+              name: esphome-firmware-v0.5.2
+              path: esphome/.esphome/build/thermostat/.pioenvs/thermostat/firmware.factory.bin
+              if-no-files-found: error
+
+          - name: Add firmware.bin to release
+            run: gh release upload ${{github.event.release.tag_name}} esphome/.esphome/build/thermostat/.pioenvs/thermostat/firmware.factory.bin
+            env:
+              GITHUB_TOKEN: ${{ github.TOKEN }}
+            if: ${{startsWith(github.ref, 'refs/tags/') }}

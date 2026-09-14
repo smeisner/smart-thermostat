@@ -1,0 +1,599 @@
+substitutions:
+  name: thermostat
+  friendly_name: Smart Thermostat
+
+dashboard_import:
+  #package_import_url: github://smeisner/smart-thermostat/esphome/device-v0.5.2.yaml@main
+  package_import_url: github://DSpeichert/smart-thermostat/esphome/device-v052.yaml@esphome
+  import_full_config: false
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: true
+  project:
+    name: smeisner.smart-thermostat
+    version: "0.5.2"
+  platformio_options:
+    board_build.flash_mode: dio
+    board_upload.maximum_ram_size: 327680
+    board_upload.maximum_size: 16777216
+    # build_flags:
+    #   - -DCONFIG_ARDUINO_LOOP_STACK_SIZE=32768
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 16MB
+  partitions: ../app/default_16mb.csv
+  framework:
+    type: esp-idf
+    version: recommended
+    sdkconfig_options:
+      COMPILER_OPTIMIZATION_SIZE: y
+
+# Enable logging
+logger:
+  # UART0 corresponds to extra UART pins, default on ESP32-S3 is USB_SERIAL_JTAG
+  hardware_uart: UART0
+  level: VERBOSE
+  logs:
+    ld2410: DEBUG
+    display: DEBUG
+    touchscreen: DEBUG
+    ili9xxx: DEBUG
+    xpt2046: DEBUG
+    json: ERROR
+    sensor: INFO
+    climate: INFO
+    binary_sensor: INFO
+    adc: INFO
+    graph: INFO
+    component: ERROR
+
+debug:
+  update_interval: 5s
+
+api:
+  encryption:
+    key: "o1idZycHQejzio6RXzIkNDrF7b/RFBQIBNcWvdtXrv0="
+  reboot_timeout: 0s  # defaults to 15min
+  on_client_connected:
+    - logger.log:
+        format: Client %s connected to API with IP %s
+        args: ["client_info.c_str()", "client_address.c_str()"]
+  on_client_disconnected:
+    - logger.log: API client disconnected!
+  services:
+    - service: play_rtttl
+      variables:
+        song_str: string
+      then:
+        - rtttl.play:
+            rtttl: !lambda 'return song_str;'
+
+ota:
+  - platform: esphome
+    on_begin:
+      then:
+        - rtttl.play:
+            rtttl: mission_imp:d=16,o=6,b=95:32d,32d#,32d,32d#,32d,32d#,32d,32d#,32d,32d,32d#,32e,32f,32f#,32g,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,g,8p,g,8p,a#,p,c7,p,g,8p,g,8p,f,p,f#,p,a#,g,2d,32p,a#,g,2c#,32p,a#,g,2c,a#5,8c,2p,32p,a#5,g5,2f#,32p,a#5,g5,2f,32p,a#5,g5,2e,d#,8d
+
+wifi:
+  power_save_mode: none  # thermostat is hardwired, incompatible with improve_ble
+  reboot_timeout: 0s # not great to have thermostat rebooting when wifi is down
+
+# esp32_improv:
+#   authorizer: improv_authorizer
+#   status_indicator: improv_output
+
+improv_serial:
+
+time:
+- platform: sntp
+  id: time1
+
+climate:
+  - id: thermostat1
+    platform: thermostat
+    name: Thermostat
+    sensor: temp
+    humidity_sensor: humidity
+    min_cooling_off_time: 5s
+    min_cooling_run_time: 30s
+    min_heating_off_time: 5s
+    min_heating_run_time: 30s
+    min_fanning_off_time: 5s
+    min_fanning_run_time: 30s
+    min_fan_mode_switching_time: 1s
+    # fan_with_cooling: True
+    # fan_with_heating: True
+    min_idle_time: 5s
+    fan_only_action:
+      - light.turn_on:
+          id: status_light
+          red: 0%
+          green: 100%
+          blue: 0%
+      - switch.turn_on: relay_fan
+    cool_action:
+      - light.turn_on:
+          id: status_light
+          red: 0%
+          green: 0%
+          blue: 100%
+      - switch.turn_on: relay_cool
+    heat_action:
+      - light.turn_on:
+          id: status_light
+          red: 100%
+          green: 0%
+          blue: 0%
+      - switch.turn_on: relay_heat
+    # max_heating_run_time: 10min
+    # supplemental_heating_action:  # ????
+    #   - switch.turn_on: relay_stage2
+    #   - delay: 5min
+    #   - switch.turn_off: relay_stage2
+    idle_action:
+      - light.turn_off:
+          id: status_light
+      - switch.turn_off: relay_cool
+      - switch.turn_off: relay_heat
+      - switch.turn_off: relay_stage2
+      - switch.turn_off: relay_fan
+    fan_mode_auto_action:
+      - if:
+          condition:
+            lambda: 'return id(thermostat1).mode != CLIMATE_MODE_FAN_ONLY;'
+          then:
+            - switch.turn_off: relay_fan
+    fan_mode_on_action:
+      - light.turn_on:
+          id: status_light
+          red: 0%
+          green: 100%
+          blue: 0%
+          flash_length: 5s
+      - switch.turn_on: relay_fan
+
+    default_preset: Home
+    preset:
+      - name: Home
+        default_target_temperature_low: 20 °C
+        default_target_temperature_high: 22 °C
+
+### SENSORS
+
+# LD2410
+uart:
+  - id: ld
+    tx_pin: GPIO15
+    rx_pin: GPIO16
+    baud_rate: 256000
+    parity: NONE
+    stop_bits: 1
+
+ld2410:
+  - id: motion
+    uart_id: ld
+
+binary_sensor:
+  - platform: ld2410
+    has_target:
+      name: Presence
+    has_moving_target:
+      name: Moving Target
+    has_still_target:
+      name: Still Target
+    out_pin_presence_status:
+      name: Presence Status Pin
+      on_state:
+        - script.execute: set_brightness
+  - platform: gpio
+    pin: GPIO18
+    id: presence
+    name: gpio out pin presence
+    device_class: presence
+    internal: true
+    filters:
+      - delayed_off: 10s
+
+  - platform: status
+    id: statussensor
+
+  # Touch screen
+  # ONLY NEEDED FOR BLE IMPROV
+  # - id: improv_authorizer
+  #   platform: touchscreen
+  #   name: Improv authorizer
+  #   internal: true
+  #   x_min: 0
+  #   x_max: 100
+  #   y_min: 0
+  #   y_max: 100
+
+# AHT20
+i2c:
+  sda: GPIO36
+  scl: GPIO35
+  scan: true
+  id: bus_a
+  frequency: 400kHz
+
+text_sensor:
+  - platform: debug
+    device:
+      name: Device Info
+    reset_reason:
+      name: Reset Reason
+
+sensor:
+  - id: wifi_signal_db
+    platform: wifi_signal
+    name: WiFi Signal Sensor
+    update_interval: 60s
+
+  - platform: copy # Reports the WiFi signal strength in %
+    id: wifi_signal_pct
+    source_id: wifi_signal_db
+    name: WiFi Signal Percent
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: Signal %
+    entity_category: diagnostic
+
+  # Debug sensor
+  - platform: debug
+    free:
+      name: Heap Free
+    block:
+      name: Largest Block Free
+    loop_time:
+      name: Loop Time
+
+  # LD2410
+  - platform: ld2410
+    light:
+      name: light
+    moving_distance:
+      name : Moving Distance
+    still_distance:
+      name: Still Distance
+    moving_energy:
+      name: Move Energy
+    still_energy:
+      name: Still Energy
+    detection_distance:
+      name: Detection Distance
+
+  # AHT20
+  - platform: aht10
+    variant: AHT20
+    i2c_id: bus_a
+    address: 0x38
+    temperature:
+      name: Temperature
+      id: temp
+      filters:
+        - offset: -4.8
+    humidity:
+      name: Humidity
+      id: humidity
+      filters:
+        - offset: 10.0
+    update_interval: 5s
+
+  # ADC Light Sensor
+  - platform: adc
+    pin: GPIO8
+    attenuation: auto
+    name: Light
+    id: light_sensor
+    update_interval: 5s
+    # unit_of_measurement: lx
+    # filters:
+    #   - lambda: |-
+    #       return (x / 10000.0) * 2000000.0;
+    on_raw_value:
+      then:
+        - script.execute:
+            id: set_brightness
+
+  # Heat point used for graph
+  - platform: template
+    id: thermostat1_temp_low
+    lambda: |-
+      return id(thermostat1).target_temperature_low;
+
+  # Cool point used for graph
+  - platform: template
+    id: thermostat1_temp_high
+    lambda: |-
+      return id(thermostat1).target_temperature_high;
+
+### Indicators
+rtttl:
+  output: buzzer
+
+output:
+  # Buzzer
+  - platform: ledc
+    pin: GPIO17
+    id: buzzer
+    frequency: 5kHz
+    #duty: 4095 # Set duty to 50%. ((2 ** 13) - 1) * 50% = 4095
+
+  # Top LED channels
+  - platform: ledc
+    pin: GPIO2
+    id: led_blue
+  - platform: ledc
+    pin: GPIO37
+    id: led_green
+  - platform: ledc
+    pin: GPIO38
+    id: led_red
+
+  # TFT
+  - platform: ledc
+    pin: GPIO14
+    id: backlight_pwm
+    frequency: 44100
+
+  # Improv
+  # - platform: template
+  #   id: improv_output
+  #   type: binary
+  #   write_action:
+  #     - output.set_level:
+  #         id: led_cool
+  #         level: !lambda return state;
+  #     - output.set_level:
+  #         id: led_fan
+  #         level: !lambda return state;
+  #     - output.set_level:
+  #         id: led_heat
+  #         level: 0
+
+switch:
+  ### LD2410
+  - platform: ld2410
+    engineering_mode:
+      name: engineering mode
+      restore_mode: ALWAYS_ON
+      internal: true
+    bluetooth:
+      id: ld2410_bt
+      name: control bluetooth
+      restore_mode: ALWAYS_OFF
+      internal: true
+      on_turn_on:
+        - switch.turn_off: ld2410_bt
+
+
+  ### Relays
+  - platform: gpio
+    pin: GPIO5
+    id: relay_heat
+    name: Heat
+    interlock: [relay_cool]
+  - platform: gpio
+    pin: GPIO6
+    id: relay_cool
+    name: Cool
+    interlock: [relay_heat, relay_stage2]
+  - platform: gpio
+    pin: GPIO4
+    id: relay_fan
+    name: Fan
+  - platform: gpio
+    pin: GPIO7
+    id: relay_rvalve
+    name: Reverse Valve
+  - platform: gpio
+    pin: GPIO39
+    id: relay_stage2
+    name: Heat Stage 2
+    interlock: [relay_cool]
+
+  - platform: restart
+    id: restart_device
+    name: Restart
+    #disabled_by_default: true
+    icon: mdi:restart
+    entity_category: config
+
+  - platform: safe_mode
+    name: Safe Mode
+    #disabled_by_default: true
+    icon: mdi:restart
+    entity_category: config
+
+  - platform: factory_reset
+    name: Factory Reset
+    #disabled_by_default: true
+    icon: mdi:restart
+    entity_category: config
+
+  # Only needed for BLE Improv
+  # - platform: output
+  #   name: Heat LED
+  #   output: led_heat
+  #   entity_category: diagnostic
+  # - platform: output
+  #   name: Cool LED
+  #   output: led_cool
+  #   entity_category: diagnostic
+  # - platform: output
+  #   name: Fan LED
+  #   output: led_fan
+  #   entity_category: diagnostic
+
+script:
+  - id: set_brightness
+    then:
+      - output.set_level:
+          id: backlight_pwm
+          level: !lambda |-
+            if (id(presence).state)
+              return id(light_sensor).raw_state / 2.5;
+            else
+              return 0;
+# TFT
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: Display Backlight
+    id: back_light
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - id: status_light
+    platform: rgb
+    name: Status LED
+    entity_category: diagnostic
+    red: led_red
+    green: led_green
+    blue: led_blue
+
+spi:
+  - id: spi_bus0
+    clk_pin: GPIO13
+    mosi_pin: GPIO12
+    miso_pin: GPIO21
+    interface: hardware
+
+color:
+  - id: my_red
+    red: 100%
+  - id: my_green
+    green: 100%
+  - id: my_blue
+    blue: 100%
+
+font:
+  - id: roboto_16
+    size: 16
+    file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+  - id: roboto_32
+    size: 32
+    file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+  - id: roboto_22
+    size: 22
+    file:
+      type: gfonts
+      family: Roboto
+      weight: 900
+  - file: gfonts://Material+Symbols+Outlined
+    id: material
+    size: 16
+    glyphs:
+      # https://fonts.google.com/icons?icon.query=wifi&icon.size=24&icon.color=%23e8eaed&icon.platform=web
+      - "\uE1D8"  # network_wifi_4_bar
+      - "\uEBE1"  # network_wifi_3_bar
+      - "\uEBD6"  # network_wifi_2_bar
+      - "\uEBE4"  # network_wifi_1_bar
+      - "\uF063"  # signal_wifi_bad
+      - "\uE8C7"  # settings_remote
+      - "\uE6C3"  # on_hub_device
+
+display:
+  - id: display1
+    platform: ili9xxx
+    model: ili9341
+    spi_id: spi_bus0
+    cs_pin: GPIO9
+    dc_pin: GPIO11
+    reset_pin: GPIO10
+    data_rate: 40MHz
+    dimensions:
+      width: 320
+      height: 240
+    transform:
+      mirror_x: false
+      mirror_y: false
+      swap_xy: true
+    #show_test_card: true
+    pages:
+      - id: home
+        lambda: |-
+          // Wifi status
+          if (isnan(id(wifi_signal_pct).state) || id(wifi_signal_pct).state == 0)
+            it.print(0, 0, id(material), id(my_red), "\uf063"); // signal_wifi_bad
+          else if(id(wifi_signal_pct).state < 25)
+            it.print(0, 0, id(material), "\uebe4"); // network_wifi_1_bar
+          else if(id(wifi_signal_pct).state < 50)
+            it.print(0, 0, id(material), "\uebd6"); // network_wifi_2_bar
+          else if(id(wifi_signal_pct).state < 75)
+            it.print(0, 0, id(material), "\uebe1"); // network_wifi_3_bar
+          else
+            it.print(0, 0, id(material), id(my_green), "\ue1d8"); // network_wifi_4_bar
+
+          // Clock
+          it.strftime(160, 10, id(roboto_16), TextAlign::CENTER, "%Y-%m-%d %H:%M:%S", id(time1).now());
+
+          // Home Assistant API connection status
+          if (id(statussensor).state)
+            it.print(320, 0, id(material), id(my_green), TextAlign::RIGHT, "\uE8C7");
+          else
+            it.print(320, 0, id(material), id(my_red), TextAlign::RIGHT, "\uE6C3");
+
+          // Temperature & Humidity
+          it.printf(160, 50, id(roboto_32), TextAlign::CENTER, "%.1f°C", id(temp).state);
+          it.printf(160, 90, id(roboto_22), TextAlign::CENTER, "%.1f%%", id(humidity).state);
+
+          // Temperature graph
+          it.graph(0, 140, id(multi_temperature_graph));
+
+touchscreen:
+  display: display1
+  spi_id: spi_bus0
+  platform: xpt2046
+  cs_pin: GPIO47
+  interrupt_pin: GPIO48
+  transform:
+    mirror_x: true
+    mirror_y: true
+    swap_xy: true
+  calibration:
+    x_min: 281
+    x_max: 3928
+    y_min: 347
+    y_max: 3838
+  on_touch:
+    - lambda: |-
+        ESP_LOGI("cal", "x=%d, y=%d, x_raw=%d, y_raw=%0d",
+        touch.x,
+        touch.y,
+        touch.x_raw,
+        touch.y_raw
+        );
+    # - binary_sensor.template.publish:
+    #   id: touching
+    #   state: ON
+
+graph:
+  - id: multi_temperature_graph
+    duration: 1h
+    x_grid: 10min
+    y_grid: 1.0     # degC/div
+    width: 320
+    height: 100
+    traces:
+      - sensor: thermostat1_temp_low
+        line_type: DASHED
+        line_thickness: 2
+        color: my_red
+      - sensor: temp
+        line_type: SOLID
+        continuous: true
+        line_thickness: 3
+        color: my_green
+      - sensor: thermostat1_temp_high
+        line_type: DOTTED
+        line_thickness: 2
+        color: my_blue
