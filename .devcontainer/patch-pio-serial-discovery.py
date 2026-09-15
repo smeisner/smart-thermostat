@@ -12,19 +12,24 @@ def comports(*args, **kwargs):
     seen = {port.device for port in ports}
 
     for link in glob.glob("/dev/serial/by-id/*"):
-        if link in seen:
-            continue
-
         target = os.path.realpath(link)
 
         if not target.startswith("/run/host/dev/"):
             continue
 
-        info = SysFS(target)
-        info.device = link
-        info.name = os.path.basename(link)
+        # Stable path exposed to PlatformIO.
+        if link not in seen:
+            info = SysFS(target)
+            info.device = link
+            info.name = os.path.basename(link)
+            ports.append(info)
+            seen.add(link)
 
-        ports.append(info)
+        # Real relocated host path used by esptool after it resolves the
+        # /dev/serial/by-id symlink.
+        if target not in seen:
+            ports.append(SysFS(target))
+            seen.add(target)
 
     return ports
 
