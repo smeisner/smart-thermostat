@@ -245,32 +245,33 @@ bool ld2410_init()
         "-.--.--------");
     }
 
-    if (radar.requestCurrentConfiguration())
-    {
-      ESP_LOGI(TAG, "LD2410: Maximum gate ID: %d", radar.max_gate);
-      ESP_LOGI(TAG, "LD2410: Maximum gate for moving targets: %d", radar.max_moving_gate);
-      ESP_LOGI(TAG, "LD2410: Maximum gate for stationary targets: %d", radar.max_stationary_gate);
-      ESP_LOGI(TAG, "LD2410: Idle time for targets: %d", radar.sensor_idle_time);
-      ESP_LOGI(TAG, "LD2410: Gate sensitivity");
-      for (uint8_t gate = 0; gate <= radar.max_gate; gate++)
-      {
-        ESP_LOGI(TAG, "  Gate %d moving targets: %d stationary targets: %d",
-          gate, radar.motion_sensitivity[gate], radar.stationary_sensitivity[gate]);
-      }
-    }
-
     //
     // The LD2410 module has multiple gates, one per each 0.75m of distance. So gate 0 will specify the sensitivity
     // for 0 - 0.75m, gate 1 will specify sensitivity for 0.75 - 1.5m, etc. Setting MaxValues (below) specifies
     // max distance based on the number of gates enabled. For example, specifying 1 for max gates will allow 1.5m (0 & 1).
     //
-    radar.setGateSensitivityThreshold(0, 90, 80); 
-    radar.setGateSensitivityThreshold(1, 85, 75);
+    ESP_LOGI(TAG, "LD2410: Setting moving & stationary gates 0 & 1 values");
+    // radar.setGateSensitivityThreshold(0, 90, 80); 
+    // radar.setGateSensitivityThreshold(1, 85, 75);
+    radar.setGateSensitivityThreshold(0, 80, 80);
+    radar.setGateSensitivityThreshold(1, 90, 75);
+    // Do not detect any movement or stationary people beyond 1.5m (gates 2-7). 
+    // This is to avoid false positives from people walking by outside the room.
+    radar.setGateSensitivityThreshold(2, 0, 0);
+    radar.setGateSensitivityThreshold(3, 0, 0);
+    radar.setGateSensitivityThreshold(4, 0, 0);
+    radar.setGateSensitivityThreshold(5, 0, 0);
+    radar.setGateSensitivityThreshold(6, 0, 0);
+    radar.setGateSensitivityThreshold(7, 0, 0);
+    radar.setGateSensitivityThreshold(8, 0, 0);
+
     //
     // Each gate is ~0.75m, therefore moving gate should be limited to gate 1 (1.5m) and stationary gate should be
     // limited to 0 (0.75m). Use this to also change the inactivity timer.
     //
-    if (radar.setMaxValues(1, 0, (MOTION_TIMEOUT / 2000)))
+    // 0,0 means only use first gate for moving and staionary
+    //
+    if (radar.setMaxValues(0, 0, (MOTION_TIMEOUT / 2000)))
     {
       ESP_LOGI(TAG, "LD2410: Max gate values set");
     }
@@ -279,13 +280,29 @@ bool ld2410_init()
       ESP_LOGE(TAG, "LD2410: FAILED to set max gate values");
       OperatingParameters.Errors.hardwareErrors++;
     }
+
+    if (radar.requestCurrentConfiguration())
+    {
+      ESP_LOGI(TAG, "LD2410: Current configuration:");
+      ESP_LOGI(TAG, "  Maximum gate ID: %d", radar.max_gate);
+      ESP_LOGI(TAG, "  Maximum gate for moving targets: %d", radar.max_moving_gate);
+      ESP_LOGI(TAG, "  Maximum gate for stationary targets: %d", radar.max_stationary_gate);
+      ESP_LOGI(TAG, "  Idle time for targets: %d", radar.sensor_idle_time);
+      ESP_LOGI(TAG, "  Gate sensitivity");
+      for (uint8_t gate = 0; gate <= radar.max_gate; gate++)
+      {
+        ESP_LOGI(TAG, "    Gate %d moving targets: %d stationary targets: %d",
+          gate, radar.motion_sensitivity[gate], radar.stationary_sensitivity[gate]);
+      }
+    }
+
     //
     // Now request a restart to enable all the setting specified above
     //
     // ... inside ld2410_init() after setMaxValues ...
     if (radar.requestRestart()) 
     {
-      ESP_LOGW(TAG, "LD2410: Restart requested. Waiting for sensor boot...");
+      ESP_LOGI(TAG, "LD2410: Restart requested. Waiting for sensor boot...");
       // CRITICAL: Give the physical radar hardware time to reboot 
       // BEFORE allowing the loop to flood the serial port!
       vTaskDelay(pdMS_TO_TICKS(1500)); 
