@@ -1,15 +1,17 @@
 services:
   devcontainer:
-    image: mcr.microsoft.com/devcontainers/base:trixie
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
     environment:
       PLATFORMIO_BUILD_CACHE_DIR: /home/vscode/.cache/platformio-build
 
     volumes:
-      # Access serial devices on the host machine for flashing and debugging.
-      - /dev:/dev
+      # When reopning an existing local folder, mount it under `/workspaces` in the container.
+      - ..:/workspaces/smart-thermostat
 
-      # Read host group information to align the container user with the host user for serial device access.
-      - /etc/group:/run/host/etc/group:ro
+      # Access serial devices on the host machine for flashing and debugging.
+      - /dev:/run/host/dev
 
       # Persist PlatformIO downloads, frameworks and toolchains.
       - platformio-core:/home/vscode/.platformio
