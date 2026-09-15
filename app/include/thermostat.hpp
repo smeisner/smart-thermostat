@@ -51,7 +51,6 @@ typedef enum
     FAN_ONLY,
     AUTO,
     AUX_HEAT,
-    DRY,
     ERROR,
     NR_HVAC_MODES
 } HVAC_MODE;

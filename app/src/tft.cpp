@@ -234,7 +234,6 @@ static const char *__hvac_mode_to_str(HVAC_MODE mode, const char *mode_str[])
   case FAN_ONLY:
   case AUTO:
   case AUX_HEAT:
-  case DRY:
     return mode_str[mode];
   default:
     return mode_str[ERROR];
@@ -243,10 +242,10 @@ static const char *__hvac_mode_to_str(HVAC_MODE mode, const char *mode_str[])
 
 #ifdef MQTT_ENABLED
 const char *hvac_op_mode_str_mqtt[NR_HVAC_MODES] = {
-  "off", "heat", "cool", "idle", "fan_only", "auto", "aux heat", "dry", "error"
+  "off", "heat", "cool", "idle", "fan_only", "auto", "aux heat", "error"
 };
 const char *hvac_curr_mode_str_mqtt[NR_HVAC_MODES] = {
-  "off", "heating", "cooling", "idle", "fan", "error", "error", "drying", "error"
+  "off", "heating", "cooling", "idle", "fan", "error", "error", "error"
 };
 
 const char *hvacModeToMqttCurrMode(HVAC_MODE mode)
@@ -261,7 +260,7 @@ const char *hvacModeToMqttOpMode(HVAC_MODE mode)
 #endif
 
 const char *hvac_mode_str[NR_HVAC_MODES] = {
-  "Off", "Heat", "Cool", "Idle", "Fan", "Auto", "AuxHeat", "Dry", "Error"
+  "Off", "Heat", "Cool", "Idle", "Fan", "Auto", "AuxHeat", "Error"
 };
 
 const char *hvacModeToString(HVAC_MODE mode)
@@ -333,9 +332,6 @@ void setHvacModesDropdown()
       continue;
     // AUX_HEAT only works if 2-stage heat is enabled
     if ((n == AUX_HEAT) && !OperatingParameters.hvac2StageHeatEnable)
-      continue;
-    // DRY only works if the reversing valve is enabled
-    if ((n == DRY) && !OperatingParameters.hvacReverseValveEnable)
       continue;
     // User cannot select IDLE mode, it is only used internally to indicate that the system is not heating or cooling
     if (n == IDLE)
