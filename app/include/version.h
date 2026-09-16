@@ -1,7 +1,7 @@
 
 #define VERSION_MAJOR 0
 #define VERSION_MINOR 8
-#define VERSION_BUILD 5
+#define VERSION_BUILD 6
 
 #define VERSION_BUILD_DATE __DATE__
 #define VERSION_BUILD_TIME __TIME__
@@ -12,6 +12,7 @@
 #define VERSION_STRING STR(VERSION_MAJOR) "." STR(VERSION_MINOR) "." STR(VERSION_BUILD)
 #define VERSION_COPYRIGHT "(C) 2026 Smart Creative Solutions (creative@meisners.net)"
 #define VERSION_BUILD_DATE_TIME VERSION_BUILD_DATE " - " VERSION_BUILD_TIME
+#define CURRENT_FIRMWARE_VERSION "v" STR(VERSION_MAJOR) "." STR(VERSION_MINOR) "." STR(VERSION_BUILD)
 
 extern const char *VersionString;
 extern const char *VersionCopyright;

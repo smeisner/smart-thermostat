@@ -57,6 +57,9 @@
 
 #include <esp_heap_caps.h>
 
+bool check_github_for_updates(bool);
+bool performUpdate(bool);
+
 // Implemented in web.cpp
 float doTempUp(void);
 float doTempDown(void);
@@ -104,12 +107,13 @@ typedef enum
   STATUS,
   ERROR_COUNTS,
   REBOOT,
+  FWUPGRADE,
   QUIT,
   UNKNOWN
 } CMD;
 
 // List of valid command strings
-const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "CONLOG", "SDLOG", "TELLOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "QUIT", NULL};
+const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "CONLOG", "SDLOG", "TELLOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "FWUPGRADE", "QUIT", NULL};
 
 #define min(x, y) ((x > y) ? y : x)
 
@@ -323,6 +327,35 @@ void DisplayStatus()
                       OperatingParameters.hvacReverseValveEnable ? "True" : "False");
 }
 
+void startFirmwareUpgrade(int sock)
+{
+  // Start the firmware upgrade process
+  // This function is implemented in web.cpp
+  if (check_github_for_updates(true))
+  {
+    char buffer[128];
+    ssize_t len;
+
+    telnet_esp32_printf("Firmware upgrade available. Perform Upgrade? (y/N): ");
+    len = recv(sock, buffer, sizeof(buffer), 0);
+    len -= 2;
+    buffer[len] = '\0';
+    if (buffer[0] == 'Y' || buffer[0] == 'y')
+    {
+      telnet_esp32_printf("Performing firmware upgrade...\n");
+      performUpdate(true);
+    }
+    else
+    {
+      telnet_esp32_printf("Firmware upgrade canceled.\n");
+    }
+  }
+  else
+  {
+    telnet_esp32_printf("No firmware upgrade available.\n");
+  }
+}
+
 void doConfiguration(int sock)
 {
   char buffer[128];
@@ -412,7 +445,7 @@ void doConfiguration(int sock)
   buffer[len] = '\0';
   if ((len) && (len < sizeof(buffer)))
   {
-    if (lwip_stricmp("yes", buffer) == 0)
+    if (strcasecmp("yes", buffer) == 0)
       OperatingParameters.thermostatBeepEnable = true;
     else
       OperatingParameters.thermostatBeepEnable = false;
@@ -429,7 +462,7 @@ void doConfiguration(int sock)
   len -= 2;
   buffer[len] = '\0';
   if ((len) && (len < sizeof(buffer)))
-    if (lwip_stricmp("yes", buffer) == 0)
+    if (strcasecmp("yes", buffer) == 0)
       OperatingParameters.Matter = true;
     else
       OperatingParameters.Matter = false;
@@ -442,7 +475,7 @@ void doConfiguration(int sock)
   buffer[len] = '\0';
   if ((len) && (len < sizeof(buffer)))
   {
-    if (lwip_stricmp("yes", buffer) == 0)
+    if (strcasecmp("yes", buffer) == 0)
       OperatingParameters.MqttEnabled = true;
     else
       OperatingParameters.MqttEnabled = false;
@@ -586,6 +619,7 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     telnet_esp32_printf("  Error:          Dump error counters\n");
     telnet_esp32_printf("  Quit:           Close telnet session\n");
     telnet_esp32_printf("  Reboot:         Reboot the ESP32\n");
+    telnet_esp32_printf("  Fwupgrade:      Upgrade firmware from Github\n");
     break;
   case CONFIG:
     doConfiguration(sock);
@@ -731,6 +765,11 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     telnet_esp32_printf("Restarting the ESP32...\n");
     vTaskDelay(pdMS_TO_TICKS(1500));
     esp_restart();
+    break;
+  case FWUPGRADE:
+    telnet_esp32_printf("Starting firmware upgrade from Github...\n");
+    vTaskDelay(pdMS_TO_TICKS(1500));
+    startFirmwareUpgrade(sock);
     break;
   case QUIT:
     telnet_esp32_printf("Quiting telnet session\n");

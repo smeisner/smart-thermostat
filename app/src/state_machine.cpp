@@ -63,9 +63,6 @@ const struct gpio_pin_desc hvac_mode_gpio[NR_HVAC_MODES][NR_GPIO_PINS] = {
   DESC(AUX_HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, HIGH),
             PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
             PIN(HVAC_STAGE2_PIN, HIGH)),
-  DESC(DRY, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
-            PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
-            PIN(HVAC_STAGE2_PIN, LOW)),
 };
 
 static inline bool is_invalid_desc(const struct gpio_pin_desc desc)
@@ -264,7 +261,6 @@ void hvacStateUpdate()
   // These just make the compiler happy!!!
   case NR_HVAC_MODES:
   case IDLE:
-  case DRY:
   case ERROR:
     break;
   case OFF:
