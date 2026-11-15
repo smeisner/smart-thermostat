@@ -34,7 +34,7 @@ The physical platform is optimized for low power, clean power delivery, and tran
 * **MCU:** Espressif ESP32 (Dual Core, 240MHz, 4MB Flash) running entirely on a native **ESP-IDF** runtime environment. A dedicated On-Chip SWD interface is built-in for deep GDB hardware debugging and direct firmware loading.
 * **Display & Touch:** 3.2" SPI TFT Display Module (ILI9341 driver paired with an XPT2046 touch controller). The UI layers and menu navigation frameworks are constructed using the open-source **LVGL (v8)** graphics library.
 * **Power Regulation:** Built-in dual-stage industrial regulation translating standard 24VAC HVAC lines down to a ultra-low ripple (<2%) 5VDC rail via an LM2576HVT-5, regulated cleanly to a 3.3V digital rail via an AMS1117 LDO.
-* **On-Board Sensor Arrays:**
+* **On-Board Sensors:**
   * **Climate:** Aosong AHT20 high-precision I2C Temperature & Humidity module.
   * **Presence:** Hi-Link LD2410 24GHz Microwave Radar Human Presence Sensor for localized wake-on-motion automation.
   * **Ambient:** Integrated Light Dependent Resistor (LDR) divider circuit for reactive, step-less TFT backlight dimming matching room conditions.
