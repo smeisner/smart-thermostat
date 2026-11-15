@@ -6,3 +6,7 @@ pcb/production/.nfs*
 *.DONOTCOMPILE
 *DO_NOT_COMPILE*
 Matter/
+
+# SquareLine Studio metadata & local path configs
+**/project.info
+*.slp
