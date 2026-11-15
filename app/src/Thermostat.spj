@@ -10561,7 +10561,7 @@
               {
                 "nid": -33317996,
                 "strtype": "OBJECT/Name",
-                "strval": "MatterLabel",
+                "strval": "HomeAutomationLabel",
                 "InheritedType": 10
               },
               {
@@ -10718,7 +10718,7 @@
               {
                 "nid": -1457239741,
                 "strtype": "OBJECT/Name",
-                "strval": "MatterCheckbox",
+                "strval": "HomeAutomationCheckbox",
                 "InheritedType": 10
               },
               {
@@ -11869,7 +11869,7 @@
               {
                 "nid": 581167028,
                 "strtype": "OBJECT/Name",
-                "strval": "MqttSetupBtn",
+                "strval": "SetupMqttBtn",
                 "InheritedType": 10
               },
               {
@@ -17636,7 +17636,7 @@
               {
                 "nid": -417904618,
                 "strtype": "OBJECT/Name",
-                "strval": "WifiPSK",
+                "strval": "PSK",
                 "InheritedType": 10
               },
               {
@@ -18001,7 +18001,7 @@
               {
                 "nid": -1382194263,
                 "strtype": "OBJECT/Name",
-                "strval": "WifiSsidDropdown",
+                "strval": "SsidDropdown",
                 "InheritedType": 10
               },
               {
@@ -18261,7 +18261,7 @@
               {
                 "nid": 591139757,
                 "strtype": "OBJECT/Name",
-                "strval": "WifiScanBtn",
+                "strval": "ScanBtn",
                 "InheritedType": 10
               },
               {
@@ -20292,7 +20292,7 @@
               {
                 "nid": -417904618,
                 "strtype": "OBJECT/Name",
-                "strval": "MqttHostName",
+                "strval": "MqttHostname",
                 "InheritedType": 10
               },
               {
@@ -23284,7 +23284,7 @@
               {
                 "nid": -417904618,
                 "strtype": "OBJECT/Name",
-                "strval": "DeviceHostName",
+                "strval": "DeviceHostname",
                 "InheritedType": 10
               },
               {
@@ -25293,7 +25293,7 @@
   },
   "animations": [],
   "selected_theme": "Default",
-  "selected_screen": "GUID94204148-755812S9932136",
+  "selected_screen": "GUID27763962-585123S3535260",
   "info": {
     "name": "Thermostat.spj",
     "depth": 2,
@@ -25324,7 +25324,7 @@
     "separate_screen_save": false,
     "hierarchy_state_save": false,
     "reverse_event_order": false,
-    "backup_cnt": 33,
+    "backup_cnt": 34,
     "autosave_cnt": 0,
     "group_color_cnt": 0,
     "imagebytearrayprefix": "",
