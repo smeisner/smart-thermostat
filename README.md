@@ -35,11 +35,38 @@ Auto reconnect in the ESP MQTT module has been enabled. This eliminates the resp
 
 Telnet support has been added! There is no credential checking mechanism, but this is not a high security device. It could be added later by a contributor if wanted. Via telnet, a user can reconfigure the stat, monitoring the logging output, reboot and check on stats & error counts.
 
-# October 4, 2023 addition of Matter support
+# Matter over Wi-Fi
 
-Getting started: https://docs.espressif.com/projects/esp-matter/en/latest/esp32/developing.html
+The `esp32s3-matter` PlatformIO environment builds the thermostat as a Matter-over-Wi-Fi device:
 
-Matter support is delayed until the SDK can be added as a library to PlatformIO. Currently, the actions required to create a dev environment is too extreme.
+```sh
+pio run -e esp32s3-matter
+pio run -e esp32s3-matter -t upload
+```
+
+It uses the Wi-Fi credentials already configured on the thermostat and exposes a Matter
+Thermostat endpoint with humidity, plus a separate occupancy-sensor endpoint backed by
+the LD2410 presence sensor. Use the Matter screen to scan its QR code or enter the manual
+pairing code; the controller and thermostat must be on the same local network. This build
+profile requires IPv6 on that network and disables MQTT because the firmware does not
+support running MQTT and Matter together. After firmware updates that change Matter
+endpoints, remove the device from the controller and factory-reset/recommission it so the
+controller reads the updated endpoint layout.
+
+The Matter thermostat advertises cooling only when cooling is enabled in the thermostat
+settings, and reports the configured heating/cooling stages through
+`HVACSystemTypeConfiguration`. Fan-only and emergency-heat Matter modes are accepted only
+when their matching local options are enabled. Changing cooling, fan, or two-stage-heat
+settings while Matter is running automatically factory-resets Matter and restarts the
+thermostat; remove and re-pair it in Home Assistant afterward. The reversing-valve option
+remains an internal hardware setting.
+The default `esp32s3` profile continues to build the MQTT version.
+
+The Matter dependency is ESP-Matter 1.5.1, which targets ESP-IDF 5.4.x. The sample
+setup PIN/discriminator and attestation data are development defaults, not production
+credentials. Devices intended for distribution need unique commissioning data and
+vendor-provisioned Matter DAC/PAI credentials.
+See the [ESP-Matter development guide](https://docs.espressif.com/projects/esp-matter/en/latest/esp32/developing.html).
 
 # September 8, 2023 update - V0.6
 

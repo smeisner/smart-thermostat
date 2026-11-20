@@ -93,7 +93,14 @@ void updateHvacMode(HVAC_MODE mode)
 
 void updateHvacSetTemp(float setTemp)
 {
-  requestedHvacSetTemp = setTemp;
+  if (OperatingParameters.tempUnits == 'F')
+  {
+    requestedHvacSetTemp = roundValue(setTemp, 0);
+  }
+  else
+  {
+    requestedHvacSetTemp = roundValue(setTemp, 1);
+  }
   TempChangeRequested = true;
   TempChangeRequestTime = millis();
 }
@@ -332,7 +339,8 @@ void ld2410_loop()
   if (readStatus == 1)
   {
     // A complete, valid data frame has arrived from the radar!
-    if (radar.presenceDetected())
+    OperatingParameters.presenceDetected = radar.presenceDetected();
+    if (OperatingParameters.presenceDetected)
     {
       tftMotionTrigger = true;
     }

@@ -1,5 +1,6 @@
 #include "thermostat.hpp"
 #include "logger.h"
+#include <string.h>
 
 // This can be turned off and on from the telnet session with the "Monitor" command
 static bool telnet_logging_active = false;
@@ -61,26 +62,42 @@ esp_log_level_t map_char_to_level(char c)
 
 int localLogger(const char *fmt, va_list list)
 {
-  static int ret;
-  static int idx;
-  static int level;
+  int ret;
+  esp_log_level_t level;
+  va_list list_copy;
 
-  idx = 0;
-  if (fmt[0] == 0x1b /* ESC */) idx = 7;
-  level = map_char_to_level(fmt[idx]);
+  const size_t fmt_length = strlen(fmt);
+  const size_t idx = fmt[0] == 0x1b /* ESC */ && fmt_length > 7 ? 7 : 0;
+  const bool has_esp_log_prefix =
+      fmt_length >= idx + 3 &&
+      (fmt[idx] == 'E' || fmt[idx] == 'W' || fmt[idx] == 'I' || fmt[idx] == 'D' || fmt[idx] == 'V') &&
+      fmt[idx + 1] == ' ' && fmt[idx + 2] == '(';
+
+  // CHIP prints its prefix separately and passes only the bare message here.
+  level = has_esp_log_prefix ? map_char_to_level(fmt[idx]) : ESP_LOG_INFO;
   ret = -1;
 
   if (telnet_logging_active && (level <= telnet_log_level))
-    ret = telnet_esp32_vprintf(fmt, list);
+  {
+    va_copy(list_copy, list);
+    ret = telnet_esp32_vprintf(fmt, list_copy);
+    va_end(list_copy);
+  }
 
   if (sdcard_logging_active && (level <= sdcard_log_level))
-    ret = sdcard_esp32_vprintf(fmt, list);
+  {
+    va_copy(list_copy, list);
+    ret = sdcard_esp32_vprintf(fmt, list_copy);
+    va_end(list_copy);
+  }
 
   if (level <= console_log_level)
   {
     if (OrigEsplogger == NULL)
       esp_restart();
-    ret = OrigEsplogger(fmt, list);
+    va_copy(list_copy, list);
+    ret = OrigEsplogger(fmt, list_copy);
+    va_end(list_copy);
   }
 
   return ret;

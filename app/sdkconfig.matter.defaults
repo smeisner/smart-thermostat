@@ -1,0 +1,11 @@
+# ESP32-S3 has no 802.15.4 radio; this firmware uses Matter over Wi-Fi.
+# CONFIG_ESP_MATTER_ENABLE_OPENTHREAD is not set
+
+# Matter IP communication requires IPv6 addresses learned from router advertisements.
+CONFIG_LWIP_IPV6_AUTOCONFIG=y
+
+CONFIG_MBEDTLS_HKDF_C=y
+CONFIG_CHIP_LOG_FILTERING=y
+
+# This thermostat does not use the closure-control cluster.
+# CONFIG_SUPPORT_CLOSURE_CONTROL_CLUSTER is not set

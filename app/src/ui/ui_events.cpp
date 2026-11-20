@@ -237,6 +237,11 @@ void tftClearPsk(lv_event_t * e)
 
 void SaveConfigSettings(lv_event_t * e)
 {
+#ifdef MATTER_ENABLED
+  const bool previousHvacCoolEnable = OperatingParameters.hvacCoolEnable;
+  const bool previousHvacFanEnable = OperatingParameters.hvacFanEnable;
+#endif
+
   if (lv_obj_has_state(ui_TempUnitsSwitch, LV_STATE_CHECKED))
   {
     // Switch to Celcius
@@ -313,12 +318,19 @@ void SaveConfigSettings(lv_event_t * e)
   {
     //@@@ Disable all HVAC activity before restarting
     printf ("Matter enablement changed!\n");
-    wifiSwitchMatterMode();
+    WifiSwitchMatterMode();
     if (!OperatingParameters.MatterEnabled)
     {
       // MatterFactoryReset() will be called from tftCountDown() func
       _ui_screen_change(&ui_ThermostatRestart, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 500, 0, &ui_ThermostatRestart_screen_init);
     }
+  }
+  else if (OperatingParameters.MatterEnabled && OperatingParameters.MatterStarted &&
+           (previousHvacCoolEnable != OperatingParameters.hvacCoolEnable ||
+            previousHvacFanEnable != OperatingParameters.hvacFanEnable))
+  {
+    ESP_LOGW("UI", "HVAC capabilities changed; resetting Matter so Home Assistant can re-pair");
+    MatterFactoryReset();
   }
 #endif
 #ifdef MQTT_ENABLED
@@ -427,6 +439,10 @@ void LoadUncommonSettings(lv_event_t * e)
 
 void SaveUncommonConfigSettings(lv_event_t * e)
 {
+#ifdef MATTER_ENABLED
+  const bool previousHvac2StageHeatEnable = OperatingParameters.hvac2StageHeatEnable;
+#endif
+
   OperatingParameters.timezone_sel = lv_dropdown_get_selected(ui_TimezoneDropdown);
   OperatingParameters.timezone = (char *)(gmt_timezones[OperatingParameters.timezone_sel]);
   OperatingParameters.hvacReverseValveEnable = lv_obj_has_state(ui_RevValveCheckbox, LV_STATE_CHECKED);
@@ -439,6 +455,14 @@ void SaveUncommonConfigSettings(lv_event_t * e)
 
 #ifdef MQTT_ENABLED
   updateEnabledHvacModes();
+#endif
+#ifdef MATTER_ENABLED
+  if (OperatingParameters.MatterEnabled && OperatingParameters.MatterStarted &&
+      previousHvac2StageHeatEnable != OperatingParameters.hvac2StageHeatEnable)
+  {
+    ESP_LOGW("UI", "Two-stage heat capability changed; resetting Matter so Home Assistant can re-pair");
+    MatterFactoryReset();
+  }
 #endif
 }
 

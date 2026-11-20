@@ -44,8 +44,8 @@ void app_main()
 
   // Set default log level for all components
   // esp_log_level_set("*", ESP_LOG_WARN);
-  // esp_log_level_set("*", ESP_LOG_INFO);
-  esp_log_level_set("*", ESP_LOG_DEBUG);
+  esp_log_level_set("*", ESP_LOG_INFO);
+  // esp_log_level_set("*", ESP_LOG_DEBUG);
 
   // Set up logging function to customize the console, telnet and SD Card
   // Logging plumbing and log levels.
@@ -74,21 +74,26 @@ void app_main()
   ESP_LOGI (TAG, "Initializing sensors");
   sensorsInit();
 
+  ESP_ERROR_CHECK(esp_netif_init());
+
 #ifdef MATTER_ENABLED
+//@@@ Starting Matter before Wifi is working, but
+//needs further investigation. It seems to work, but the
+//Matter init code is not very robust and may fail if the
+//network is not up yet. The Matter init code should be
+//reworked to be more robust and handle network issues better.
   // Start Matter
   ESP_LOGI (TAG, "Starting Matter");
   OperatingParameters.MatterStarted = MatterInit();
 #endif
 
   // Start wifi
-  ESP_LOGI (TAG, "Starting wifi (\"%s\", \"%s\")", WifiCreds.ssid, WifiCreds.password);
-  ESP_ERROR_CHECK(esp_netif_init());
+  ESP_LOGI (TAG, "Starting wifi (\"%s\")", WifiCreds.ssid);
   OperatingParameters.wifiConnected = 
     // wifiStart(WifiCreds.hostname, WifiCreds.ssid, WifiCreds.password);
     WifiStart(OperatingParameters.DeviceName, WifiCreds.ssid, WifiCreds.password);
 
 #ifdef MQTT_ENABLED
-  // Start Matter
   ESP_LOGI (TAG, "Starting MQTT");
   MqttInit();
 #endif
