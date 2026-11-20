@@ -41,10 +41,12 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: firmware
+          name: firmware-mqtt-and-matter
           path: |
             app/.pio/build/esp32s3/firmware.bin
             app/.pio/build/esp32s3/firmware.elf
+            app/.pio/build/esp32s3-matter/firmware.bin
+            app/.pio/build/esp32s3-matter/firmware.elf
           include-hidden-files: true
           if-no-files-found: error
 
@@ -59,8 +61,14 @@ jobs:
 
       - name: Upload firmware to release
         run: |
+          cp .pio/build/esp32s3/firmware.bin .pio/build/firmware-mqtt.bin
+          cp .pio/build/esp32s3/firmware.elf .pio/build/firmware-mqtt.elf
+          cp .pio/build/esp32s3-matter/firmware.bin .pio/build/firmware-matter.bin
+          cp .pio/build/esp32s3-matter/firmware.elf .pio/build/firmware-matter.elf
           gh release upload ${{ github.ref_name }} \
-            .pio/build/esp32s3/firmware.bin \
-            .pio/build/esp32s3/firmware.elf
+            .pio/build/firmware-mqtt.bin \
+            .pio/build/firmware-mqtt.elf \
+            .pio/build/firmware-matter.bin \
+            .pio/build/firmware-matter.elf
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

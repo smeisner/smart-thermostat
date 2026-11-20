@@ -77,7 +77,12 @@ typedef struct
     float tempCorrection;
     float humidityCorrection;
     int lightDetected;
+//@@@ Both presenceDetected and motionDetected are set by the radar sensor,
+// but presenceDetected is more reliable and is used to determine if the
+// thermostat should be in sleep mode or not. motionDetected is used to
+//trigger the display to wake up when motion is detected.
     bool motionDetected;
+    bool presenceDetected;
     bool wifiConnected;
     bool hvacCoolEnable;
     bool hvacFanEnable;
@@ -106,6 +111,8 @@ typedef struct
 #ifdef MATTER_ENABLED
     bool MatterEnabled;
     bool MatterStarted;
+    char MatterQR[33];
+    char MatterPairingCode[12];
 #endif
     //@@@ Zipcode for outside temp??
     //@@@ Calibration data for touchscreen?
@@ -199,6 +206,9 @@ void sdcard_check_and_save_coredump(const char* sd_file_path);
 
 #ifdef MATTER_ENABLED
 bool MatterInit();
+void MatterFactoryReset();
+void MatterUpdate();
+void WifiMatterStarted();
 #endif
 
 #ifdef MQTT_ENABLED
@@ -246,6 +256,10 @@ bool WifiStarted();
 bool WifiRestartPending();
 bool WifiConnected();
 void WifiDisconnect();
+void WifiDeinit();
+#ifdef MATTER_ENABLED
+void WifiSwitchMatterMode();
+#endif
 void startReconnectTask();
 uint16_t WifiSignal();
 char *WifiAddress();

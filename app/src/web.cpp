@@ -84,8 +84,11 @@ float enforceRange(float value, float min, float max) {
 }
 
 #define BUTTON_CONTENT_SIZE 30
-void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
+bool buttonDispatch(char content[BUTTON_CONTENT_SIZE])
 {
+  //@@@ Make this independent of Matter. Maybe change name to hvac_capabilities_changed() or something like that.
+  bool matter_capabilities_changed = false;
+
   if (!strncmp(content, "tempUp", BUTTON_CONTENT_SIZE))
     doTempUp();
   else if (!strncmp(content, "tempDown", BUTTON_CONTENT_SIZE))
@@ -110,6 +113,9 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   else if (!strncmp(content, "hvacCoolEnable", BUTTON_CONTENT_SIZE))
   {
     OperatingParameters.hvacCoolEnable = !OperatingParameters.hvacCoolEnable; 
+#ifdef MATTER_ENABLED
+    matter_capabilities_changed = true;
+#endif
     #ifdef MQTT_ENABLED
     updateEnabledHvacModes();
     #endif
@@ -117,6 +123,9 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   else if (!strncmp(content, "hvacFanEnable", BUTTON_CONTENT_SIZE))
   {
     OperatingParameters.hvacFanEnable = !OperatingParameters.hvacFanEnable;
+#ifdef MATTER_ENABLED
+    matter_capabilities_changed = true;
+#endif
     #ifdef MQTT_ENABLED
     updateEnabledHvacModes();
     #endif
@@ -144,6 +153,9 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   else if (!strncmp(content, "twoStageEnable", BUTTON_CONTENT_SIZE))
   {
     OperatingParameters.hvac2StageHeatEnable = !OperatingParameters.hvac2StageHeatEnable;
+#ifdef MATTER_ENABLED
+    matter_capabilities_changed = true;
+#endif
     #ifdef MQTT_ENABLED
     updateEnabledHvacModes();
     #endif
@@ -185,6 +197,8 @@ void buttonDispatch(char content[BUTTON_CONTENT_SIZE])
     ESP_LOGE(TAG, "Could not dispatch request \"%s\"", content);
     OperatingParameters.Errors.systemErrors++;
   }
+
+  return matter_capabilities_changed;
 }
 
 #define min(x, y) ((x < y) ? x : y)
@@ -196,8 +210,24 @@ esp_err_t handleButton(httpd_req_t *req)
   httpd_resp_set_type(req, "text/xml");
   int ret = httpd_req_recv(req, content, recv_size);
   content[recv_size] = '\0';
-  buttonDispatch(content);
-  return httpd_resp_send(req, 0, 0);
+  //@@@ Make this independent of Matter. Maybe change name to hvac_capabilities_changed() or something like that.
+  const bool matter_capabilities_changed = buttonDispatch(content);
+#ifdef MATTER_ENABLED
+  if (matter_capabilities_changed)
+  {
+    updateThermostatParams();
+  }
+#endif
+  const esp_err_t response_err = httpd_resp_send(req, 0, 0);
+#ifdef MATTER_ENABLED
+  if (matter_capabilities_changed && OperatingParameters.MatterEnabled &&
+      OperatingParameters.MatterStarted)
+  {
+    ESP_LOGW(TAG, "HVAC capabilities changed through web UI; resetting Matter so Home Assistant can re-pair");
+    MatterFactoryReset();
+  }
+#endif
+  return response_err;
 }
 
 #define CAT_IF_SPACE(xmlBuffer, other, space, request)          \

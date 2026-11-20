@@ -108,12 +108,13 @@ typedef enum
   ERROR_COUNTS,
   REBOOT,
   FWUPGRADE,
+  RESET,
   QUIT,
   UNKNOWN
 } CMD;
 
 // List of valid command strings
-const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "CONLOG", "SDLOG", "TELLOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "FWUPGRADE", "QUIT", NULL};
+const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "CONLOG", "SDLOG", "TELLOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "FWUPGRADE", "RESET", "QUIT", NULL};
 
 #define min(x, y) ((x > y) ? y : x)
 
@@ -620,6 +621,7 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     telnet_esp32_printf("  Quit:           Close telnet session\n");
     telnet_esp32_printf("  Reboot:         Reboot the ESP32\n");
     telnet_esp32_printf("  Fwupgrade:      Upgrade firmware from Github\n");
+    telnet_esp32_printf("  Reset:          Perform a factory reset\n");
     break;
   case CONFIG:
     doConfiguration(sock);
@@ -770,6 +772,12 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     telnet_esp32_printf("Starting firmware upgrade from Github...\n");
     vTaskDelay(pdMS_TO_TICKS(1500));
     startFirmwareUpgrade(sock);
+    break;
+  case RESET:
+#ifdef MATTER_ENABLED
+    MatterFactoryReset();
+#endif
+    // @@@ What is the alternative for non-Matter builds? Should we just reboot?
     break;
   case QUIT:
     telnet_esp32_printf("Quiting telnet session\n");

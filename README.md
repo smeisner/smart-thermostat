@@ -29,8 +29,6 @@ An open-source, high-integrity smart thermostat engineered to give **complete lo
 
 ## 🛠️ Hardware Specification
 
-The physical platform is optimized for low power, clean power delivery, and transparent circuit execution.
-
 * **MCU:** Espressif ESP32 (Dual Core, 240MHz, 4MB Flash) running entirely on a native **ESP-IDF** runtime environment. A dedicated On-Chip SWD interface is built-in for deep GDB hardware debugging and direct firmware loading.
 * **Display & Touch:** 3.2" SPI TFT Display Module (ILI9341 driver paired with an XPT2046 touch controller). The UI layers and menu navigation frameworks are constructed using the open-source **LVGL (v8)** graphics library.
 * **Power Regulation:** Built-in dual-stage industrial regulation translating standard 24VAC HVAC lines down to a ultra-low ripple (<2%) 5VDC rail via an LM2576HVT-5, regulated cleanly to a 3.3V digital rail via an AMS1117 LDO.
@@ -38,6 +36,40 @@ The physical platform is optimized for low power, clean power delivery, and tran
   * **Climate:** Aosong AHT20 high-precision I2C Temperature & Humidity module.
   * **Presence:** Hi-Link LD2410 24GHz Microwave Radar Human Presence Sensor for localized wake-on-motion automation.
   * **Ambient:** Integrated Light Dependent Resistor (LDR) divider circuit for reactive, step-less TFT backlight dimming matching room conditions.
+
+# Matter over Wi-Fi
+
+The `esp32s3-matter` PlatformIO environment builds the thermostat as a Matter-over-Wi-Fi device:
+
+```sh
+pio run -e esp32s3-matter
+pio run -e esp32s3-matter -t upload
+```
+
+It uses the Wi-Fi credentials already configured on the thermostat and exposes a Matter
+Thermostat endpoint with humidity, plus a separate occupancy-sensor endpoint backed by
+the LD2410 presence sensor. Use the Matter screen to scan its QR code or enter the manual
+pairing code; the controller and thermostat must be on the same local network. This build
+profile requires IPv6 on that network and disables MQTT because the firmware does not
+support running MQTT and Matter together. After firmware updates that change Matter
+endpoints, remove the device from the controller and factory-reset/recommission it so the
+controller reads the updated endpoint layout.
+
+The Matter thermostat advertises cooling only when cooling is enabled in the thermostat
+settings, and reports the configured heating/cooling stages through
+`HVACSystemTypeConfiguration`. Fan-only and emergency-heat Matter modes are accepted only
+when their matching local options are enabled. Changing cooling, fan, or two-stage-heat
+settings while Matter is running automatically factory-resets Matter and restarts the
+thermostat; remove and re-pair it in Home Assistant afterward. The reversing-valve option
+remains an internal hardware setting.
+The default `esp32s3` profile continues to build the MQTT version.
+
+The Matter dependency is ESP-Matter 1.5.1, which targets ESP-IDF 5.4.x. The sample
+setup PIN/discriminator and attestation data are development defaults, not production
+credentials. Devices intended for distribution need unique commissioning data and
+vendor-provisioned Matter DAC/PAI credentials.
+See the [ESP-Matter development guide](https://docs.espressif.com/projects/esp-matter/en/latest/esp32/developing.html).
+The physical platform is optimized for low power, clean power delivery, and transparent circuit execution.
 
 ---
 

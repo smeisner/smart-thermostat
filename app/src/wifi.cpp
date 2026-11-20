@@ -26,6 +26,7 @@
  */
 
 #include <string> // for string class
+#include <atomic>
 #include "thermostat.hpp"
 #include <esp_mac.h>  // for esp_read_mac()
 #include "esp_wifi.h"
@@ -68,6 +69,7 @@ static bool wifiConnecting = false;
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group = NULL;
+static bool s_wifi_event_handlers_registered = false;
 const TickType_t xTicksToWait = 10000 / portTICK_PERIOD_MS;
 esp_event_handler_instance_t instance_any_id;
 esp_event_handler_instance_t instance_got_ip;
@@ -76,6 +78,23 @@ static esp_netif_t *esp_netif_interface_sta;
 
 WIFI_CREDS WifiCreds;
 WIFI_STATUS WifiStatus = {};
+
+#ifdef MATTER_ENABLED
+static std::atomic<bool> matterSntpInitStarted{false};
+
+static void matterSntpInitTask(void *pvParameters)
+{
+  if (!WifiConnected())
+  {
+    matterSntpInitStarted.store(false);
+    vTaskDelete(NULL);
+    return;
+  }
+
+  initTimeSntp();
+  vTaskDelete(NULL);
+}
+#endif
 
 static int64_t lastWifiMillis = 0;
 TaskHandle_t ntReconnectTaskHandler = NULL;
@@ -304,6 +323,13 @@ void WiFi_ScanSSID(void)
 static void event_handler(void* arg, esp_event_base_t event_base,
 								int32_t event_id, void* event_data)
 {
+  EventGroupHandle_t event_group = s_wifi_event_group;
+  if (event_group == NULL)
+  {
+    ESP_LOGW(TAG, "Ignoring Wi-Fi event %ld without an active event group", (long)event_id);
+    return;
+  }
+
   // Only execute the next call if telnet is not enabled. This is
   // necessary since remote log monitoring could be enabled. If it
   // is, and we are called back here due to wifi disconnect event,
@@ -315,7 +341,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
   if (wifiScanActive)
   {
     ESP_LOGE(TAG, "  SSID scan active - aborting wifi connect (event_id = %d)", event_id);
-    xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_ABORTED);
+    xEventGroupSetBits(event_group, WIFI_FAIL_ABORTED);
     // WifiStatus.Connected = false;
     // OperatingParameters.wifiConnected = false;
     wifiConnecting = false;
@@ -327,14 +353,20 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     ESP_LOGD(TAG, "  event = STA_START");
 #ifdef MATTER_ENABLED
     if (!OperatingParameters.MatterStarted)
+    {
 #endif
       esp_wifi_connect();
-      // WifiStatus.reconnect_requested = true;
-      wifiConnecting = false;
-      // esp_wifi_connect();
+#ifdef MATTER_ENABLED
+    }
+#endif
+    wifiConnecting = false;
   }
   else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
   {
+    WifiStatus.Connected = false;
+    OperatingParameters.wifiConnected = false;
+    WifiStatus.ip.addr = 0;
+
     if (esp_wifi_connect() == ESP_OK)
     {
       ESP_LOGI(TAG, "Wifi reconnect initiated!");
@@ -347,9 +379,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 #endif
     /// ...making the next line safe.
     ESP_LOGI(TAG, "  event = STA_DISCONECTED");
-    WifiStatus.Connected = false;
     wifiConnecting = false;
-    OperatingParameters.wifiConnected = false;
     esp_wifi_disconnect();
     esp_wifi_stop();
 
@@ -364,7 +394,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 #endif
 
-    xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+    xEventGroupSetBits(event_group, WIFI_FAIL_BIT);
   }
   else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
   {
@@ -386,7 +416,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
       // #endif
     }
 
-    xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+    xEventGroupSetBits(event_group, WIFI_CONNECTED_BIT);
   }
 }
 
@@ -449,22 +479,21 @@ void WifiDeregisterEventCallbacks()
 {
   ESP_LOGD(TAG, "WifiDeregisterEventCallbacks()");
 
-  if (s_wifi_event_group == NULL)
+  if (s_wifi_event_handlers_registered)
+  {
+    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(
+        IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
+    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(
+        WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
+    s_wifi_event_handlers_registered = false;
+  }
+  else if (s_wifi_event_group == NULL)
   {
     ESP_LOGW(TAG, "- Callbacks already deregistered");
-    return;
   }
-  else
-  {
-    //@@@
-    // Not sure this code change is correct. The ESP-IDF documentation says that the unregister call will not work
-    // if the event handler was registered with esp_event_handler_instance_register(). The code here uses that function
-    // to register the event handler, so the unregister calls below will not work. The code below is commented out for 
-    // now, but it should be revisited later to see if it can be fixed.
-    /* The event will not be processed after unregister */
-    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
-    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
 
+  if (s_wifi_event_group != NULL)
+  {
     vEventGroupDelete(s_wifi_event_group);
     s_wifi_event_group = NULL;
   }
@@ -483,6 +512,10 @@ void WifiRegisterEventCallbacks()
 
   /* Initialize event group */
   s_wifi_event_group = xEventGroupCreate();
+  if (s_wifi_event_group == NULL)
+  {
+    ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
+  }
 
   /* Register Event handler */
   ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
@@ -496,6 +529,7 @@ void WifiRegisterEventCallbacks()
                             NULL,
                             &instance_got_ip));
 
+  s_wifi_event_handlers_registered = true;
 }
 
 #ifdef MATTER_ENABLED
@@ -529,15 +563,41 @@ void WifiSwitchMatterMode()
 
 void WifiMatterStarted()
 {
-  // wifiSetHostname(WifiCreds.hostname);
-
-  // Add additional wifi details...
   WifiStatus.wifi_started = true;
   WifiStatus.if_init = true;
   WifiStatus.driver_started = true;
-  WifiStatus.Connected = true;
-  // Register callbacks for wifi events
-  // WifiRegisterEventCallbacks();
+  wifi_ap_record_t ap_info;
+  WifiStatus.Connected = (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK);
+  OperatingParameters.wifiConnected = WifiStatus.Connected;
+
+  esp_netif_t *sta_netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (sta_netif == NULL)
+  {
+    WifiStatus.ip.addr = 0;
+    return;
+  }
+
+  esp_netif_ip_info_t ip_info = {};
+  const esp_err_t err = esp_netif_get_ip_info(sta_netif, &ip_info);
+  if (err != ESP_OK)
+  {
+    WifiStatus.ip.addr = 0;
+    ESP_LOGW(TAG, "Failed to get Matter Wi-Fi IPv4 address: %s", esp_err_to_name(err));
+    return;
+  }
+
+  WifiStatus.ip = ip_info.ip;
+  if (ip_info.ip.addr != 0 && WifiStatus.Connected)
+  {
+    bool expected = false;
+    if (matterSntpInitStarted.compare_exchange_strong(expected, true) &&
+        xTaskCreate(matterSntpInitTask, "MatterSntpInit", 4096, NULL,
+                    tskIDLE_PRIORITY + 1, NULL) != pdPASS)
+    {
+      matterSntpInitStarted.store(false);
+      ESP_LOGE(TAG, "Failed to start Matter SNTP initialization task");
+    }
+  }
 }
 #endif
 
@@ -719,6 +779,9 @@ void WifiDeinit()
     esp_wifi_stop();
     WifiStatus.wifi_started = false;
   }
+  WifiStatus.Connected = false;
+  WifiStatus.ip.addr = 0;
+  OperatingParameters.wifiConnected = false;
 
   if (WifiStatus.driver_started)
   {
@@ -745,6 +808,8 @@ void WifiDisconnect()
 
   ESP_LOGD(TAG, "- Calling esp_wifi_disconnect()");
   esp_wifi_disconnect();
+  WifiStatus.Connected = false;
+  WifiStatus.ip.addr = 0;
   OperatingParameters.wifiConnected = false;
   // Reset lastWifiMillis to 0 so a reconnect is enabled right away
   // [see networkReconnectTask()]
@@ -863,17 +928,13 @@ uint16_t WifiSignal()
 char *WifiAddress()
 {
   static char ipAddress[24];
-  if (WifiStatus.wifi_started)
+  if (WifiStatus.wifi_started && WifiStatus.Connected && WifiStatus.ip.addr != 0)
   {
-    // tcpip_adapter_ip_info_t ipInfo; 
-    // tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ipInfo);
-    esp_netif_ip_info_t ipInfo;
-    esp_netif_get_ip_info(esp_netif_interface_sta, &ipInfo);
     snprintf(ipAddress, sizeof(ipAddress), "%d.%d.%d.%d", 
-      (int)(ipInfo.ip.addr & 0x000000ff),
-      (int)((ipInfo.ip.addr & 0x0000ff00) >> 8),
-      (int)((ipInfo.ip.addr & 0x00ff0000) >> 16),
-      (int)((ipInfo.ip.addr & 0xff000000) >> 24)
+      (int)(WifiStatus.ip.addr & 0x000000ff),
+      (int)((WifiStatus.ip.addr & 0x0000ff00) >> 8),
+      (int)((WifiStatus.ip.addr & 0x00ff0000) >> 16),
+      (int)((WifiStatus.ip.addr & 0xff000000) >> 24)
     );
   }
   else

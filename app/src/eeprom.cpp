@@ -390,7 +390,7 @@ void updateThermostatParams()
   nvs_writeInt16(my_handle, "MqttBrokerPort", OperatingParameters.MqttBrokerPort);
 #endif
 #ifdef MATTER_ENABLED
-  nvs_writeBool(my_handle, "MatterEn", &OperatingParameters.MatterEnabled);
+  nvs_writeBool(my_handle, "MatterEn", OperatingParameters.MatterEnabled);
 #endif
   closeNVS(my_handle);
 }
@@ -439,6 +439,7 @@ void getThermostatParams()
 
   OperatingParameters.lightDetected = 1024;
   OperatingParameters.motionDetected = false;
+  OperatingParameters.presenceDetected = false;
 
   closeNVS(my_handle);
 }

@@ -392,6 +392,10 @@ void stateMachine(void *parameter)
     // Update HVAC State machine
     hvacStateUpdate();
 
+#ifdef MATTER_ENABLED
+    MatterUpdate();
+#endif
+
     // Check and Update wifi connection status
     OperatingParameters.wifiConnected = WifiConnected();
     if ((millis() > lastWifiReconnect + WIFI_CONNECT_INTERVAL) &&
@@ -406,18 +410,15 @@ void stateMachine(void *parameter)
       if (!telnetServiceRunning())
         telnetStart();
 
-      //
-      // Call MqttConnect() once to establish the MQTT connection.
-      //
-      // NB: We never set MqttConnectCalled to false so it is only ever
-      // called once at startup. The MQTT subsystem handles reconnects.
-      //
+#ifdef MQTT_ENABLED
+      // Establish the MQTT connection once; the MQTT subsystem handles reconnects.
       if (is_mqtt_enabled(&OperatingParameters) &&
           !is_mqtt_connected(&OperatingParameters) && !MqttConnectCalled)
       {
         MqttConnectCalled = true;
         MqttConnect();
       }
+#endif
     }
 
     // Determine if it's time to update the SNTP sourced clock and

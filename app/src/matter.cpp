@@ -1,403 +1,519 @@
+// SPDX-License-Identifier: GPL-3.0-only
+/*
+ * matter.cpp
+ *
+ * This module provides ESP-Matter integration for the thermostat. It creates
+ * the Matter node, thermostat endpoint with its humidity measurement cluster,
+ * and a separate occupancy-sensor endpoint. It handles Matter lifecycle events
+ * and attribute writes, and reports thermostat state, humidity, and presence.
+ *
+ * MatterInit() validates the Matter setting and saved Wi-Fi credentials,
+ * starts the endpoint and server, generates onboarding codes, and notifies
+ * the Wi-Fi module that Matter networking is active. Its caller stores the
+ * result in OperatingParameters.MatterStarted. MatterUpdate() is called by
+ * the thermostat state loop and reports changed attributes after the Matter
+ * server is ready. MatterFactoryReset() delegates fabric reset to ESP-Matter.
+ *
+ * LocalTemperature includes the configured temperature correction. The
+ * configured set temperature is used for both occupied heating and cooling
+ * setpoints. Matter temperatures are in hundredths of a degree Celsius;
+ * conversions account for the thermostat's selected display units. Matter
+ * writes to setpoints and SystemMode update the thermostat's operating state.
+ *
+ * Notes:
+ *  This module is compiled only when MATTER_ENABLED is defined.
+ * MatterUpdate() does nothing until Matter has started and the server is ready.
+ */
 #ifdef MATTER_ENABLED
 
 #include "thermostat.hpp"
 
-/**
- * CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION_STRING
- *
- * A string identifying the software version running on the device.
- */
-//#define CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION_STRING "V1.0"
-
-/**
- * CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION
- *
- * A monothonic number identifying the software version running on the device.
- */
-//#define CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION 1
-
-/**
- * CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION
- *
- * The hardware version number assigned to device or product by the device vendor.  This
- * number is scoped to the device product id, and typically corresponds to a revision of the
- * physical device, a change to its packaging, and/or a change to its marketing presentation.
- * This value is generally *not* incremented for device software versions.
- */
-//#define CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION 5
-
-/**
- *  @brief Fallback value for the basic information cluster's Vendor name attribute
- *   if the actual vendor name is not provisioned in the device memory.
- */
-#define CHIP_DEVICE_CONFIG_VENDOR_NAME "Tah Der"
-#define CONFIG_CHIP_DEVICE_VENDOR_NAME "1Tah Der"
-
-/**
- *  @brief Set the name of the product. This will be written to node0
- * and used as the product name.
- */
-#define CHIP_DEVICE_CONFIG_PRODUCT_NAME "RealSmartThermostat"
-
-// Use a default pairing code if one hasn't been provisioned in flash.
-// #define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_PIN_CODE 20202021
-// #define CHIP_DEVICE_CONFIG_USE_TEST_SETUP_DISCRIMINATOR 0xF00
-#define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_NAME "Tah Der"
-#define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_NAME "Smart prod"
-#define CONFIG_CHIP_DEVICE_PRODUCT_NAME "Smart chip prod"
-#define CHIP_DEVICE_CONFIG_DEVICE_HARDWARE_VERSION_STRING "v1.0"
-#define CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION_STRING "v2.0"
-
-#include "Matter.h"
-#include <app/server/OnboardingCodesUtil.h>
+// ESP-Matter's CHIP headers use std::aligned_storage, deprecated in C++23.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#include <esp_matter.h>
+#include <setup_payload/OnboardingCodesUtil.h>
 #include <app/server/Server.h>
-#include <app/server/CommissioningWindowManager.h>
-#include <credentials/examples/DeviceAttestationCredsExample.h>
+#include <esp_wifi.h>
+#include <lib/support/logging/TextOnlyLogging.h>
+#pragma GCC diagnostic pop
+
+#include <atomic>
+#include <cmath>
+#include <inttypes.h>
 
 using namespace chip;
 using namespace chip::app::Clusters;
 using namespace esp_matter;
 using namespace esp_matter::endpoint;
 
-using chip::DeviceLayer::ConfigurationMgr;
+#define TAG "Matter"
 
-#define TAG "Thermostat"
+namespace {
 
-/**
- * This program presents example Matter light device with OnOff cluster by
- * controlling LED with Matter and toggle button.
- *
- * If your ESP does not have buildin LED, please connect it to LED_PIN
- *
- * You can toggle light by both:
- *  - Matter (via CHIPTool or other Matter controller)
- *  - toggle button (by default attached to GPIO0 - reset button, with debouncing) 
- */
+// Matter Thermostat cluster SystemMode values supported by this endpoint.
+constexpr uint8_t kSystemModeOff = 0;
+constexpr uint8_t kSystemModeAuto = 1;
+constexpr uint8_t kSystemModeCool = 3;
+constexpr uint8_t kSystemModeHeat = 4;
+constexpr uint8_t kSystemModeEmergencyHeat = 5;
+constexpr uint8_t kSystemModeFanOnly = 7;
 
-// Please configure your PINs
-// const int LED_PIN = 2;
-// const int TOGGLE_BUTTON_PIN = 0;
+// HVACSystemTypeConfiguration encodes cooling and heating stage counts in two-bit fields.
+constexpr uint8_t kOneCoolingStage = 0x01;
+constexpr uint8_t kOneHeatingStage = 0x04;
+constexpr uint8_t kTwoHeatingStages = 0x08;
 
-// Debounce for toggle button
-// const int DEBOUNCE_DELAY = 500;
-// int last_toggle;
+// HVAC capabilities captured when the Matter data model is created.
+bool matter_cooling_enabled;
+bool matter_fan_enabled;
+bool matter_two_stage_heat_enabled;
 
-constexpr auto k_timeout_seconds = 300;
+// Endpoint used by the attribute callback and all subsequent reports.
+uint16_t thermostat_endpoint_id;
+// Set by the CHIP server-ready event before periodic attribute reports begin.
+std::atomic<bool> matter_server_ready{false};
 
-// Cluster and attribute ID used by Matter light device
-const uint32_t CLUSTER_ID = OnOff::Id;
-const uint32_t ATTRIBUTE_ID = OnOff::Attributes::OnOff::Id;
+// Tracks whether MatterUpdate() has run its initial report pass.
+bool last_reported_state_valid;
 
-// Endpoint and attribute ref that will be assigned to Matter device
-uint16_t light_endpoint_id = 0;
-attribute_t *attribute_ref;
+// Cached Matter Thermostat LocalTemperature value.
+int16_t last_local_temperature;
+// Cached Matter Thermostat OccupiedHeatingSetpoint value.
+int16_t last_heating_setpoint;
+// Cached Matter Thermostat OccupiedCoolingSetpoint value.
+int16_t last_cooling_setpoint;
+// Cached Matter Thermostat SystemMode value.
+uint8_t last_system_mode;
+// Cached Matter RelativeHumidityMeasurement value in hundredths of a percent.
+nullable<uint16_t> last_humidity;
+// Endpoint used to report the LD2410 presence state.
+uint16_t presence_endpoint_id;
+bool last_reported_presence;
+bool last_reported_presence_valid;
 
-// There is possibility to listen for various device events, related for example to setup process
-// Leaved as empty for simplicity
+// Convert the thermostat's selected temperature unit to Matter hundredths of Celsius.
+int16_t to_matter_temperature(float temperature)
+{
+  const float celsius = OperatingParameters.tempUnits == 'F' ? ftoc(temperature) : temperature;
+  return static_cast<int16_t>(std::lround(celsius * 100.0f));
+}
+
+// Convert corrected relative humidity to Matter hundredths of a percent.
+nullable<uint16_t> to_matter_relative_humidity(float humidity)
+{
+  if (!std::isfinite(humidity))
+  {
+    return nullable<uint16_t>();
+  }
+  if (humidity < 0.0f)
+  {
+    humidity = 0.0f;
+  }
+  else if (humidity > 100.0f)
+  {
+    humidity = 100.0f;
+  }
+  return nullable<uint16_t>(static_cast<uint16_t>(std::lround(humidity * 100.0f)));
+}
+
+// Convert Matter hundredths of Celsius to the thermostat's selected temperature unit.
+float from_matter_temperature(int16_t temperature)
+{
+  const float celsius = static_cast<float>(temperature) / 100.0f;
+  return OperatingParameters.tempUnits == 'F' ? ctof(celsius) : celsius;
+}
+
+// Return whether a requested Matter mode is enabled by the local HVAC configuration.
+bool is_matter_system_mode_enabled(uint8_t mode)
+{
+  switch (mode)
+  {
+    case kSystemModeOff:
+    case kSystemModeHeat:
+      return true;
+    case kSystemModeAuto:
+    case kSystemModeCool:
+      return matter_cooling_enabled;
+    case kSystemModeEmergencyHeat:
+      return matter_two_stage_heat_enabled;
+    case kSystemModeFanOnly:
+      return matter_fan_enabled;
+    default:
+      return false;
+  }
+}
+
+// Translate the thermostat HVAC state into a supported Matter SystemMode.
+uint8_t to_matter_system_mode(HVAC_MODE mode)
+{
+  switch (mode)
+  {
+    case AUTO:
+      return matter_cooling_enabled ? kSystemModeAuto : kSystemModeHeat;
+    case COOL:
+      return matter_cooling_enabled ? kSystemModeCool : kSystemModeOff;
+    case HEAT:
+      return kSystemModeHeat;
+    case AUX_HEAT:
+      return matter_two_stage_heat_enabled ? kSystemModeEmergencyHeat : kSystemModeHeat;
+    case FAN_ONLY:
+      return matter_fan_enabled ? kSystemModeFanOnly : kSystemModeOff;
+    case OFF:
+    case IDLE:
+    case ERROR:
+    case NR_HVAC_MODES:
+      return kSystemModeOff;
+  }
+  return kSystemModeOff;
+}
+
+// Apply Matter writes for this endpoint's Thermostat cluster to the HVAC state.
+esp_err_t on_attribute_update(attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
+                              uint32_t attribute_id, esp_matter_attr_val_t *value, void *priv_data)
+{
+  if (type != attribute::PRE_UPDATE || endpoint_id != thermostat_endpoint_id ||
+      cluster_id != Thermostat::Id)
+  {
+    return ESP_OK;
+  }
+
+  if (attribute_id == Thermostat::Attributes::SystemMode::Id)
+  {
+    if (!is_matter_system_mode_enabled(value->val.u8))
+    {
+      ESP_LOGW(TAG, "Ignoring Matter thermostat mode %u; disabled in local HVAC settings",
+               value->val.u8);
+      return ESP_ERR_INVALID_ARG;
+    }
+
+    switch (value->val.u8)
+    {
+      case kSystemModeOff:
+        updateHvacMode(OFF);
+        return ESP_OK;
+      case kSystemModeAuto:
+        updateHvacMode(AUTO);
+        return ESP_OK;
+      case kSystemModeCool:
+        updateHvacMode(COOL);
+        return ESP_OK;
+      case kSystemModeHeat:
+        updateHvacMode(HEAT);
+        return ESP_OK;
+      case kSystemModeEmergencyHeat:
+        updateHvacMode(AUX_HEAT);
+        return ESP_OK;
+      case kSystemModeFanOnly:
+        updateHvacMode(FAN_ONLY);
+        return ESP_OK;
+      default:
+        ESP_LOGW(TAG, "Ignoring unsupported Matter thermostat system mode: %u", value->val.u8);
+        return ESP_ERR_INVALID_ARG;
+    }
+  }
+
+  if (attribute_id == Thermostat::Attributes::OccupiedHeatingSetpoint::Id ||
+      attribute_id == Thermostat::Attributes::OccupiedCoolingSetpoint::Id)
+  {
+    updateHvacSetTemp(from_matter_temperature(value->val.i16));
+  }
+
+  return ESP_OK;
+}
+
+// Handle CHIP network, server, and commissioning events relevant to Matter.
 static void on_device_event(const ChipDeviceEvent *event, intptr_t arg)
 {
-  Serial.printf ("IN on_device_event() : event->Type = %d\n", event->Type);
-
   switch (event->Type)
   {
     case chip::DeviceLayer::DeviceEventType::kInterfaceIpAddressChanged:
-        ESP_LOGI(TAG, "Interface IP Address changed");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kCommissioningComplete:
-        ESP_LOGI(TAG, "Commissioning complete");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kFailSafeTimerExpired:
-        ESP_LOGI(TAG, "Commissioning failed, fail safe timer expired");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kCommissioningSessionStarted:
-        ESP_LOGI(TAG, "Commissioning session started");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kCommissioningSessionStopped:
-        ESP_LOGI(TAG, "Commissioning session stopped");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kCommissioningWindowOpened:
-        ESP_LOGI(TAG, "Commissioning window opened");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kCommissioningWindowClosed:
-        ESP_LOGI(TAG, "Commissioning window closed");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kFabricRemoved:
-    {
-      ESP_LOGI(TAG, "Fabric removed successfully");
-#if 0
-      if (chip::Server::GetInstance().GetFabricTable().FabricCount() == 0)
-      {
-        chip::CommissioningWindowManager & commissionMgr = chip::Server::GetInstance().GetCommissioningWindowManager();
-        constexpr auto kTimeoutSeconds = chip::System::Clock::Seconds16(k_timeout_seconds);
-        if (!commissionMgr.IsCommissioningWindowOpen())
-        {
-          /* After removing last fabric, this example does not remove the Wi-Fi credentials
-          * and still has IP connectivity so, only advertising on DNS-SD.
-          */
-          CHIP_ERROR err = commissionMgr.OpenBasicCommissioningWindow(kTimeoutSeconds,
-                            chip::CommissioningWindowAdvertisement::kDnssdOnly);
-          if (err != CHIP_NO_ERROR)
-          {
-            ESP_LOGE(TAG, "Failed to open commissioning window, err:%" CHIP_ERROR_FORMAT, err.Format());
-          }
-        }
-      }
-#endif
+      WifiMatterStarted();
+      ESP_LOGI(TAG, "Matter network address changed");
       break;
-    }
-
-    case chip::DeviceLayer::DeviceEventType::kFabricWillBeRemoved:
-        ESP_LOGI(TAG, "Fabric will be removed");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kFabricUpdated:
-        ESP_LOGI(TAG, "Fabric is updated");
-        break;
-
-    case chip::DeviceLayer::DeviceEventType::kFabricCommitted:
-        ESP_LOGI(TAG, "Fabric is committed");
-        break;
-
+    case chip::DeviceLayer::DeviceEventType::kServerReady:
+      chip::Logging::SetLogFilter(chip::Logging::kLogCategory_Error);
+      matter_server_ready.store(true);
+      ESP_LOGI(TAG, "Matter server ready");
+      break;
+    case chip::DeviceLayer::DeviceEventType::kCommissioningComplete:
+      ESP_LOGI(TAG, "Matter commissioning complete");
+      break;
+    case chip::DeviceLayer::DeviceEventType::kFailSafeTimerExpired:
+      ESP_LOGW(TAG, "Matter commissioning failed; fail-safe timer expired");
+      break;
     default:
-        break;
+      break;
   }
 }
 
-static esp_err_t on_identification(identification::callback_type_t type, uint16_t endpoint_id,
-                                   uint8_t effect_id, uint8_t effect_variant, void *priv_data) {
-  return ESP_OK;
-}
-
-// Listener on attribute update requests.
-// In this example, when update is requested, path (endpoint, cluster and attribute) is checked
-// if it matches light attribute. If yes, LED changes state to new one.
-static esp_err_t on_attribute_update(attribute::callback_type_t type, uint16_t endpoint_id, uint32_t cluster_id,
-                                     uint32_t attribute_id, esp_matter_attr_val_t *val, void *priv_data) {
-  if (type == attribute::PRE_UPDATE && endpoint_id == light_endpoint_id &&
-      cluster_id == CLUSTER_ID && attribute_id == ATTRIBUTE_ID) {
-    // We got an light on/off attribute update!
-    bool new_state = val->val.b;
-//    digitalWrite(LED_PIN, new_state);
+// Report one Thermostat cluster attribute and log any reporting error.
+esp_err_t report_attribute(uint16_t endpoint_id, uint32_t cluster_id, uint32_t attribute_id,
+                           esp_matter_attr_val_t *value)
+{
+  const esp_err_t err = attribute::report(endpoint_id, cluster_id, attribute_id, value);
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to report Matter attribute 0x%08" PRIx32
+                  " in cluster 0x%08" PRIx32 " on endpoint %u: %s",
+             attribute_id, cluster_id, endpoint_id, esp_err_to_name(err));
   }
-  return ESP_OK;
+  return err;
 }
 
+} // namespace
+
+// Create the Matter node and endpoints, start the server, and prepare the QR and
+// manual pairing codes. Returns false if Matter is disabled, Wi-Fi credentials
+// are missing, or node, endpoint, or server startup fails.
 bool MatterInit()
 {
-  //@@@ Need to set for Matter only
-  // Enable debug logging
-  esp_log_level_set("*", ESP_LOG_DEBUG);
-  // esp_log_level_set("*", ESP_LOG_WARN);
+  //
+  // The ESP-Matter component’s log tag for its attribute data-model code—for example,
+  // looking up attribute handles and reporting or updating attribute values. It’s
+  // separate from CHIP’s EM and IM log modules.
+  //
+  esp_log_level_set("esp_matter_attribute", ESP_LOG_WARN);
+
+  //
+  // All module initials can be found in the #define CHIP_LOGMODULES_ENUMERATE in
+  // the Constants.h file under 'managed_components/espressif__esp_matter/connectedhomeip/connectedhomeip/src/lib/support/logging/Constants.h'.
+  //
+
 
   if (!OperatingParameters.MatterEnabled)
   {
-    Serial.printf ("MatterInit() called when Matter not enabled\n");
+    ESP_LOGW(TAG, "Matter initialization requested while Matter is disabled");
     return false;
   }
-
-  // If no creds in EEPROM, do not start Matter.
-  // There may be creds stored in wifi NVS.
-  if (strlen(WifiCreds.ssid) == 0)
+  if (WifiCreds.ssid[0] == '\0')
   {
-    Serial.printf ("No wifi credentials set -- not starting matter\n");
+    ESP_LOGW(TAG, "Matter needs Wi-Fi credentials; configure Wi-Fi before enabling Matter");
     return false;
   }
 
-  // Set wifi credentials
-  wifiSetCredentials(WifiCreds.ssid, WifiCreds.password);
+  chip::Logging::SetLogFilter(chip::Logging::kLogCategory_Max);
+  matter_server_ready.store(false);
+  last_reported_state_valid = false;
+  last_reported_presence_valid = false;
+  matter_cooling_enabled = OperatingParameters.hvacCoolEnable;
+  matter_fan_enabled = OperatingParameters.hvacFanEnable;
+  matter_two_stage_heat_enabled = OperatingParameters.hvac2StageHeatEnable;
+  WifiSetCredentials(WifiCreds.ssid, WifiCreds.password);
 
-  // Setup Matter node
   node::config_t node_config;
-  node_t *node = node::create(&node_config, on_attribute_update, on_identification);
+  node_t *node = node::create(&node_config, on_attribute_update, nullptr);
+  if (node == nullptr)
+  {
+    ESP_LOGE(TAG, "Failed to create Matter node");
+    return false;
+  }
 
-  // Set product name (stored in node 0)
-  auto endpoint = esp_matter::endpoint::get(node, 0);
-  auto cluster = esp_matter::cluster::get(endpoint, chip::app::Clusters::BasicInformation::Id);
-  auto attribute = esp_matter::attribute::get(cluster, chip::app::Clusters::BasicInformation::Attributes::NodeLabel::Id);
-  std::string data = CHIP_DEVICE_CONFIG_PRODUCT_NAME;
-  auto val = esp_matter_char_str(data.data(), data.length());
-  esp_matter::attribute::set_val(attribute, &val);
-
-
-
-#if 0
-{
-    esp_err_t error;
-    esp_matter_attr_val_t val = esp_matter_char_str((char *)"Lowpan", sizeof("Lowpan"));
-    error = attribute::update(
-      0,
-      chip::app::Clusters::BasicInformation::Id,
-      chip::app::Clusters::BasicInformation::Attributes::VendorName::Id,
-      &val);
-}
-
-  // THE FOLLOWING DO NOT WORK
-   attribute = esp_matter::attribute::get(cluster, chip::app::Clusters::BasicInformation::Attributes::ProductName::Id);
-   data = CHIP_DEVICE_CONFIG_PRODUCT_NAME;
-   val = esp_matter_char_str(data.data(), data.length());
-  esp_matter::attribute::set_val(attribute, &val);
-
-   attribute = esp_matter::attribute::get(cluster, chip::app::Clusters::BasicInformation::Attributes::VendorName::Id);
-   data = CHIP_DEVICE_CONFIG_VENDOR_NAME;
-   val = esp_matter_char_str(data.data(), data.length());
-  esp_matter::attribute::set_val(attribute, &val);
-
-   attribute = esp_matter::attribute::get(cluster, chip::app::Clusters::BasicInformation::Attributes::HardwareVersionString::Id);
-   data = CHIP_DEVICE_CONFIG_DEVICE_HARDWARE_VERSION_STRING;
-   val = esp_matter_char_str(data.data(), data.length());
-  esp_matter::attribute::set_val(attribute, &val);
-  // THE ABOVE DO NOT WORK
-#endif
-
-  // Add enpoint to the node
   thermostat::config_t thermostat_config;
-  thermostat_config.thermostat.local_temperature = 19;
-  thermostat_config.thermostat.system_mode        = 0;    // OFF state
-  endpoint_t *thermostat_endpoint = thermostat::create(node, &thermostat_config, ENDPOINT_FLAG_NONE, NULL);
+  thermostat_config.thermostat.local_temperature =
+      to_matter_temperature(OperatingParameters.tempCurrent + OperatingParameters.tempCorrection);
+  thermostat_config.thermostat.system_mode = to_matter_system_mode(OperatingParameters.hvacSetMode);
+  thermostat_config.thermostat.control_sequence_of_operation =
+      static_cast<uint8_t>(matter_cooling_enabled
+                               ? Thermostat::ControlSequenceOfOperationEnum::kCoolingAndHeating
+                               : Thermostat::ControlSequenceOfOperationEnum::kHeatingOnly);
+  thermostat_config.thermostat.feature_flags = cluster::thermostat::feature::heating::get_id();
+  if (matter_cooling_enabled)
+  {
+    thermostat_config.thermostat.feature_flags |=
+        cluster::thermostat::feature::cooling::get_id() |
+        cluster::thermostat::feature::auto_mode::get_id();
+  }
+  thermostat_config.thermostat.features.heating.occupied_heating_setpoint =
+      to_matter_temperature(OperatingParameters.tempSet);
+  if (matter_cooling_enabled)
+  {
+    thermostat_config.thermostat.features.cooling.occupied_cooling_setpoint =
+        to_matter_temperature(OperatingParameters.tempSet);
+  }
+  endpoint_t *thermostat_endpoint =
+      thermostat::create(node, &thermostat_config, ENDPOINT_FLAG_NONE, nullptr);
+  if (thermostat_endpoint == nullptr)
+  {
+    ESP_LOGE(TAG, "Failed to create Matter thermostat endpoint");
+    return false;
+  }
+  thermostat_endpoint_id = endpoint::get_id(thermostat_endpoint);
 
-  uint16_t thermostat_endpoint_id = endpoint::get_id(thermostat_endpoint);
-  ESP_LOGI(TAG, "Thermostat endpoint_id = %d", thermostat_endpoint_id);
-
-  // Add additional feature
   cluster_t *thermostat_cluster = cluster::get(thermostat_endpoint, Thermostat::Id);
-  cluster::thermostat::feature::heating::config_t heating_config;
-  heating_config.abs_max_heat_setpoint_limit = 3000;
-  heating_config.abs_min_heat_setpoint_limit = 1500;
-  heating_config.max_heat_setpoint_limit = 2800;
-  heating_config.min_heat_setpoint_limit = 2000;
-  heating_config.occupied_heating_setpoint = 2300;
-  heating_config.pi_heating_demand = 0;
-  ESP_LOGE(TAG, "Thermostat heating cluster id = %d", cluster::thermostat::feature::heating::get_id());
-  cluster::thermostat::feature::heating::add(thermostat_cluster, &heating_config);
+  const uint8_t hvac_system_type =
+      (matter_cooling_enabled ? kOneCoolingStage : 0x00) |
+      (matter_two_stage_heat_enabled ? kTwoHeatingStages : kOneHeatingStage);
+  attribute_t *hvac_system_type_attribute =
+      attribute::create(thermostat_cluster, Thermostat::Attributes::HVACSystemTypeConfiguration::Id,
+                        ATTRIBUTE_FLAG_NONE, esp_matter_bitmap8(hvac_system_type));
+  if (hvac_system_type_attribute == nullptr)
+  {
+    ESP_LOGE(TAG, "Failed to create Matter HVAC system type attribute");
+    return false;
+  }
 
-  // Add additional cooling cluster
-//   cluster_t *thermostat_cluster = cluster::get(thermostat_endpoint, Thermostat::Id);
-  esp_matter::cluster::thermostat::feature::cooling::config_t cooling_config;
-  //cooling_config.config();MutableCharSpan
-  cooling_config.abs_min_cool_setpoint_limit = 1600;
-  cooling_config.abs_max_cool_setpoint_limit = 3200;
-  cooling_config.pi_cooling_demand           = 50;  // 50%
-  cooling_config.occupied_cooling_setpoint   = 2600;
-  cooling_config.min_cool_setpoint_limit     = 1600;
-  cooling_config.max_cool_setpoint_limit     = 3200;
-  ESP_LOGE(TAG, "Thermostat cooling cluster id = %d", esp_matter::cluster::thermostat::feature::cooling::get_id());
-  esp_matter::cluster::thermostat::feature::cooling::add(thermostat_cluster, &cooling_config);
+  cluster::relative_humidity_measurement::config_t humidity_config;
+  humidity_config.measured_value =
+      to_matter_relative_humidity(OperatingParameters.humidCurrent +
+                                  OperatingParameters.humidityCorrection);
+  cluster_t *humidity_cluster =
+      cluster::relative_humidity_measurement::create(thermostat_endpoint, &humidity_config,
+                                                      CLUSTER_FLAG_SERVER);
+  if (humidity_cluster == nullptr)
+  {
+    ESP_LOGE(TAG, "Failed to create Matter relative-humidity cluster");
+    return false;
+  }
 
+  occupancy_sensor::config_t presence_config;
+  presence_config.occupancy_sensing.occupancy =
+      OperatingParameters.presenceDetected
+          ? static_cast<uint8_t>(OccupancySensing::OccupancyBitmap::kOccupied)
+          : 0;
+  presence_config.occupancy_sensing.feature_flags =
+      cluster::occupancy_sensing::feature::radar::get_id();
+  endpoint_t *presence_endpoint =
+      occupancy_sensor::create(node, &presence_config, ENDPOINT_FLAG_NONE, nullptr);
+  if (presence_endpoint == nullptr)
+  {
+    ESP_LOGE(TAG, "Failed to create Matter presence-sensor endpoint");
+    return false;
+  }
+  presence_endpoint_id = endpoint::get_id(presence_endpoint);
 
+  const esp_err_t err = esp_matter::start(on_device_event);
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to start Matter: %s", esp_err_to_name(err));
+    return false;
+  }
 
+  char qr_code[33] = {};
+  MutableCharSpan qr_span(qr_code, sizeof(qr_code));
+  CHIP_ERROR chip_err = GetQRCode(qr_span, RendezvousInformationFlag::kOnNetwork);
+  if (chip_err == CHIP_NO_ERROR)
+  {
+    strlcpy(OperatingParameters.MatterQR, qr_code, sizeof(OperatingParameters.MatterQR));
+  }
+  else
+  {
+    ESP_LOGE(TAG, "Failed to generate Matter QR code: %" CHIP_ERROR_FORMAT, chip_err.Format());
+  }
 
+  char pairing_code[12] = {};
+  MutableCharSpan pairing_span(pairing_code, sizeof(pairing_code));
+  chip_err = GetManualPairingCode(pairing_span, RendezvousInformationFlag::kOnNetwork);
+  if (chip_err == CHIP_NO_ERROR)
+  {
+    strlcpy(OperatingParameters.MatterPairingCode, pairing_code,
+            sizeof(OperatingParameters.MatterPairingCode));
+  }
+  else
+  {
+    ESP_LOGE(TAG, "Failed to generate Matter manual pairing code: %" CHIP_ERROR_FORMAT, chip_err.Format());
+  }
 
-
-
-
-
-
-
-
-//   // Setup Light endpoint / cluster / attributes with default values
-//   on_off_light::config_t light_config;
-//   light_config.on_off.on_off = false;
-//   light_config.on_off.lighting.start_up_on_off = false;
-//   endpoint_t *endpoint = on_off_light::create(node, &light_config, ENDPOINT_FLAG_NONE, NULL);
-
-//   // Save on/off attribute reference. It will be used to read attribute value later.
-//   attribute_ref = attribute::get(cluster::get(endpoint, CLUSTER_ID), ATTRIBUTE_ID);
-
-//   // Save generated endpoint id
-//   light_endpoint_id = endpoint::get_id(endpoint);
-  
-  // Setup DAC (this is good place to also set custom commission data, passcodes etc.)
-  esp_matter::set_custom_dac_provider(Credentials::Examples::GetExampleDACProvider());
-
-
-
-
-  ESP_LOGE(TAG, "Calling esp_matter::start()\n");
-  // Start Matter device
-  esp_matter::start(on_device_event);
-
-  // Get QR Code 
-  std::string QRCode = "                                 ";  // 33 chars
-  CHIP_ERROR err;
-
-  ESP_LOGE(TAG, "Calling PrintOnboardingCodes()\n");
-  // Print codes needed to setup Matter device
-  #if 0
-    PrintOnboardingCodes(RendezvousInformationFlags(RendezvousInformationFlag::kOnNetwork));
-  #else
-    err = GetQRCode((MutableCharSpan &)QRCode, RendezvousInformationFlag::kOnNetwork);
-    if (err == CHIP_NO_ERROR)
-    {
-      // strcpy (OperatingParameters.MatterQR, QRCode.data());
-      strcpy (OperatingParameters.MatterQR, QRCode.c_str());
-      ESP_LOGE(TAG, "QR Pairing Code: '%s'\n", OperatingParameters.MatterQR);
-    } else {
-      ESP_LOGE(TAG, "Failed to GetQRCode() -- Error: %d\n", err.AsInteger());
-    }
-    err = GetManualPairingCode((MutableCharSpan &)QRCode, RendezvousInformationFlag::kOnNetwork);
-    if (err == CHIP_NO_ERROR)
-    {
-      strcpy (OperatingParameters.MatterPairingCode, QRCode.c_str());
-      ESP_LOGE(TAG, "Manual Pairing Code: '%s'\n", OperatingParameters.MatterPairingCode);
-    } else {
-      ESP_LOGE(TAG, "Failed to GetManualPairingCode() -- Error: %d\n", err.AsInteger());
-    }
-  #endif
-
-  OperatingParameters.MatterStarted = true;  
-
-  // Call into wifi module to set flags appropriately to
-  // indicate Matter is running and register wifi callbacks.
-  wifiMatterStarted();
-
+  WifiMatterStarted();
+  ESP_LOGI(TAG, "Matter started on thermostat endpoint %u and presence endpoint %u",
+           thermostat_endpoint_id, presence_endpoint_id);
   return true;
 }
 
-
+// Delegate Matter fabric and commissioning-data reset to ESP-Matter.
 void MatterFactoryReset()
 {
-  ESP_LOGI(TAG, "Calling ESP factory_reset()\n");
-#if 1
-  esp_matter::factory_reset();
-#else
-  chip::DeviceLayer::ConfigurationMgr().InitiateFactoryReset();
-#endif
+  matter_server_ready.store(false);
+  OperatingParameters.MatterStarted = false;
+  const esp_err_t err = esp_matter::factory_reset();
+  if (err != ESP_OK)
+  {
+    ESP_LOGE(TAG, "Failed to reset Matter configuration: %s", esp_err_to_name(err));
+  }
 }
 
-// Reads light on/off attribute value
-esp_matter_attr_val_t get_onoff_attribute_value() {
-  esp_matter_attr_val_t onoff_value = esp_matter_invalid(NULL);
-  attribute::get_val(attribute_ref, &onoff_value);
-  return onoff_value;
-}
-
-// Sets light on/off attribute value
-void set_onoff_attribute_value(esp_matter_attr_val_t* onoff_value) {
-  attribute::update(light_endpoint_id, CLUSTER_ID, ATTRIBUTE_ID, onoff_value);
-}
-
-// When toggle light button is pressed (with debouncing),
-// light attribute value is changed
-void MatterLoop()
+// Report thermostat attributes, humidity, and presence when Matter is started
+// and server-ready. Sends initial values and subsequent changes.
+void MatterUpdate()
 {
-//   if ((millis() - last_toggle) > DEBOUNCE_DELAY)
-//   {
-//     if (!digitalRead(TOGGLE_BUTTON_PIN))
-//     {
-//       last_toggle = millis();
-//       // Read actual on/off value, invert it and set
-//       esp_matter_attr_val_t onoff_value = get_onoff_attribute_value();
-//       onoff_value.val.b = !onoff_value.val.b;
-//       set_onoff_attribute_value(&onoff_value);
-//     }
-//   }
+  if (!OperatingParameters.MatterStarted || !matter_server_ready.load())
+  {
+    return;
+  }
+
+  const int16_t local_temperature =
+      to_matter_temperature(OperatingParameters.tempCurrent + OperatingParameters.tempCorrection);
+  nullable<uint16_t> humidity =
+      to_matter_relative_humidity(OperatingParameters.humidCurrent +
+                                  OperatingParameters.humidityCorrection);
+  const int16_t setpoint = to_matter_temperature(OperatingParameters.tempSet);
+  const uint8_t system_mode = to_matter_system_mode(OperatingParameters.hvacSetMode);
+
+  if (!last_reported_state_valid || local_temperature != last_local_temperature)
+  {
+    esp_matter_attr_val_t value = esp_matter_nullable_int16(nullable<int16_t>(local_temperature));
+    if (report_attribute(thermostat_endpoint_id, Thermostat::Id,
+                         Thermostat::Attributes::LocalTemperature::Id, &value) == ESP_OK)
+    {
+      last_local_temperature = local_temperature;
+    }
+  }
+  const bool humidity_changed =
+      !last_reported_state_valid || humidity.is_null() != last_humidity.is_null() ||
+      (!humidity.is_null() && humidity.value() != last_humidity.value());
+  if (humidity_changed)
+  {
+    esp_matter_attr_val_t value = esp_matter_nullable_uint16(humidity);
+    if (report_attribute(thermostat_endpoint_id, RelativeHumidityMeasurement::Id,
+                         RelativeHumidityMeasurement::Attributes::MeasuredValue::Id, &value) == ESP_OK)
+    {
+      last_humidity = humidity;
+    }
+  }
+  const bool presence_detected = OperatingParameters.presenceDetected;
+  if (!last_reported_presence_valid || presence_detected != last_reported_presence)
+  {
+    const uint8_t occupancy = presence_detected
+                                  ? static_cast<uint8_t>(OccupancySensing::OccupancyBitmap::kOccupied)
+                                  : 0;
+    esp_matter_attr_val_t value = esp_matter_bitmap8(occupancy);
+    if (report_attribute(presence_endpoint_id, OccupancySensing::Id,
+                         OccupancySensing::Attributes::Occupancy::Id, &value) == ESP_OK)
+    {
+      last_reported_presence = presence_detected;
+      last_reported_presence_valid = true;
+    }
+  }
+  if (!last_reported_state_valid || setpoint != last_heating_setpoint)
+  {
+    esp_matter_attr_val_t value = esp_matter_int16(setpoint);
+    if (report_attribute(thermostat_endpoint_id, Thermostat::Id,
+                         Thermostat::Attributes::OccupiedHeatingSetpoint::Id, &value) == ESP_OK)
+    {
+      last_heating_setpoint = setpoint;
+    }
+  }
+  if (matter_cooling_enabled &&
+      (!last_reported_state_valid || setpoint != last_cooling_setpoint))
+  {
+    esp_matter_attr_val_t value = esp_matter_int16(setpoint);
+    if (report_attribute(thermostat_endpoint_id, Thermostat::Id,
+                         Thermostat::Attributes::OccupiedCoolingSetpoint::Id, &value) == ESP_OK)
+    {
+      last_cooling_setpoint = setpoint;
+    }
+  }
+  if (!last_reported_state_valid || system_mode != last_system_mode)
+  {
+    esp_matter_attr_val_t value = esp_matter_enum8(system_mode);
+    if (report_attribute(thermostat_endpoint_id, Thermostat::Id,
+                         Thermostat::Attributes::SystemMode::Id, &value) == ESP_OK)
+    {
+      last_system_mode = system_mode;
+    }
+  }
+
+  last_reported_state_valid = true;
 }
 
-#endif  // #ifdef MATTER_ENABLED
+#endif
