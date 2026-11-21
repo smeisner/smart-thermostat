@@ -7,11 +7,7 @@
 
 ## Release Notes
 
-* NB #1: The v0.5.2 prototype boards have an odd connectivity issue with the USB ports. If you see 'oddness', flip the cable around and try that. It should work since all prototypes are tested before leaving my workbench.
-
-* NB #2: There was an error on the v0.5.2 proto; the top right corner has 3 test points; GND, 5V and 3V3. I misconfigured the net connection for the 3v3 and it ended up not being connected. So don't use it to test...it's not connected.
-
-* NB #3: If the board has been powered off for a bit, it starts up in boot mode when power is applied. Therefore, the reset button must be pushed. I am guessing this is a power-up problem...if anyone can suggest a PCB change, I will include it in the next run!
+* [empty]
 
 ## Steps to build environment:
 
