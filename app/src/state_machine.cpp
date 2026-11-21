@@ -231,18 +231,18 @@ void hvacStateUpdate()
   int64_t currentFanRuntime;
   HVAC_MODE prev_mode = OperatingParameters.hvacOpMode;
 
-  if (ModeChangeRequested && (millis() - ModeChangeRequestTime > 2000))
+  HVAC_MODE requested_mode;
+  if (takePendingHvacMode(&requested_mode))
   {
-    ESP_LOGI(__FUNCTION__, "Processing requested HVAC mode change to %s", hvacModeToString(requestedHvacMode));
-    _updateHvacMode(requestedHvacMode);
-    ModeChangeRequested = false;
+    ESP_LOGI(__FUNCTION__, "Processing requested HVAC mode change to %s", hvacModeToString(requested_mode));
+    _updateHvacMode(requested_mode);
   }
 
-  if (TempChangeRequested && (millis() - TempChangeRequestTime > 2000))
+  float requested_set_temp;
+  if (takePendingHvacSetTemp(&requested_set_temp))
   {
-    ESP_LOGI(__FUNCTION__, "Processing requested HVAC set temperature change to %.2f", requestedHvacSetTemp);
-    _updateHvacSetTemp(requestedHvacSetTemp);
-    TempChangeRequested = false;
+    ESP_LOGI(__FUNCTION__, "Processing requested HVAC set temperature change to %.2f", requested_set_temp);
+    _updateHvacSetTemp(requested_set_temp);
   }
 
   currentTemp = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;

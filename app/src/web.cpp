@@ -46,6 +46,10 @@
 
 static const char *TAG = "WEB";
 
+// Firmware upgrade functions
+bool check_github_for_updates(bool);
+bool performUpdate(bool);
+
 static char html[2200];
 static char xml[800];
 
@@ -84,10 +88,10 @@ float enforceRange(float value, float min, float max) {
 }
 
 #define BUTTON_CONTENT_SIZE 30
-bool buttonDispatch(char content[BUTTON_CONTENT_SIZE])
+bool buttonDispatch(const char *content, bool &matter_capabilities_changed)
 {
   //@@@ Make this independent of Matter. Maybe change name to hvac_capabilities_changed() or something like that.
-  bool matter_capabilities_changed = false;
+  matter_capabilities_changed = false;
 
   if (!strncmp(content, "tempUp", BUTTON_CONTENT_SIZE))
     doTempUp();
@@ -196,22 +200,47 @@ bool buttonDispatch(char content[BUTTON_CONTENT_SIZE])
   {
     ESP_LOGE(TAG, "Could not dispatch request \"%s\"", content);
     OperatingParameters.Errors.systemErrors++;
+    return false;
   }
 
-  return matter_capabilities_changed;
+  return true;
 }
 
 #define min(x, y) ((x < y) ? x : y)
 
 esp_err_t handleButton(httpd_req_t *req)
 {
-  char content[BUTTON_CONTENT_SIZE];
-  size_t recv_size = min(req->content_len, sizeof(content));
-  httpd_resp_set_type(req, "text/xml");
-  int ret = httpd_req_recv(req, content, recv_size);
-  content[recv_size] = '\0';
+  char content[BUTTON_CONTENT_SIZE + 1] = {};
+  const size_t content_len = req->content_len;
+  if (content_len == 0 || content_len > BUTTON_CONTENT_SIZE)
+  {
+    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Invalid button command size");
+  }
+
+  size_t received = 0;
+  while (received < content_len)
+  {
+    const int recv_len = httpd_req_recv(req, content + received, content_len - received);
+    if (recv_len == HTTPD_SOCK_ERR_TIMEOUT)
+    {
+      continue;
+    }
+    if (recv_len <= 0)
+    {
+      ESP_LOGW(TAG, "Failed to receive complete web button command");
+      return ESP_FAIL;
+    }
+    received += static_cast<size_t>(recv_len);
+  }
+
+  bool matter_capabilities_changed = false;
+  if (!buttonDispatch(content, matter_capabilities_changed))
+  {
+    return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Unknown button command");
+  }
+
+  httpd_resp_set_type(req, "text/plain");
   //@@@ Make this independent of Matter. Maybe change name to hvac_capabilities_changed() or something like that.
-  const bool matter_capabilities_changed = buttonDispatch(content);
 #ifdef MATTER_ENABLED
   if (matter_capabilities_changed)
   {
@@ -297,13 +326,38 @@ esp_err_t handleXML(httpd_req_t *req)
 
 esp_err_t handleRoot(httpd_req_t *req)
 {
-  return httpd_resp_send(req, webUI, sizeof(webUI));
+  return httpd_resp_send(req, webUI, HTTPD_RESP_USE_STRLEN);
 }
 
 esp_err_t fwUpload(httpd_req_t *req)
 {
   return httpd_resp_send(req, web_fw_upload, strlen(web_fw_upload));
 }
+
+esp_err_t GithubFirmwareUpgrade(httpd_req_t *req)
+{
+  httpd_resp_set_type(req, "text/plain");
+
+  ESP_LOGI(TAG, "Checking Github for firmware upgrade...");
+  if (check_github_for_updates(false))
+  {
+    ESP_LOGI(TAG, "Firmware upgrade available. Starting upgrade process...");
+    const esp_err_t response_err =
+        httpd_resp_sendstr(req, "Firmware upgrade available. Starting update; the thermostat will restart.");
+    if (response_err != ESP_OK)
+    {
+      ESP_LOGW(TAG, "Could not send firmware upgrade status to the web client: %s",
+               esp_err_to_name(response_err));
+    }
+
+    performUpdate(false);
+    return response_err;
+  }
+
+  ESP_LOGI(TAG, "No firmware upgrade available.");
+  return httpd_resp_sendstr(req, "No update found, or the update check failed. See the device log for details.");
+}
+
 
 /*
  * Handle OTA file upload
@@ -385,6 +439,11 @@ httpd_uri_t uri_update = {
     .method = HTTP_POST,
     .handler = fwUpdate,
     .user_ctx = NULL};
+httpd_uri_t uri_gh_upgrade = {
+    .uri = "/gh_upgrade",
+    .method = HTTP_POST,
+    .handler = GithubFirmwareUpgrade,
+    .user_ctx = NULL};
 
 void webStart()
 {
@@ -403,7 +462,8 @@ void webStart()
     httpd_register_uri_handler(server, &uri_button);
     httpd_register_uri_handler(server, &uri_upload);
     httpd_register_uri_handler(server, &uri_update);
-  }
+    httpd_register_uri_handler(server, &uri_gh_upgrade);
+ }
 
   if (server == NULL)
   {

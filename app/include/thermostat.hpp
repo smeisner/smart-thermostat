@@ -167,11 +167,9 @@ float ctof(float celsius);
 void _updateHvacMode(HVAC_MODE mode);
 void _updateHvacSetTemp(float setTemp);
 extern HVAC_MODE requestedHvacMode;
-extern bool ModeChangeRequested;
-extern int64_t ModeChangeRequestTime;
 extern float requestedHvacSetTemp;
-extern bool TempChangeRequested;
-extern int64_t TempChangeRequestTime;
+bool takePendingHvacMode(HVAC_MODE *mode);
+bool takePendingHvacSetTemp(float *setTemp);
 
 /////////////////////////////////////////////////////////////////////
 //          Forward Declarations

@@ -54,10 +54,11 @@ adc_oneshot_unit_handle_t adcHandle;
 
 HVAC_MODE requestedHvacMode = ERROR;
 float requestedHvacSetTemp = 0.0;
-bool ModeChangeRequested;
-int64_t ModeChangeRequestTime;
-bool TempChangeRequested;
-int64_t TempChangeRequestTime;
+static bool ModeChangeRequested;
+static int64_t ModeChangeRequestTime;
+static bool TempChangeRequested;
+static int64_t TempChangeRequestTime;
+static portMUX_TYPE hvacRequestMux = portMUX_INITIALIZER_UNLOCKED;
 
 float ftoc(float fahrenheit)
 { return ((fahrenheit - 32.0) * (5.0 / 9.0)); }
@@ -69,6 +70,7 @@ void _updateHvacMode(HVAC_MODE mode)
 {
   OperatingParameters.hvacSetMode = mode;
   eepromUpdateHvacSetMode();
+  ESP_LOGI(TAG, "Set HVAC mode: %s", hvacModeToString(mode));
 #ifdef MQTT_ENABLED
   MqttUpdateStatusTopic();
 #endif
@@ -86,23 +88,68 @@ void _updateHvacSetTemp(float setTemp)
 
 void updateHvacMode(HVAC_MODE mode)
 {
+  portENTER_CRITICAL(&hvacRequestMux);
   requestedHvacMode = mode;
-  ModeChangeRequested = true;
   ModeChangeRequestTime = millis();
+  ModeChangeRequested = true;
+  portEXIT_CRITICAL(&hvacRequestMux);
 }
 
 void updateHvacSetTemp(float setTemp)
 {
+  float requestedTemp;
   if (OperatingParameters.tempUnits == 'F')
   {
-    requestedHvacSetTemp = roundValue(setTemp, 0);
+    requestedTemp = roundValue(setTemp, 0);
   }
   else
   {
-    requestedHvacSetTemp = roundValue(setTemp, 1);
+    requestedTemp = roundValue(setTemp, 1);
   }
-  TempChangeRequested = true;
+
+  portENTER_CRITICAL(&hvacRequestMux);
+  requestedHvacSetTemp = requestedTemp;
   TempChangeRequestTime = millis();
+  TempChangeRequested = true;
+  portEXIT_CRITICAL(&hvacRequestMux);
+}
+
+bool takePendingHvacMode(HVAC_MODE *mode)
+{
+  if (mode == nullptr)
+  {
+    return false;
+  }
+
+  bool ready = false;
+  portENTER_CRITICAL(&hvacRequestMux);
+  if (ModeChangeRequested && millis() - ModeChangeRequestTime > 2000)
+  {
+    *mode = requestedHvacMode;
+    ModeChangeRequested = false;
+    ready = true;
+  }
+  portEXIT_CRITICAL(&hvacRequestMux);
+  return ready;
+}
+
+bool takePendingHvacSetTemp(float *setTemp)
+{
+  if (setTemp == nullptr)
+  {
+    return false;
+  }
+
+  bool ready = false;
+  portENTER_CRITICAL(&hvacRequestMux);
+  if (TempChangeRequested && millis() - TempChangeRequestTime > 2000)
+  {
+    *setTemp = requestedHvacSetTemp;
+    TempChangeRequested = false;
+    ready = true;
+  }
+  portEXIT_CRITICAL(&hvacRequestMux);
+  return ready;
 }
 
 /*---------------------------------------------------------------

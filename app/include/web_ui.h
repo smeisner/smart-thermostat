@@ -25,6 +25,7 @@ p{margin:0px;padding:0px}
 		<br>
 		<p id="hvacMode"></p>
 		<span id="hvacButtons"></span>
+		<div id="buttonStatus" aria-live="polite"></div>
 	</div>
 	<div class="pd mr border content-box">
 		Current Readings
@@ -63,7 +64,9 @@ p{margin:0px;padding:0px}
 		<br>
 		<div id="firmwareVer"></div>
 		<div id="firmwareDt"></div>
-		<button onclick='window.location.href="/upload"'>Update Firmware</button><br>
+		<button onclick='window.location.href="/upload"'>Write FW</button>
+		<button id="upgradeButton" onclick="upgradeFirmware()">Upgrade FW</button><br>
+		<div id="upgradeStatus" aria-live="polite"></div>
 		<button onclick=pressButton('terminateTelnet')>Abort Telnet</button>
 		<button onclick=pressButton('clearNVS')>Clear Config</button><br>
 	</div>
@@ -84,10 +87,53 @@ function createXmlHttpObject() {
 	}
 }
 let xmlHttp = createXmlHttpObject();
+let queuedButtonCommands = [];
+let buttonCommandActive = false;
 function pressButton(buttonID) {
+	queuedButtonCommands.push(buttonID);
+	sendNextButtonCommand();
+}
+
+function sendNextButtonCommand() {
+	if (buttonCommandActive || queuedButtonCommands.length == 0)
+		return;
+
+	buttonCommandActive = true;
+	let buttonID = queuedButtonCommands.shift();
 	let xhttp = new XMLHttpRequest();
-	xhttp.open('PUT', "/button", false);
+	xhttp.onreadystatechange = function() {
+		if (xhttp.readyState == XMLHttpRequest.DONE) {
+			buttonCommandActive = false;
+			if (xhttp.status != 200) {
+				document.getElementById("buttonStatus").textContent =
+					"Button request failed (HTTP " + xhttp.status + ").";
+			} else if (queuedButtonCommands.length == 0) {
+				document.getElementById("buttonStatus").textContent = "";
+			}
+			sendNextButtonCommand();
+		}
+	};
+	xhttp.open("PUT", "/button", true);
 	xhttp.send(buttonID);
+}
+
+function upgradeFirmware() {
+	let button = document.getElementById("upgradeButton");
+	let status = document.getElementById("upgradeStatus");
+	button.disabled = true;
+	status.textContent = "Checking for a firmware upgrade...";
+
+	let xhttp = new XMLHttpRequest();
+	xhttp.onreadystatechange = function() {
+		if (xhttp.readyState == XMLHttpRequest.DONE) {
+			button.disabled = false;
+			status.textContent = xhttp.status == 200
+				? xhttp.responseText
+				: "Firmware upgrade request failed (HTTP " + xhttp.status + ").";
+		}
+	};
+	xhttp.open("POST", "/gh_upgrade", true);
+	xhttp.send();
 }
 
 function fetchMessage(xmlResponse, tag) {
@@ -95,33 +141,43 @@ function fetchMessage(xmlResponse, tag) {
 	return xmlDoc[0].firstChild.nodeValue;
 }
 
+let lastHvacControlCapabilities = null;
 function populateOptionalHvacSettings(hvacCoolEnable, hvacFanEnable, twoStageEnable, reverseEnable) {
-	let hvacButtons = "";
-	hvacButtons += "<button onclick=pressButton('hvacModeOff')>OFF</button>";
-	if (hvacCoolEnable == "1") {
-		hvacButtons += "<button onclick=pressButton('hvacModeAuto')>AUTO</button>";
-		hvacButtons += "<button onclick=pressButton('hvacModeHeat')>HEAT</button>";
-		hvacButtons += "<button onclick=pressButton('hvacModeCool')>COOL</button>";
-		document.getElementById("coolCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacCoolEnable') checked>";
-	} else {
-		hvacButtons += "<button onclick=pressButton('hvacModeHeat')>HEAT</button>";
-		document.getElementById("coolCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacCoolEnable')>";
-	}
-	if (hvacFanEnable == "1") {
-		hvacButtons += "<button onclick=pressButton('hvacModeFan')>FAN</button>";
-		document.getElementById("fanCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacFanEnable') checked>";
-	} else {
-		document.getElementById("fanCheckBox").innerHTML = "<input type='checkbox' onclick=pressButton('hvacFanEnable')>";
+	let capabilities = hvacCoolEnable + ":" + hvacFanEnable;
+	if (capabilities != lastHvacControlCapabilities) {
+		let hvacButtons = "<button onclick=pressButton('hvacModeOff')>OFF</button>";
+		if (hvacCoolEnable == "1") {
+			hvacButtons += "<button onclick=pressButton('hvacModeAuto')>AUTO</button>";
+			hvacButtons += "<button onclick=pressButton('hvacModeHeat')>HEAT</button>";
+			hvacButtons += "<button onclick=pressButton('hvacModeCool')>COOL</button>";
+		} else {
+			hvacButtons += "<button onclick=pressButton('hvacModeHeat')>HEAT</button>";
+		}
+		if (hvacFanEnable == "1") {
+			hvacButtons += "<button onclick=pressButton('hvacModeFan')>FAN</button>";
+		}
+		document.getElementById("hvacButtons").innerHTML = hvacButtons;
+		document.getElementById("coolCheckBox").innerHTML =
+			"<input type='checkbox' onclick=pressButton('hvacCoolEnable')>";
+		document.getElementById("fanCheckBox").innerHTML =
+			"<input type='checkbox' onclick=pressButton('hvacFanEnable')>";
+		lastHvacControlCapabilities = capabilities;
 	}
 
+	document.querySelector("#coolCheckBox input").checked = hvacCoolEnable == "1";
+	document.querySelector("#fanCheckBox input").checked = hvacFanEnable == "1";
 	let twoStageHTML = "<input type='checkbox' onclick=pressButton('twoStageEnable')";
 	twoStageHTML += twoStageEnable == "1" ? " checked>" : ">";
 	let reverseHTML = "<input type='checkbox' onclick=pressButton('reverseEnable')";
 	reverseHTML += reverseEnable == "1" ? " checked>" : ">";
-	document.getElementById("auxHeatCheckBox").innerHTML = twoStageHTML;
-	document.getElementById("reverseCheckBox").innerHTML = reverseHTML;
-
-	document.getElementById("hvacButtons").innerHTML = hvacButtons;
+	if (document.querySelector("#auxHeatCheckBox input") == null)
+		document.getElementById("auxHeatCheckBox").innerHTML = twoStageHTML;
+	else
+		document.querySelector("#auxHeatCheckBox input").checked = twoStageEnable == "1";
+	if (document.querySelector("#reverseCheckBox input") == null)
+		document.getElementById("reverseCheckBox").innerHTML = reverseHTML;
+	else
+		document.querySelector("#reverseCheckBox input").checked = reverseEnable == "1";
 }
 
 function populateHvacSliders(correction, swing) {
@@ -167,7 +223,7 @@ function process() {
 		xmlHttp.onreadystatechange=response;
 		xmlHttp.send(null);
 	}
-	setTimeout("process()",200);
+	setTimeout(process, 1000);
 }
 </script>
 </html>
