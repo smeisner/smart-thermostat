@@ -19,7 +19,11 @@ static const char *TAG = "GITHUB_OTA";
 static char redirected_location[256] = {0};
 
 // Change this macro if you alter your binary compilation output name on GitHub Releases
-#define GITHUB_BIN_ASSET_NAME "firmware.bin"
+#ifdef MATTER_ENABLED
+  #define GITHUB_BIN_ASSET_NAME "firmware-matter.bin"
+#else
+  #define GITHUB_BIN_ASSET_NAME "firmware-mqtt.bin"
+#endif
 
 static void download_and_install_ota(const char *tag_name, bool sourceTelnet)
 {
