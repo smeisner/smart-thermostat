@@ -87,6 +87,7 @@ typedef struct
     bool hvacCoolEnable;
     bool hvacFanEnable;
     bool hvac2StageHeatEnable;
+    bool hvac2StageCoolEnable;
     bool hvacReverseValveEnable;
 
     bool thermostatBeepEnable;
@@ -237,8 +238,8 @@ void eepromInit();
 void clearNVS();
 bool eepromUpdateHvacSetTemp();
 bool eepromUpdateHvacSetMode();
-void setWifiCreds();
-void updateThermostatParams();
+bool setWifiCreds();
+bool updateThermostatParams();
 
 bool eepromUpdateArbFloat(const char *key, float value);
 bool eepromUpdateArbMode(const char *key, HVAC_MODE mode);

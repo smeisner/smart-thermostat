@@ -102,6 +102,7 @@ typedef enum
   CONSOLE_LOG_LEVEL,
   SD_LOG_LEVEL,
   TELNET_LOG_LEVEL,
+  WEB_LOG_LEVEL,
   MODE_SET,
   MONITOR_LOG,
   STATUS,
@@ -114,7 +115,7 @@ typedef enum
 } CMD;
 
 // List of valid command strings
-const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "CONLOG", "SDLOG", "TELLOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "FWUPGRADE", "RESET", "QUIT", NULL};
+const char *cmdStrings[] = {"HELP", "?", "CONFIG", "UP", "DOWN", "TEMP", "CONLOG", "SDLOG", "TELLOG", "WEBLOG", "MODE", "MONITOR", "STATUS", "ERROR", "REBOOT", "FWUPGRADE", "RESET", "QUIT", NULL};
 
 #define min(x, y) ((x > y) ? y : x)
 
@@ -242,8 +243,6 @@ void DisplayStatus()
   telnet_esp32_printf("Firmware version: %s\n", VersionString);
   telnet_esp32_printf("Firmware build date: %s\n", VersionBuildDateTime);
 
-  telnet_esp32_printf("LD2410 Firmware: %s\n", OperatingParameters.ld2410FirmWare);
-
   telnet_esp32_printf("Device name: %s\n", OperatingParameters.DeviceName);
   telnet_esp32_printf("Friendly name: %s\n", OperatingParameters.FriendlyName);
 
@@ -261,8 +260,6 @@ void DisplayStatus()
   float percentageHeapFree = freeHeapBytes * 100.0f / (float)totalHeapBytes;
   telnet_esp32_printf ("Free Heap size: %d\n", esp_get_free_heap_size());
   telnet_esp32_printf ("[Memory] %.1f%% free - %d of %d bytes free\n", percentageHeapFree, freeHeapBytes, totalHeapBytes);
-
-  telnet_esp32_printf("SD Card present: %s\n", is_sd_card_present() ? "Yes" : "No");
 
   telnet_esp32_printf("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
                       OperatingParameters.mac[0],
@@ -285,6 +282,13 @@ void DisplayStatus()
     telnet_esp32_printf("Current time: %s", buffer);
   }
   telnet_esp32_printf("    Timezone: %s\n", OperatingParameters.timezone);
+
+  telnet_esp32_printf("LD2410 Firmware: %s\n", OperatingParameters.ld2410FirmWare);
+  telnet_esp32_printf("SD Card present: %s\n", is_sd_card_present() ? "Yes" : "No");
+  telnet_esp32_printf("Light detected: %d\n", OperatingParameters.lightDetected);
+  telnet_esp32_printf("Motion detected: %s\n", OperatingParameters.motionDetected ? "Yes" : "No");
+  telnet_esp32_printf("Display sleep time: %d\n", OperatingParameters.thermostatSleepTime);
+  telnet_esp32_printf("Touch screen beep: %s\n", OperatingParameters.thermostatBeepEnable ? "Enabled" : "Disabled");
 
 #ifdef MQTT_ENABLED
   telnet_esp32_printf("MQTT Enabled: %s\n", (OperatingParameters.MqttEnabled) ? "Yes" : "No");
@@ -309,11 +313,6 @@ void DisplayStatus()
   telnet_esp32_printf("Target temp: %.1f %c\n", OperatingParameters.tempSet);
   telnet_esp32_printf("Swing temp: %.1f %c\n", OperatingParameters.tempSwing);
 
-  telnet_esp32_printf("Light detected: %d\n", OperatingParameters.lightDetected);
-  telnet_esp32_printf("Motion detected: %s\n", OperatingParameters.motionDetected ? "Yes" : "No");
-  telnet_esp32_printf("Display sleep time: %d\n", OperatingParameters.thermostatSleepTime);
-  telnet_esp32_printf("Touch screen beep: %s\n", OperatingParameters.thermostatBeepEnable ? "Enabled" : "Disabled");
-
   telnet_esp32_printf("Current HVAC mode set: %s (Currently: %s)\n",
                       hvacModeToString(OperatingParameters.hvacSetMode),
                       hvacModeToString(OperatingParameters.hvacOpMode));
@@ -324,6 +323,8 @@ void DisplayStatus()
                       OperatingParameters.hvacFanEnable ? "True" : "False");
   telnet_esp32_printf("  2-stage heating enabled: %s\n",
                       OperatingParameters.hvac2StageHeatEnable ? "True" : "False");
+  telnet_esp32_printf("  2-stage cooling enabled: %s\n",
+                      OperatingParameters.hvac2StageCoolEnable ? "True" : "False");
   telnet_esp32_printf("  Reversing valve (heat pumps): %s\n",
                       OperatingParameters.hvacReverseValveEnable ? "True" : "False");
 }
@@ -614,6 +615,7 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
     telnet_esp32_printf("  ConLog <level>: Set log level for serial console\n");
     telnet_esp32_printf("  SDLog <level>:  Set log level for SD card log\n");
     telnet_esp32_printf("  TelLog <level>: Set log level for telnet session\n");
+    telnet_esp32_printf("  WebLog <level>: Set log level for web session\n");
     telnet_esp32_printf("  Mode <mode>:    Set thermostat operating mode\n");
     telnet_esp32_printf("  Monitor:        Monitor log output\n");
     telnet_esp32_printf("  Status:         Dump status counters\n");
@@ -719,6 +721,41 @@ static void recvData(int sock, uint8_t *buffer, size_t _size)
         break;
       default:
         telnet_esp32_printf("Invalid Log Level: %c - Telnet log level unchanged\n", *ptr);
+        break;
+    }
+    break;
+  case WEB_LOG_LEVEL:
+    ptr = strchr((char *)buffer, (int)' ');
+    if (ptr == NULL)
+    {
+      telnet_esp32_printf("Invalid Log Level: Please specify [E]rror, [W]arn, [I]nfo or [D]ebug\n");
+      break;
+    }
+    ptr++; // Move past ' '
+    switch (*ptr)
+    {
+      case 'E':
+      case 'e':
+        setWebLogLevel(ESP_LOG_ERROR);
+        telnet_esp32_printf("Web log level set to ERROR\n");
+        break;
+      case 'W':
+      case 'w':
+        setWebLogLevel(ESP_LOG_WARN);
+        telnet_esp32_printf("Web log level set to WARN\n");
+        break;
+      case 'I':
+      case 'i':
+        setWebLogLevel(ESP_LOG_INFO);
+        telnet_esp32_printf("Web log level set to INFO\n");
+        break;
+      case 'D':
+      case 'd':
+        setWebLogLevel(ESP_LOG_DEBUG);
+        telnet_esp32_printf("Web log level set to DEBUG\n");
+        break;
+      default:
+        telnet_esp32_printf("Invalid Log Level: %c - Web log level unchanged\n", *ptr);
         break;
     }
     break;

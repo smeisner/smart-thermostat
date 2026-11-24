@@ -29,6 +29,8 @@ extern void ui_event_UiSleepSlider(lv_event_t * e);
 extern lv_obj_t * ui_UiSleepSlider;
 extern lv_obj_t * ui_DualStageHeatLabel;
 extern lv_obj_t * ui_Hvac2StageHeatCheckbox;
+extern lv_obj_t * ui_DualStageCoolLabel;
+extern lv_obj_t * ui_Hvac2StageCoolCheckbox;
 extern lv_obj_t * ui_DisableLabel1;
 extern lv_obj_t * ui_RevValveCheckbox;
 extern lv_obj_t * ui_DisableBeepLabel;

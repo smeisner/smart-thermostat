@@ -26,13 +26,17 @@ extern int64_t lastTimeUpdate;
 int64_t lastWifiReconnect;
 static bool MqttConnectCalled = false;
 static int64_t lastFanOnTime = 0;
+static int64_t stage2CoolingStartTime = 0;
+static bool stage2CoolingTimerStarted = false;
+static constexpr float kStage2CoolingDifferentialF = 10.0f;
+static constexpr int64_t kStage2CoolingDelayMs = 10LL * 60LL * 1000LL;
 
 struct gpio_pin_desc {
   short pin;
   short level;
 };
 
-#define NR_GPIO_PINS      (8)
+#define NR_GPIO_PINS      (9)
 #define INVALID_PIN()     {.pin=-1, .level=-1} /* plays as an arbitrary stop guard for the iterator code */
 #define PIN(p, l)         {.pin=(p), .level=(l)}
 #define DESC(mode, ...)   [(mode)] = {__VA_ARGS__, INVALID_PIN()}
@@ -44,25 +48,25 @@ struct gpio_pin_desc {
 const struct gpio_pin_desc hvac_mode_gpio[NR_HVAC_MODES][NR_GPIO_PINS] = {
   DESC(OFF, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
-            PIN(HVAC_STAGE2_PIN, LOW)),
+            PIN(HVAC_STAGE2_PIN, LOW), PIN(HVAC_STAGE2_COOL_PIN, LOW)),
   DESC(HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
             PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
-            PIN(HVAC_STAGE2_PIN, LOW)),
+            PIN(HVAC_STAGE2_PIN, LOW), PIN(HVAC_STAGE2_COOL_PIN, LOW)),
   DESC(COOL, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, HIGH), PIN(HVAC_FAN_PIN, HIGH),
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, HIGH), PIN(LED_FAN_PIN, HIGH),
-            PIN(HVAC_STAGE2_PIN, LOW)),
+            PIN(HVAC_STAGE2_PIN, LOW), PIN(HVAC_STAGE2_COOL_PIN, LOW)),
   DESC(IDLE, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
-            PIN(HVAC_STAGE2_PIN, LOW)),
+            PIN(HVAC_STAGE2_PIN, LOW), PIN(HVAC_STAGE2_COOL_PIN, LOW)),
   DESC(FAN_ONLY, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, HIGH),
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
-            PIN(HVAC_STAGE2_PIN, LOW)),
+            PIN(HVAC_STAGE2_PIN, LOW), PIN(HVAC_STAGE2_COOL_PIN, LOW)),
   DESC(AUTO, PIN(HVAC_HEAT_PIN, LOW), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, LOW),
             PIN(LED_HEAT_PIN, LOW), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, LOW),
-            PIN(HVAC_STAGE2_PIN, LOW)),
+            PIN(HVAC_STAGE2_PIN, LOW), PIN(HVAC_STAGE2_COOL_PIN, LOW)),
   DESC(AUX_HEAT, PIN(HVAC_HEAT_PIN, HIGH), PIN(HVAC_COOL_PIN, LOW), PIN(HVAC_FAN_PIN, HIGH),
             PIN(LED_HEAT_PIN, HIGH), PIN(LED_COOL_PIN, LOW), PIN(LED_FAN_PIN, HIGH),
-            PIN(HVAC_STAGE2_PIN, HIGH)),
+            PIN(HVAC_STAGE2_PIN, HIGH), PIN(HVAC_STAGE2_COOL_PIN, LOW)),
 };
 
 static inline bool is_invalid_desc(const struct gpio_pin_desc desc)
@@ -170,6 +174,19 @@ static void set_hvac_mode(HVAC_MODE mode)
 {
   const struct gpio_pin_desc *desc = hvac_mode_gpio[mode];
 
+  if (mode == COOL)
+  {
+    if (!stage2CoolingTimerStarted)
+    {
+      stage2CoolingStartTime = millis();
+      stage2CoolingTimerStarted = true;
+    }
+  }
+  else
+  {
+    stage2CoolingTimerStarted = false;
+  }
+
   for (int i = 0; i < NR_GPIO_PINS; i++)
   {
     if (is_invalid_desc(desc[i]))
@@ -177,6 +194,15 @@ static void set_hvac_mode(HVAC_MODE mode)
 
     gpio_set_level((gpio_num_t)desc[i].pin, (uint32_t)desc[i].level);
   }
+
+  const float currentTemp = OperatingParameters.tempCurrent + OperatingParameters.tempCorrection;
+  const bool stage2_cooling_active =
+      mode == COOL && OperatingParameters.hvacCoolEnable && OperatingParameters.hvac2StageCoolEnable &&
+      (currentTemp - OperatingParameters.tempSet > kStage2CoolingDifferentialF ||
+       (stage2CoolingTimerStarted &&
+        millis() - stage2CoolingStartTime > kStage2CoolingDelayMs &&
+        currentTemp > OperatingParameters.tempSet));
+  gpio_set_level((gpio_num_t)HVAC_STAGE2_COOL_PIN, stage2_cooling_active ? HIGH : LOW);
 
   // Changing modes so the fan will start running. Mark the time so we can track how long the fan is running
   if ((mode == HEAT || mode == COOL || mode == FAN_ONLY) &&
