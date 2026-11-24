@@ -87,6 +87,7 @@ typedef struct
     bool hvacCoolEnable;
     bool hvacFanEnable;
     bool hvac2StageHeatEnable;
+    bool hvac2StageCoolEnable;
     bool hvacReverseValveEnable;
 
     bool thermostatBeepEnable;
@@ -167,11 +168,9 @@ float ctof(float celsius);
 void _updateHvacMode(HVAC_MODE mode);
 void _updateHvacSetTemp(float setTemp);
 extern HVAC_MODE requestedHvacMode;
-extern bool ModeChangeRequested;
-extern int64_t ModeChangeRequestTime;
 extern float requestedHvacSetTemp;
-extern bool TempChangeRequested;
-extern int64_t TempChangeRequestTime;
+bool takePendingHvacMode(HVAC_MODE *mode);
+bool takePendingHvacSetTemp(float *setTemp);
 
 /////////////////////////////////////////////////////////////////////
 //          Forward Declarations
@@ -239,8 +238,8 @@ void eepromInit();
 void clearNVS();
 bool eepromUpdateHvacSetTemp();
 bool eepromUpdateHvacSetMode();
-void setWifiCreds();
-void updateThermostatParams();
+bool setWifiCreds();
+bool updateThermostatParams();
 
 bool eepromUpdateArbFloat(const char *key, float value);
 bool eepromUpdateArbMode(const char *key, HVAC_MODE mode);

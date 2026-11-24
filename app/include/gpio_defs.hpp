@@ -59,7 +59,7 @@
 #define LED_FAN_PIN 37
 #define LED_HEAT_PIN 38
 #define HVAC_STAGE2_PIN 39
-#define GPIO41 41 //@@@ Not used
+#define HVAC_STAGE2_COOL_PIN 41
 #define GPIO42 42 //@@@ Not used
 #define LED_COOL_PIN 2
 

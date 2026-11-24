@@ -171,6 +171,9 @@ void initRelays()
 
   gpio_set_direction((gpio_num_t)HVAC_STAGE2_PIN, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)HVAC_STAGE2_PIN, LOW);
+
+  gpio_set_direction((gpio_num_t)HVAC_STAGE2_COOL_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level((gpio_num_t)HVAC_STAGE2_COOL_PIN, LOW);
 }
 
 

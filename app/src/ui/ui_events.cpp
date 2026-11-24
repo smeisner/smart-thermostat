@@ -431,6 +431,11 @@ void LoadUncommonSettings(lv_event_t * e)
   else
     lv_obj_clear_state(ui_Hvac2StageHeatCheckbox, LV_STATE_CHECKED);
 
+  if (OperatingParameters.hvac2StageCoolEnable)
+    lv_obj_add_state(ui_Hvac2StageCoolCheckbox, LV_STATE_CHECKED);
+  else
+    lv_obj_clear_state(ui_Hvac2StageCoolCheckbox, LV_STATE_CHECKED);
+
   if (OperatingParameters.hvacReverseValveEnable)
     lv_obj_add_state(ui_RevValveCheckbox, LV_STATE_CHECKED);
   else
@@ -441,12 +446,14 @@ void SaveUncommonConfigSettings(lv_event_t * e)
 {
 #ifdef MATTER_ENABLED
   const bool previousHvac2StageHeatEnable = OperatingParameters.hvac2StageHeatEnable;
+  const bool previousHvac2StageCoolEnable = OperatingParameters.hvac2StageCoolEnable;
 #endif
 
   OperatingParameters.timezone_sel = lv_dropdown_get_selected(ui_TimezoneDropdown);
   OperatingParameters.timezone = (char *)(gmt_timezones[OperatingParameters.timezone_sel]);
   OperatingParameters.hvacReverseValveEnable = lv_obj_has_state(ui_RevValveCheckbox, LV_STATE_CHECKED);
   OperatingParameters.hvac2StageHeatEnable = lv_obj_has_state(ui_Hvac2StageHeatCheckbox, LV_STATE_CHECKED);
+  OperatingParameters.hvac2StageCoolEnable = lv_obj_has_state(ui_Hvac2StageCoolCheckbox, LV_STATE_CHECKED);
   OperatingParameters.thermostatBeepEnable = lv_obj_has_state(ui_AudibleBeepCheckbox, LV_STATE_CHECKED);
 
   setHvacModesDropdown();
@@ -458,9 +465,10 @@ void SaveUncommonConfigSettings(lv_event_t * e)
 #endif
 #ifdef MATTER_ENABLED
   if (OperatingParameters.MatterEnabled && OperatingParameters.MatterStarted &&
-      previousHvac2StageHeatEnable != OperatingParameters.hvac2StageHeatEnable)
+      (previousHvac2StageHeatEnable != OperatingParameters.hvac2StageHeatEnable ||
+       previousHvac2StageCoolEnable != OperatingParameters.hvac2StageCoolEnable))
   {
-    ESP_LOGW("UI", "Two-stage heat capability changed; resetting Matter so Home Assistant can re-pair");
+    ESP_LOGW("UI", "HVAC stage capability changed; resetting Matter so Home Assistant can re-pair");
     MatterFactoryReset();
   }
 #endif

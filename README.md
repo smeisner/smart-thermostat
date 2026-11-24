@@ -22,7 +22,7 @@ An open-source, high-integrity smart thermostat engineered to give **complete lo
 
 ### Connectivity & Control Layers
 * **Local-First Ecosystems:** Built with native MQTT and Home Assistant integration for secure, local automation networking. Future milestones include native **Matter over Wi-Fi**.
-* **Direct Administration:** Serves a robust, completely local configuration website for adjustments and provides secure Telnet/SSH management interfaces for localized diagnostic logs, debugging, and system metrics.
+* **Direct Administration:** Serves a local configuration website with Save/Cancel controls, NVRAM persistence, and a live log viewer, plus secure Telnet/SSH management interfaces for diagnostics and system metrics.
 * **Hardware Interactivity:** Built around an elegant touchscreen user interface featuring zero mechanical face buttons, protected by a dedicated hardware master-reset circuit for ultimate fail-safe recovery.
 
 ---

@@ -61,6 +61,7 @@ constexpr uint8_t kSystemModeFanOnly = 7;
 
 // HVACSystemTypeConfiguration encodes cooling and heating stage counts in two-bit fields.
 constexpr uint8_t kOneCoolingStage = 0x01;
+constexpr uint8_t kTwoCoolingStages = 0x02;
 constexpr uint8_t kOneHeatingStage = 0x04;
 constexpr uint8_t kTwoHeatingStages = 0x08;
 
@@ -68,6 +69,7 @@ constexpr uint8_t kTwoHeatingStages = 0x08;
 bool matter_cooling_enabled;
 bool matter_fan_enabled;
 bool matter_two_stage_heat_enabled;
+bool matter_two_stage_cool_enabled;
 
 // Endpoint used by the attribute callback and all subsequent reports.
 uint16_t thermostat_endpoint_id;
@@ -299,6 +301,7 @@ bool MatterInit()
   matter_cooling_enabled = OperatingParameters.hvacCoolEnable;
   matter_fan_enabled = OperatingParameters.hvacFanEnable;
   matter_two_stage_heat_enabled = OperatingParameters.hvac2StageHeatEnable;
+  matter_two_stage_cool_enabled = OperatingParameters.hvac2StageCoolEnable;
   WifiSetCredentials(WifiCreds.ssid, WifiCreds.password);
 
   node::config_t node_config;
@@ -342,7 +345,9 @@ bool MatterInit()
 
   cluster_t *thermostat_cluster = cluster::get(thermostat_endpoint, Thermostat::Id);
   const uint8_t hvac_system_type =
-      (matter_cooling_enabled ? kOneCoolingStage : 0x00) |
+      (matter_cooling_enabled
+           ? (matter_two_stage_cool_enabled ? kTwoCoolingStages : kOneCoolingStage)
+           : 0x00) |
       (matter_two_stage_heat_enabled ? kTwoHeatingStages : kOneHeatingStage);
   attribute_t *hvac_system_type_attribute =
       attribute::create(thermostat_cluster, Thermostat::Attributes::HVACSystemTypeConfiguration::Id,

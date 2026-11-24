@@ -17,6 +17,8 @@ lv_obj_t * ui_UiSleepLabel = NULL;
 lv_obj_t * ui_UiSleepSlider = NULL;
 lv_obj_t * ui_DualStageHeatLabel = NULL;
 lv_obj_t * ui_Hvac2StageHeatCheckbox = NULL;
+lv_obj_t * ui_DualStageCoolLabel = NULL;
+lv_obj_t * ui_Hvac2StageCoolCheckbox = NULL;
 lv_obj_t * ui_DisableLabel1 = NULL;
 lv_obj_t * ui_RevValveCheckbox = NULL;
 lv_obj_t * ui_DisableBeepLabel = NULL;
@@ -217,11 +219,28 @@ void ui_LessCommonSetup_screen_init(void)
     lv_obj_set_align(ui_Hvac2StageHeatCheckbox, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_Hvac2StageHeatCheckbox, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
 
+    ui_DualStageCoolLabel = lv_label_create(ui_LessCommonSetup);
+    lv_obj_set_width(ui_DualStageCoolLabel, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_DualStageCoolLabel, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_DualStageCoolLabel, 7);
+    lv_obj_set_y(ui_DualStageCoolLabel, 56);
+    lv_obj_set_align(ui_DualStageCoolLabel, LV_ALIGN_LEFT_MID);
+    lv_label_set_text(ui_DualStageCoolLabel, "2 Stage Cool:");
+
+    ui_Hvac2StageCoolCheckbox = lv_checkbox_create(ui_LessCommonSetup);
+    lv_checkbox_set_text(ui_Hvac2StageCoolCheckbox, "");
+    lv_obj_set_width(ui_Hvac2StageCoolCheckbox, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_height(ui_Hvac2StageCoolCheckbox, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_Hvac2StageCoolCheckbox, 0);
+    lv_obj_set_y(ui_Hvac2StageCoolCheckbox, 56);
+    lv_obj_set_align(ui_Hvac2StageCoolCheckbox, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_Hvac2StageCoolCheckbox, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
+
     ui_DisableLabel1 = lv_label_create(ui_LessCommonSetup);
     lv_obj_set_width(ui_DisableLabel1, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_DisableLabel1, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_DisableLabel1, 7);
-    lv_obj_set_y(ui_DisableLabel1, 63);
+    lv_obj_set_y(ui_DisableLabel1, 81);
     lv_obj_set_align(ui_DisableLabel1, LV_ALIGN_LEFT_MID);
     lv_label_set_long_mode(ui_DisableLabel1, LV_LABEL_LONG_SCROLL);
     lv_label_set_text(ui_DisableLabel1, "Reverse Valve:");
@@ -231,7 +250,7 @@ void ui_LessCommonSetup_screen_init(void)
     lv_obj_set_width(ui_RevValveCheckbox, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_RevValveCheckbox, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_RevValveCheckbox, 0);
-    lv_obj_set_y(ui_RevValveCheckbox, 63);
+    lv_obj_set_y(ui_RevValveCheckbox, 81);
     lv_obj_set_align(ui_RevValveCheckbox, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_RevValveCheckbox, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
 
@@ -239,7 +258,7 @@ void ui_LessCommonSetup_screen_init(void)
     lv_obj_set_width(ui_DisableBeepLabel, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_DisableBeepLabel, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_DisableBeepLabel, 7);
-    lv_obj_set_y(ui_DisableBeepLabel, 95);
+    lv_obj_set_y(ui_DisableBeepLabel, 106);
     lv_obj_set_align(ui_DisableBeepLabel, LV_ALIGN_LEFT_MID);
     lv_label_set_long_mode(ui_DisableBeepLabel, LV_LABEL_LONG_SCROLL);
     lv_label_set_text(ui_DisableBeepLabel, "Audible Beep:");
@@ -249,7 +268,7 @@ void ui_LessCommonSetup_screen_init(void)
     lv_obj_set_width(ui_AudibleBeepCheckbox, LV_SIZE_CONTENT);   /// 1
     lv_obj_set_height(ui_AudibleBeepCheckbox, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_x(ui_AudibleBeepCheckbox, 0);
-    lv_obj_set_y(ui_AudibleBeepCheckbox, 95);
+    lv_obj_set_y(ui_AudibleBeepCheckbox, 106);
     lv_obj_set_align(ui_AudibleBeepCheckbox, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_AudibleBeepCheckbox, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
 
@@ -349,6 +368,8 @@ void ui_LessCommonSetup_screen_destroy(void)
     ui_UiSleepSlider = NULL;
     ui_DualStageHeatLabel = NULL;
     ui_Hvac2StageHeatCheckbox = NULL;
+    ui_DualStageCoolLabel = NULL;
+    ui_Hvac2StageCoolCheckbox = NULL;
     ui_DisableLabel1 = NULL;
     ui_RevValveCheckbox = NULL;
     ui_DisableBeepLabel = NULL;

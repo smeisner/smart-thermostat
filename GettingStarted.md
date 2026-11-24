@@ -174,11 +174,31 @@ b. At least 8MB is required on the ESP32-S3 SOC. Adjust the `board\_build.partit
 **DFRobot_AHT20** - Class library to support the AHT20 sensor (much simpler and reliable than Adafruit's)<br>
 **SquareLine Studio** - Design and develop the lvgl menuing system & screens.
 
+### Building the firmware
+
+***
+
+To build the MQTT based firmware:
+`pio run -e esp32s3`
+
+To build the Matter enabled firmware:
+`pio run -e esp32s3-matter`
+
+To monitor the console port:
+`pio device monitor --port /dev/ttyACM1`
+
 ### Debugging / flashing
 
 ***
 
 The board includes a SWD port, but so far using the built in USB controller in the S3 has worked fine. This is also true for flashing new code over the USB port. The device will show up on the USB bus usually as `/dev/ttyACM0` which is the JTAG interface of the ESP32.
+
+To flash firmware outside of PlatformIO:
+`pio run -e esp32s3 -t upload --upload-port /dev/ttyACM1`
+Specifying the environment (`-e esp32s3` is optional)
+
+To flash and then immediately open the serial console monitor:
+`pio run -t upload -t monitor -p /dev/ttyACM1`
 
 The following was removed. Leaving here as it may be reimplemented at some point:
 ```
@@ -191,6 +211,7 @@ The method implemented is very crude, so be careful!
 `/dev/ttyUSBx` is the UART
 `/dev/ttyACMx` is the ESP32
 ```
+
 
 ### Learning the source code
 

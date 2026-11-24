@@ -45,6 +45,7 @@
 #define DEF_HVAC_COOL_ENABLE false
 #define DEF_HVAC_FAN_ENABLE false
 #define DEF_HVAC_2STAGE_ENABLE false
+#define DEF_HVAC_2STAGE_COOL_ENABLE false
 #define DEF_HVAC_REVERSE_ENABLE false
 #define DEF_MQTT_ENABLE false
 #define DEF_MQTT_BROKER "mqtt"
@@ -116,39 +117,39 @@ bool writeNVS(nvs_handle_t handle, nvs_type_t type, const char *key, void *_valu
   return true;
 }
 
-void nvs_writeMode(nvs_handle_t handle, const char *key, HVAC_MODE _value)
+bool nvs_writeMode(nvs_handle_t handle, const char *key, HVAC_MODE _value)
 {
   HVAC_MODE mode = _value;
-  writeNVS(handle, NVS_TYPE_I32, key, &mode);
+  return writeNVS(handle, NVS_TYPE_I32, key, &mode);
 }
 
-void nvs_writeFloat(nvs_handle_t handle, const char *key, float _value)
+bool nvs_writeFloat(nvs_handle_t handle, const char *key, float _value)
 {
   float value = _value;
-  writeNVS(handle, NVS_TYPE_BLOB, key, &value, sizeof(float));
+  return writeNVS(handle, NVS_TYPE_BLOB, key, &value, sizeof(float));
 }
 
-void nvs_writeChar(nvs_handle_t handle, const char *key, char _value)
+bool nvs_writeChar(nvs_handle_t handle, const char *key, char _value)
 {
   char value = _value;
-  writeNVS(handle, NVS_TYPE_U8, key, &value);
+  return writeNVS(handle, NVS_TYPE_U8, key, &value);
 }
 
-void nvs_writeInt16(nvs_handle_t handle, const char *key, u_int16_t _value)
+bool nvs_writeInt16(nvs_handle_t handle, const char *key, u_int16_t _value)
 {
   uint16_t value = _value;
-  writeNVS(handle, NVS_TYPE_U16, key, &value);
+  return writeNVS(handle, NVS_TYPE_U16, key, &value);
 }
 
-void nvs_writeBool(nvs_handle_t handle, const char *key, bool _value)
+bool nvs_writeBool(nvs_handle_t handle, const char *key, bool _value)
 {
   bool value = _value;
-  writeNVS(handle, NVS_TYPE_U8, key, &value);
+  return writeNVS(handle, NVS_TYPE_U8, key, &value);
 }
 
-void nvs_writeString(nvs_handle_t handle, const char *key, const char *value)
+bool nvs_writeString(nvs_handle_t handle, const char *key, const char *value)
 {
-  writeNVS(handle, NVS_TYPE_STR, key, (void *)value);
+  return writeNVS(handle, NVS_TYPE_STR, key, (void *)value);
 }
 
 
@@ -266,7 +267,7 @@ bool openNVS(nvs_handle_t *handle, const char *nvsNameSpace)
   return true;
 }
 
-void closeNVS(nvs_handle_t handle)
+bool closeNVS(nvs_handle_t handle)
 {
   esp_err_t err;
   err = nvs_commit(handle);
@@ -275,6 +276,7 @@ void closeNVS(nvs_handle_t handle)
     ESP_LOGE(TAG, "Error (%s) commiting NVS!", esp_err_to_name(err));
   }
   nvs_close(handle);
+  return err == ESP_OK;
 }
 
 
@@ -314,6 +316,7 @@ void setDefaultThermostatParams()
   nvs_writeBool(my_handle, "hvacCoolEnable", DEF_HVAC_COOL_ENABLE);
   nvs_writeBool(my_handle, "hvacFanEnable", DEF_HVAC_FAN_ENABLE);
   nvs_writeBool(my_handle, "twoStageEnable", DEF_HVAC_2STAGE_ENABLE);
+  nvs_writeBool(my_handle, "twoStageCool", DEF_HVAC_2STAGE_COOL_ENABLE);
   nvs_writeBool(my_handle, "reverseEnable", DEF_HVAC_REVERSE_ENABLE);
   #ifdef MQTT_ENABLED
   nvs_writeBool(my_handle, "MqttEn", DEF_MQTT_ENABLE);
@@ -345,6 +348,7 @@ void setDefaultThermostatParams()
   OperatingParameters.hvacCoolEnable = DEF_HVAC_COOL_ENABLE;
   OperatingParameters.hvacFanEnable = DEF_HVAC_FAN_ENABLE;
   OperatingParameters.hvac2StageHeatEnable = DEF_HVAC_2STAGE_ENABLE;
+  OperatingParameters.hvac2StageCoolEnable = DEF_HVAC_2STAGE_COOL_ENABLE;
   OperatingParameters.hvacReverseValveEnable = DEF_HVAC_REVERSE_ENABLE;
 #ifdef MQTT_ENABLED
   OperatingParameters.MqttEnabled = DEF_MQTT_ENABLE;
@@ -358,41 +362,46 @@ void setDefaultThermostatParams()
 #endif
 }
 
-void updateThermostatParams()
+bool updateThermostatParams()
 {
   nvs_handle_t my_handle;
   ESP_LOGI(TAG, "Updating Thermostat parameters in NVS");
-  openNVS(&my_handle, NVS_TAG);
-  nvs_writeString(my_handle, "friendlyname", OperatingParameters.FriendlyName);
-  nvs_writeMode(my_handle, "currMode", OperatingParameters.hvacOpMode);
-  nvs_writeMode(my_handle, "setMode", OperatingParameters.hvacSetMode);
-  nvs_writeFloat(my_handle, "setTemp", OperatingParameters.tempSet);
-  nvs_writeFloat(my_handle, "setTempAutoMin", OperatingParameters.tempSetAutoMin);
-  nvs_writeFloat(my_handle, "setTempAutoMax", OperatingParameters.tempSetAutoMax);
-  nvs_writeFloat(my_handle, "currTemp", OperatingParameters.tempCurrent);
-  nvs_writeFloat(my_handle, "currHumid", OperatingParameters.humidCurrent);
-  nvs_writeChar(my_handle, "setUnits", OperatingParameters.tempUnits);
-  nvs_writeFloat(my_handle, "setSwing", OperatingParameters.tempSwing);
-  nvs_writeFloat(my_handle, "setTempCorr", OperatingParameters.tempCorrection);
-  nvs_writeFloat(my_handle, "setHumidityCorr", OperatingParameters.humidityCorrection);
-  nvs_writeInt16(my_handle, "sleepTime", OperatingParameters.thermostatSleepTime);
-  nvs_writeInt16(my_handle, "timezoneSel", OperatingParameters.timezone_sel);
-  nvs_writeBool(my_handle, "Beep", OperatingParameters.thermostatBeepEnable);
-  nvs_writeBool(my_handle, "hvacCoolEnable", OperatingParameters.hvacCoolEnable);
-  nvs_writeBool(my_handle, "hvacFanEnable", OperatingParameters.hvacFanEnable);
-  nvs_writeBool(my_handle, "twoStageEnable", OperatingParameters.hvac2StageHeatEnable);
-  nvs_writeBool(my_handle, "reverseEnable", OperatingParameters.hvacReverseValveEnable);
+  if (!openNVS(&my_handle, NVS_TAG))
+    return false;
+
+  bool writes_ok = true;
+  writes_ok &= nvs_writeString(my_handle, "friendlyname", OperatingParameters.FriendlyName);
+  writes_ok &= nvs_writeMode(my_handle, "currMode", OperatingParameters.hvacOpMode);
+  writes_ok &= nvs_writeMode(my_handle, "setMode", OperatingParameters.hvacSetMode);
+  writes_ok &= nvs_writeFloat(my_handle, "setTemp", OperatingParameters.tempSet);
+  writes_ok &= nvs_writeFloat(my_handle, "setTempAutoMin", OperatingParameters.tempSetAutoMin);
+  writes_ok &= nvs_writeFloat(my_handle, "setTempAutoMax", OperatingParameters.tempSetAutoMax);
+  writes_ok &= nvs_writeFloat(my_handle, "currTemp", OperatingParameters.tempCurrent);
+  writes_ok &= nvs_writeFloat(my_handle, "currHumid", OperatingParameters.humidCurrent);
+  writes_ok &= nvs_writeChar(my_handle, "setUnits", OperatingParameters.tempUnits);
+  writes_ok &= nvs_writeFloat(my_handle, "setSwing", OperatingParameters.tempSwing);
+  writes_ok &= nvs_writeFloat(my_handle, "setTempCorr", OperatingParameters.tempCorrection);
+  writes_ok &= nvs_writeFloat(my_handle, "setHumidityCorr", OperatingParameters.humidityCorrection);
+  writes_ok &= nvs_writeInt16(my_handle, "sleepTime", OperatingParameters.thermostatSleepTime);
+  writes_ok &= nvs_writeInt16(my_handle, "timezoneSel", OperatingParameters.timezone_sel);
+  writes_ok &= nvs_writeBool(my_handle, "Beep", OperatingParameters.thermostatBeepEnable);
+  writes_ok &= nvs_writeBool(my_handle, "hvacCoolEnable", OperatingParameters.hvacCoolEnable);
+  writes_ok &= nvs_writeBool(my_handle, "hvacFanEnable", OperatingParameters.hvacFanEnable);
+  writes_ok &= nvs_writeBool(my_handle, "twoStageEnable", OperatingParameters.hvac2StageHeatEnable);
+  writes_ok &= nvs_writeBool(my_handle, "twoStageCool", OperatingParameters.hvac2StageCoolEnable);
+  writes_ok &= nvs_writeBool(my_handle, "reverseEnable", OperatingParameters.hvacReverseValveEnable);
   #ifdef MQTT_ENABLED
-  nvs_writeBool(my_handle, "MqttEn", OperatingParameters.MqttEnabled);
-  nvs_writeString(my_handle, "MqttBroker", OperatingParameters.MqttBrokerHost);
-  nvs_writeString(my_handle, "MqttUsername", OperatingParameters.MqttBrokerUsername);
-  nvs_writeString(my_handle, "MqttPassword", OperatingParameters.MqttBrokerPassword);
-  nvs_writeInt16(my_handle, "MqttBrokerPort", OperatingParameters.MqttBrokerPort);
+  writes_ok &= nvs_writeBool(my_handle, "MqttEn", OperatingParameters.MqttEnabled);
+  writes_ok &= nvs_writeString(my_handle, "MqttBroker", OperatingParameters.MqttBrokerHost);
+  writes_ok &= nvs_writeString(my_handle, "MqttUsername", OperatingParameters.MqttBrokerUsername);
+  writes_ok &= nvs_writeString(my_handle, "MqttPassword", OperatingParameters.MqttBrokerPassword);
+  writes_ok &= nvs_writeInt16(my_handle, "MqttBrokerPort", OperatingParameters.MqttBrokerPort);
 #endif
 #ifdef MATTER_ENABLED
-  nvs_writeBool(my_handle, "MatterEn", OperatingParameters.MatterEnabled);
+  writes_ok &= nvs_writeBool(my_handle, "MatterEn", OperatingParameters.MatterEnabled);
 #endif
-  closeNVS(my_handle);
+  const bool commit_ok = closeNVS(my_handle);
+  return writes_ok && commit_ok;
 }
 
 void getThermostatParams()
@@ -425,6 +434,7 @@ void getThermostatParams()
   nvs_readBool(my_handle, "hvacCoolEnable", &OperatingParameters.hvacCoolEnable, DEF_HVAC_COOL_ENABLE);
   nvs_readBool(my_handle, "hvacFanEnable", &OperatingParameters.hvacFanEnable, DEF_HVAC_FAN_ENABLE);
   nvs_readBool(my_handle, "twoStageEnable", &OperatingParameters.hvac2StageHeatEnable, DEF_HVAC_2STAGE_ENABLE);
+  nvs_readBool(my_handle, "twoStageCool", &OperatingParameters.hvac2StageCoolEnable, DEF_HVAC_2STAGE_COOL_ENABLE);
   nvs_readBool(my_handle, "reverseEnable", &OperatingParameters.hvacReverseValveEnable, DEF_HVAC_REVERSE_ENABLE);
   #ifdef MQTT_ENABLED
   nvs_readBool(my_handle, "MqttEn", &OperatingParameters.MqttEnabled, DEF_MQTT_ENABLE);
@@ -481,16 +491,20 @@ void setDefaultWifiCreds()
 //
 // Only called from ui_events.cpp
 //
-void setWifiCreds()
+bool setWifiCreds()
 {
   ESP_LOGW(TAG, "Saving latest WIFI credentials to NVS");
   // printf ("*** [setWifiCreds] WifiCreds.password = %s\n", WifiCreds.password);
   nvs_handle_t my_handle;
-  openNVS(&my_handle, NVS_WIFI_TAG);
-  nvs_writeString(my_handle, "hostname", OperatingParameters.DeviceName);
-  nvs_writeString(my_handle, "ssid", WifiCreds.ssid);
-  nvs_writeString(my_handle, "pass", WifiCreds.password);
-  closeNVS(my_handle);
+  if (!openNVS(&my_handle, NVS_WIFI_TAG))
+    return false;
+
+  bool writes_ok = true;
+  writes_ok &= nvs_writeString(my_handle, "hostname", OperatingParameters.DeviceName);
+  writes_ok &= nvs_writeString(my_handle, "ssid", WifiCreds.ssid);
+  writes_ok &= nvs_writeString(my_handle, "pass", WifiCreds.password);
+  const bool commit_ok = closeNVS(my_handle);
+  return writes_ok && commit_ok;
 }
 
 void getWifiCreds()
